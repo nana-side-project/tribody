@@ -285,7 +285,6 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         path: [
           { bone: 'scapula', rest: [0.065, 1.434, 0.078] },
           { bone: 'scapula', rest: [0.13, 1.39, 0.062] },
-          { mix: [{ bone: 'scapula', rest: [0.168, 1.35, 0.045] }, { bone: 'humerus', rest: [0.168, 1.35, 0.045] }], t: 0.5 },
           { ref: 'humerus:crest_greater_tubercle', off: [0.002, -0.022, 0.004] },
         ],
         radius: 0.0055,
@@ -297,7 +296,6 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         path: [
           { bone: 'thorax', rest: [0.016, 1.395, 0.088] },
           { bone: 'thorax', rest: [0.075, 1.375, 0.066] },
-          { mix: [{ bone: 'scapula', rest: [0.17, 1.34, 0.04] }, { bone: 'humerus', rest: [0.17, 1.34, 0.04] }], t: 0.5 },
           { ref: 'humerus:crest_greater_tubercle', off: [0.002, -0.012, 0.004] },
         ],
         radius: 0.0055,
