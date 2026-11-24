@@ -119,6 +119,14 @@ Routes (HashRouter):
 
 Bottom tab bar: からだ / 筋肉 / エクササイズ / マイメニュー / ガイド.
 
+Routing details: `<HashRouter useTransitions={false}>`. Every page except home is `React.lazy` (via `lazyPage()` in
+`src/App.tsx`), prefetched on pointerdown of a `#/` link and on idle; `preloadInitialRoute()` loads the opening route's
+chunk before the first render, so deep links show no blank fallback. `AppLayout` wraps the outlet in `Suspense` and an
+error boundary (再読み込み). Overlays (bottom sheet, body-map lens) push a history entry through
+`src/lib/overlayHistory.ts`, so the phone's Back button closes the overlay instead of leaving the page.
+Search (`src/lib/search.ts`) is one tiered scorer shared by home, the exercise library and the muscle list, with an
+everyday-word alias table (ひざ→膝, かかと↔踵, 足裏↔足底, …).
+
 Mobile first: design for 360–430 px width, 16 px side gutters, no horizontal scroll, tap targets ≥ 44 px,
 max content width ~640 px centred on desktop. Respect `prefers-reduced-motion` (no autoplay loops; user can press play).
 
