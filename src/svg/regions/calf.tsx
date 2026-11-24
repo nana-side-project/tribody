@@ -188,7 +188,7 @@ function CalfBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
             <text className="cap-t" x={104} y={SOLE_INSET.y + 14} textAnchor="end">
               足の裏
             </text>
-            <text className="cap-t" x={104} y={SOLE_INSET.y + 30} textAnchor="end">
+            <text className="cap-t" x={104} y={SOLE_INSET.y + 31} textAnchor="end">
               （下から）
             </text>
           </FlSoleInset>

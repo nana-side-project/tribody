@@ -99,8 +99,9 @@ function FootSole({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'flexor-hallucis-longus', t: '長母趾屈筋腱', at: [251, 112], x: 278, y: 100 },
     { t: '種子骨', at: [256, 172], x: 282, y: 158 },
     { id: 'abductor-hallucis', t: '母趾外転筋', at: [240, 252], x: 282, y: 236 },
-    { id: 'plantar-fascia', t: '足底腱膜', at: [196, 326], x: 282, y: 300 },
-    { id: 'navicular', t: '舟状骨', at: [227, 312], x: 282, y: 344 },
+    // navicular above plantar fascia: its anchor is higher, so the two leaders do not cross
+    { id: 'navicular', t: '舟状骨', at: [227, 312], x: 282, y: 296 },
+    { id: 'plantar-fascia', t: '足底腱膜', at: [196, 326], x: 282, y: 340 },
   ];
   const spots: Spot[] = [
     { id: 'forefoot-ball', at: [175, 172] },
