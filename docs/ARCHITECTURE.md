@@ -22,7 +22,8 @@ Commands:
 | command | what |
 |---|---|
 | `npx tsc --noEmit -p tsconfig.json` | typecheck everything (safe to run in parallel) |
-| `npm run validate` / `OWNER=B npm run validate` | content integrity (all / one owner) |
+| `npm run validate` / `OWNER=B npm run validate` | content integrity (all / one owner); `STRICT=1` also fails on warnings |
+| `npm run build` / `npm run build:single` | orchestrator only: static site in `dist/` / one self-contained HTML in `dist-single/` |
 | `VITE_CACHE_DIR=node_modules/.vite-<PORT> npx vite --port <PORT> --strictPort` | dev server (use YOUR assigned port) |
 | `node scripts/shot.mjs <url> shots/<you>/<name>.png [--w 390 --h 844 --wait 1500 --full --dark --click sel]` | screenshot + prints console errors |
 
@@ -136,9 +137,12 @@ Light (default) and dark. Dark mode is defined **twice**: under
 | `--surface-2` | `#efeae4` | `#282421` | chips, insets |
 | `--text` | `#1e1b18` | `#f2ede7` | |
 | `--text-2` | `#5f5852` | `#b5ada5` | secondary |
+| `--text-3` | `#6e6761` | `#9a928b` | tertiary text (≥ 4.5:1 on bg / surface / surface-2) |
 | `--border` | `#e3dcd4` | `#3a3531` | |
 | `--accent` | `#b5524c` | `#e07d75` | brand / muscle red |
 | `--accent-soft` | `#f3dcd9` | `#4a2a27` | |
+| `--accent-ink` | `#a2433d` | `#e07d75` | accent used as text (≥ 4.5:1); `--accent` stays for fills |
+| `--mix-ink` | `55%` | `80%` | share of a colour in tinted text: `color-mix(in srgb, c var(--mix-ink), var(--text))` |
 | `--muscle` | `#b9504a` | `#d8675f` | muscle fill |
 | `--muscle-light` | `#e6a49e` | `#9c4c46` | lengthened / secondary |
 | `--tendon` | `#e9dcc0` | `#bfae8a` | tendons, fascia |

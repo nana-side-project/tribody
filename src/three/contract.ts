@@ -1,6 +1,6 @@
 // PUBLIC CONTRACT of the 3D engine — the UI codes against this; keep it stable.
 // The engine agent implements it (see docs/ENGINE.md once written).
-import type { ExerciseId, MuscleId, RegionId, StructureId } from '../data/registry';
+import type { ConditionId, ExerciseId, MuscleId, RegionId, StructureId } from '../data/registry';
 
 export type Highlight3DRole = 'injured' | 'involved' | 'primary' | 'secondary' | 'selected';
 
@@ -11,6 +11,11 @@ export interface AnatomyViewerProps {
   exercise?: ExerciseId;
   /** Condition / region pages: highlight these muscles & structures (static or gentle idle pose). */
   highlights?: Partial<Record<MuscleId | StructureId, Highlight3DRole>>;
+  /**
+   * Condition page: which condition the `highlights` belong to. Optional; lets the engine pick a scene that shows
+   * that injury best (e.g. a cycling posture, a seated knee, a closer camera). Without it, highlights are generic.
+   */
+  condition?: ConditionId;
   /** Frame the camera on this region (defaults depend on mode). */
   focus?: RegionId;
   /** Show the built-in player UI (play/pause, speed, phase label, view reset). Default true. */

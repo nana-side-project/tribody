@@ -607,6 +607,7 @@ button.row:active {
 }
 .seg--sm .seg__btn {
   min-height: 34px;
+  padding: 0 4px; /* 4 views at 360 px: 「後ろ・深層」 must fit in ~73 px */
   font-size: 12.5px;
 }
 /* 34 px button + 5 px of padding/gap on each side → a 44 px tap target */
@@ -2099,7 +2100,11 @@ a.involve:active {
 .hit::after {
   content: "";
   position: absolute;
-  inset: -15px -8px;
+  /* ≥ 44 px wide even for a one-character link (「肩」「膝」) */
+  top: -15px;
+  bottom: -15px;
+  left: min(-8px, calc((100% - 44px) / 2));
+  right: min(-8px, calc((100% - 44px) / 2));
 }
 .parts__name .en {
   font-weight: 600;
@@ -2138,13 +2143,14 @@ a.involve:active {
 
 /* region figure: views that contain the highlighted parts, empty-view note, zoom */
 .seg__mark {
-  display: inline-block;
+  /* corner dot: takes no width, so marked labels fit the narrow view tabs */
+  position: absolute;
+  top: 4px;
+  right: 4px;
   width: 6px;
   height: 6px;
-  margin-right: 5px;
   border-radius: 50%;
   background: var(--injured);
-  vertical-align: 2px;
 }
 .figure__canvas {
   position: relative;

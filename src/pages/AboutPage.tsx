@@ -5,6 +5,7 @@ import { AppMark } from '../components/Logo';
 import { IconAlert, IconAuto, IconMoon, IconSun } from '../components/icons';
 import { Page } from '../components/Layout';
 import { Bullets, Section, Segmented } from '../components/ui';
+import { PHASE_JA } from '../lib/labels';
 import { isPersistent } from '../lib/storage';
 import { useTheme, type ThemePref } from '../lib/useTheme';
 
@@ -39,7 +40,9 @@ export default function AboutPage() {
             <li>
               <strong>3ステップで取り組む</strong>
               <br />
-              <span className="muted">① 落ち着ける → ② 強くする → ③ 競技へ戻る。各ステップのエクササイズをマイメニューに追加できます。</span>
+              <span className="muted">
+                {PHASE_JA.calm} → {PHASE_JA.build} → {PHASE_JA.return}。各ステップのエクササイズをマイメニューに追加できます。
+              </span>
             </li>
             <li>
               <strong>記録して変化を見る</strong>

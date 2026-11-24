@@ -33,7 +33,10 @@ const Faded = ({ id, children }: { id: string; children: ReactNode }) => <g mask
  * comes to the top, so the highlight runs on round the malleolus to the insertion.
  */
 function FibTendons({ k, pb, pl }: { k: Ctx; pb: ReactNode; pl: ReactNode }) {
-  const own = !k.hl['peroneal-tendons'] && (k.hl['fibularis-brevis'] || k.hl['fibularis-longus']);
+  // only for a muscle shown on its own ('selected' / 'muscle'); on condition pages ('injured' / 'involved') the
+  // tendons keep their own highlight state, so e.g. ankle-sprain does not draw amber tendons over the injured CFL
+  const solo = (id: 'fibularis-brevis' | 'fibularis-longus') => k.hl[id] === 'selected' || k.hl[id] === 'muscle';
+  const own = !k.hl['peroneal-tendons'] && (solo('fibularis-brevis') || solo('fibularis-longus'));
   if (!own) {
     return (
       <Part k={k} id="peroneal-tendons">

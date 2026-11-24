@@ -519,10 +519,11 @@ const LABELS_FRONT: Lab[] = [
   { id: 'rectus-abdominis', t: '腹直筋', at: [146, 236], x: 57, y: 196, a: 'end' },
   { id: 'asis', t: '上前\n腸骨棘', at: [68, 286], x: 57, y: 258, a: 'end' },
   { t: '鼠径靱帯', at: [110, 312], x: 57, y: 330, a: 'end' },
-  { t: '肋骨弓', at: [262, 102], x: 306, y: 72 },
-  { id: 'obliques', t: '内腹斜筋', at: [268, 156], x: 306, y: 140 },
+  { t: '肋骨弓', at: [251, 86], x: 306, y: 70 },
+  // linea alba: labelled above the umbilicus (where it is widest), away from the person's left ASIS
+  { t: '白線', at: [MX + 1, 110], x: 306, y: 112 },
+  { id: 'obliques', t: '内腹斜筋', at: [268, 156], x: 306, y: 150 },
   { id: 'transversus-abdominis', t: '腹横筋', at: [278, 230], x: 306, y: 224 },
-  { t: '白線', at: [MX + 1, 266], x: 306, y: 288 },
   { id: 'pubic-symphysis', t: '恥骨結合', at: [MX, 344], x: MX, y: 375, a: 'middle' },
 ];
 

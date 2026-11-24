@@ -293,7 +293,7 @@
 }
 .tb-chooser .tb-chooser-close {
   justify-content: center;
-  min-height: 40px;
+  min-height: 44px;
   color: var(--text-2, #5f5852);
   font-size: 13px;
 }
