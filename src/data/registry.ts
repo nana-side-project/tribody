@@ -222,8 +222,9 @@ export const EXERCISES = [
   { id: 'ex-soleus-stretch', ja: 'ヒラメ筋ストレッチ（膝を曲げて）', owner: 'C' },
   { id: 'ex-tibialis-raise', ja: 'つま先上げ（前脛骨筋）', owner: 'C' },
   { id: 'ex-pogo-hops', ja: 'ポゴジャンプ', owner: 'C' },
-  // ── D: ankle / foot (8)
+  // ── D: ankle / foot (9)
   { id: 'ex-eccentric-heel-drop', ja: 'エキセントリック・ヒールドロップ', owner: 'D' },
+  { id: 'ex-heel-drop-floor', ja: 'ヒールドロップ（床の高さで）', owner: 'D' },
   { id: 'ex-band-eversion', ja: 'チューブ外がえし（腓骨筋）', owner: 'D' },
   { id: 'ex-band-inversion', ja: 'チューブ内がえし（後脛骨筋）', owner: 'D' },
   { id: 'ex-single-leg-balance', ja: '片脚バランス', owner: 'D' },
