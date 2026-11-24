@@ -984,11 +984,14 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
         forearm_R: { sup: -94.2 },
         wrist_R: { flex: 54.9 },
         // left hand resting on the left thigh between the holds (solved: palm flat on the front of the mid-thigh,
-        // 1.2 cm, fingers toward the knee, elbow clear of the trunk) — the base left it hovering ~19 cm above
-        shoulder_L: { flex: -4.7, abd: 2, rot: -31.5 },
-        elbow_L: { flex: 77 },
-        forearm_L: { sup: -160 },
-        wrist_L: { flex: -10.9 },
+        // 1.2 cm, fingers toward the knee, elbow clear of the trunk) — the base left it hovering ~19 cm above.
+        // fin-clips: re-solved for the SIT_CHAIR thighs sloping 14° to the knees (the same hand pose relative to the
+        // left femur, exact); no base shrug on the free side
+        scapula_L: { elev: 0 },
+        shoulder_L: { flex: 1.94, abd: 1.68, rot: -34.9 },
+        elbow_L: { flex: 59.45 },
+        forearm_L: { sup: -149.29 },
+        wrist_L: { flex: -8.94 },
       },
     },
     keys: [

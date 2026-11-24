@@ -34,7 +34,8 @@ const RAISE_50 = { root: { rot: [0.5, 0, 0] as [number, number, number] }, joint
 const RAISE_75 = { root: { rot: [0.25, 0, 0] as [number, number, number] }, joints: { ankle: { dorsi: -8.25 }, toes: { ext: 8.5 }, ...HANDS_ON_WALL(65.05, -5.54, 28.49, -80.99) } };
 
 /** Bent-knee raise (clip.pose: trunk 18° forward, knees 35°): feet flat / heel up, palms on a wall at z 0.72. */
-const BENT_BOTTOM = { joints: { hip: { flex: 40.4 }, ankle: { dorsi: 12.6 }, ...HANDS_ON_WALL(79.2, -5.6, 27.2, -82.5) } };
+// (fin-clips: bottom arms re-solved — the fingertips were 1.2 mm inside the wall)
+const BENT_BOTTOM = { joints: { hip: { flex: 40.4 }, ankle: { dorsi: 12.6 }, ...HANDS_ON_WALL(79.12, -5.59, 27.94, -82.23) } };
 const BENT_TOP = { joints: { hip: { flex: 39.2 }, ankle: { dorsi: -15.8 }, toes: { ext: 30 }, ...HANDS_ON_WALL(63.6, -6.3, 46.7, -81.7) } };
 
 /** Isometric hold: heel ~4 cm up (foot 15° heel-up), palms still on the wall at z 0.58. */
@@ -479,7 +480,9 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     anchor: { point: 'toes:toes_mid', axes: 'xyz' },
     ground: true,
     props: [{ kind: 'wall', at: [0, 0, 0.72], normal: [0, 0, -1] }],
-    camera: { dir: [-0.9, 0.3, -0.55] },
+    // from behind-LEFT (fin-clips; symmetric exercise): the bent thighs leave the card top-right, not under the phase
+    // pill at the top-left as they did from behind-right
+    camera: { dir: [0.9, 0.3, -0.55] },
     focus: 'calf',
     frame: ['femur:linea_aspera_prox', 'toes:toe_tips'],
     sides: 'both',

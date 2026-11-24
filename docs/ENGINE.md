@@ -35,7 +35,7 @@ You describe anatomy declaratively (TypeScript data, fully typed); the engine do
 | `src/three/clips/k1-upper-core.ts` | clip k1 | shoulder / neck / core exercises (owner A + E in the registry) |
 | `src/three/clips/k2-hip.ts` | clip k2 | hip exercises (owner B) |
 | `src/three/clips/k3-knee-foot.ts` | clip k3 | knee exercises (owner C except calf ones) + foot exercises (`ex-short-foot`, `ex-plantar-fascia-stretch`, `ex-towel-heel-raise`) |
-| `src/three/clips/k4-calf-ankle.ts` | clip k4 | calf exercises (`ex-calf-raise-*`, `ex-isometric-calf-hold`, `ex-gastroc-stretch`, `ex-soleus-stretch`, `ex-tibialis-raise`, `ex-pogo-hops`) + ankle exercises (owner D except the 3 foot ones) |
+| `src/three/clips/k4-calf-ankle.ts` | clip k4 | calf exercises (`ex-calf-raise-*`, `ex-isometric-calf-hold`, `ex-gastroc-stretch`, `ex-soleus-stretch`, `ex-tibialis-raise`, `ex-pogo-hops`) + ankle exercises (owner D except the 3 foot ones; incl. `ex-eccentric-heel-drop` and the floor-level `ex-heel-drop-floor`) |
 | `rig-data/index.ts`, `clips/index.ts`, `rig-data/types.ts`, `clips/types.ts` | engine | merge files & types — don't edit |
 | everything else in `src/three/` | engine | rig, landmarks, renderer… |
 
@@ -176,6 +176,7 @@ Hip / leg:
 | figure-4 start (supine, right shin across the body) | `hip_R: { flex: 70, abd: 30, rot: 45 }, knee_R: { flex: 100 }` + bend the left leg (`hip_L: { flex: 60 }, knee_L: { flex: 90 }`) and fine-tune with `?j=` |
 | calf raise with the toes kept flat | `ankle: { dorsi: -34 }, toes: { ext: 34 }` + anchor on `toes:toes_mid` |
 | heel drop off a step | `ankle: { dorsi: 28 }, toes: { ext: -28 }` on `STAND_STEP` |
+| heel drop to floor level (insertional Achilles) | `STAND` + anchor `toes:toes_mid` xyz: top `ankle: { dorsi: -30 }, toes: { ext: 33 }` → bottom foot flat, ankle 0 (`floorDrop` in k4: world shank lean / knee / heel-up → hip, ankle, toes; the heel never goes below the forefoot) |
 | clamshell "open" (side-lying, hips 48° / knees 88°) | `hip_R: { flex: 42.5, abd: 25.0, rot: 23.9 }` — a 35° turn about the hip–heel axis from the clamshell's resting top leg (`hip_R.abd −1.3`, knees stacked on the re-grounded side-lying pose): heels stay together, the knee rises ~19 cm |
 
 **Because `rot` is applied after `flex` and `abd`, one arm/leg orientation can need a surprising `rot`**
@@ -280,7 +281,7 @@ description, default camera, grounding and default props). Look at them: `/dev/e
 | `QUADRUPED` | 四つ這い（手と膝をつく、頭は +Z 方向）; = the k1 clips' solved `QUAD` | lowest skin point → y=0 | — | iso |
 | `HALF_KNEEL` | 片膝立ち（右膝が床、左足が前） | lowest skin point → y=0 | — | right |
 | `LONG_SIT` | 長座（床に座り脚を伸ばす） | lowest skin point → y=0 | — | right |
-| `SIT_CHAIR` | 椅子座位; arms hanging, hands holding the side edges of the seat | lowest skin point → y=0 | chair | iso |
+| `SIT_CHAIR` | 椅子座位; hips / knees 76° (shins vertical, thighs sloping 14° onto a 47 cm seat), arms hanging, hands holding the side edges of the seat | lowest skin point → y=0 | chair | iso |
 | `PLANK` | プランク（前腕とつま先で支える） | lowest skin point → y=0 | — | right |
 | `SIDE_PLANK` | サイドプランク（左前腕で支える） | lowest skin point → y=0 | — | front |
 | `STAND_STEP` | 段差の縁に前足部で立つ（かかとは段差の外）; the step edge is 0.5 cm behind the MTP axis | lowest skin point → y=0.15, anchor `toes:toes_mid` (xyz) | step | right |
@@ -305,8 +306,14 @@ knee, a seated or long-sitting pelvis and the forefoot sole (ball of the foot un
 `toes` segment) touch visibly where the figure is grounded (they used to hover 1–2 cm: the lofted rings were smaller
 than the grounding shapes there). Visible-skin contacts per clip / base pose:
 `node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/qa3-fix-body/probe/contacts.ts out.json`
-(+ `cmp-contacts.mjs base.json out.json` to compare two trees). SIT_CHAIR's thighs are still ~3 cm above the seat (the
-drawn buttocks are the seated contact; lowering the knees would move every SIT_CHAIR demo / close-up camera).
+(+ `cmp-contacts.mjs base.json out.json` to compare two trees). SIT_CHAIR (fin-clips): hips / knees 90° on a 37 cm seat
+left the round thighs ~3 cm above the seat; now hips / knees 76° (shins still vertical, feet flat) with the seat 3 mm
+higher under the sit bones (chair `off` y −0.032) and the hips 10 cm higher (a 47 cm seat): the thighs slope 14° down
+to the knees and lie 5 mm over the seat's front edge, the buttocks touch (0.3 mm), the hands still hold the seat edges
+(`scapula.elev 1`). The knees stay at the same height (0.49 m), so the knee close-ups (`patellofemoral-cartilage`
+exact camera, the patellofemoral-pain scene, vasti demos) still frame the knee; slouched seated clips (sciatic nerve
+glide, plantar fascia stretch: pelvis rolled back 8°) sink 2 mm into the cushion. Seated clips that rest a hand on a
+thigh re-solve it (upper-trap stretch: the same hand pose relative to the femur).
 The **exercise mat is 8 mm thick** (top at y 0.008) while `ground: true` puts the lowest point at y 0, so a body part
 0–8 mm "above the floor" in the probes visually rests on the mat (the figure sinks into the soft mat); use
 `ground: 0.008` only when the figure should stand on top of it (half-kneeling).
@@ -321,7 +328,10 @@ mm higher (BASE:SUPINE +3.8 mm, glute / single-leg bridge, adductor squeeze +2.8
 +3.2, hamstring stretch +3.9, figure-4 +4.0; BASE:PRONE +1.0 on the chest): the back of the ribcage touches at 0 and
 the head / sacrum / heels / hands that touched before are now 2–4 mm above the floor (inside the 8 mm mat). Probe:
 `node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/fin-body/probe/ringpen.ts` (lowest point of each
-trunk ring per clip; nothing below the floor any more).
+trunk ring per clip; nothing below the floor any more). fin-clips re-checked every contact against the HEAD tree
+(`cmp-contacts.mjs`): only the supine clips and BASE:PRONE moved; their head / sacrum / heels / hands now rest 2–7 mm
+above the floor, i.e. inside the 8 mm mat every supine clip has, so they still read as lying on the mat and were not
+re-solved.
 
 ---
 
@@ -977,6 +987,13 @@ show, at ~55 % opacity) — an injured tendon or bursa under a superficial muscl
   `node shots/eng-verify-motion/probe/run.mjs sweep.ts <id…|changed|all>`: visible skin (loft + hands / feet / head)
   against the floor and every prop, joint limits, overshoot, speed at each pass key relative to its run, and every
   body-part ↔ prop contact (min / max gap over the cycle).
+- **Hands on a wall between two keys** (fin-clips): two arm poses that each put the fingers on the wall do not keep them
+  there in between — the eased blend of shoulder / elbow / wrist bows the fingertips 2.5–3.7 mm into the wall (calf
+  raise, soleus stretch, knee-to-wall). Insert pass keys (25 / 50 / 75 % of the movement: every DOF the blend, the arms
+  re-solved so the palm slides on the straight line between its two spots):
+  `node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/fin-clips/probe/passwall.ts pass <clip> <keyA>
+  <keyB> 0.25,0.5,0.75 <solid> 3 R,L` prints the pose literals; `… passwall.ts key <clip> <keys> <solid> 3 R,L`
+  re-solves the arms of existing keys in place (fingers 0.3 mm off, thumb and palm never inside).
 - `label` (Japanese, short, 動作の指示): shown from that key until the next labelled key, e.g. 「ゆっくり持ち上げる」
   「1秒キープ」「ゆっくり戻す（3秒）」. Also sent to `onPhase`.
 - `loop: 'loop'` — if the last key's `t` < 1 the engine eases back to the first key over the remaining
@@ -1042,7 +1059,19 @@ show, at ~55 % opacity) — an injured tendon or bursa under a superficial muscl
 - **No headless crops**: when a clip's `frame` crop (no `focus`) would show the upper trunk (neck base, breastbone,
   lower ribs or waist) at some time while the top of the head is out of view — a figure whose head sits under the
   phase pill — the engine adds the head (`head:vertex`, `head:chin`) to the framed points, i.e. shows the whole
-  figure. Crops at the hips or lower (a calf / ankle close-up) are kept. To get a close-up, crop at the hips or below.
+  figure. Crops at the hips or lower (a calf / ankle close-up) are kept. To get a close-up, crop at the hips or below:
+  the highest frame point at the greater trochanter / ischial tuberosity (`femur:greater_trochanter`,
+  `pelvis:ischial_tuberosity`), never the iliac crest or ASIS — the projected `lumbar:spinous_L3` is only 1.5 cm above
+  the crest, so a crest crop shows "upper trunk" and becomes a whole-figure view. fin-clips uses hips-down crops for the
+  terminal knee extension, gastrocnemius / soleus stretches, tibialis raise and single-leg balance, and knee- / mid-thigh-
+  down crops for pogo hops, both heel drops and knee-to-wall (the calves / vasti are 1.6–2.2× larger than in the
+  whole-figure view the rule had made of them). Check a crop without the browser:
+  `node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/fin-clips/probe/framing.ts [ids…]` (prints
+  `HEADLESS→whole` for crops the engine widens; `FRAME='[…]'` / `CAM='[x,y,z]'` try a crop before writing it).
+- **Keep the body's cut edge away from the phase pill** (top-left): in a close-up the figure leaves the card at the top;
+  when it leaves under the pill the image looks clipped. Choose the side the limb runs off: the bent-knee calf raise is
+  viewed from behind-left (thighs leave the card top-right), the plantar-fascia stretch from above the left shoulder
+  more from the side (the trunk leaves to the right).
 
 ### Other fields
 
@@ -1219,7 +1248,7 @@ reset. Every method takes a piece or a group alias (`metatarsals`, `cuneiforms`:
 | `partMeshes(part, side)` | the split-off meshes (only while tinted or ghosted) |
 
 `side` is `'R' | 'L'` for sided pieces and `null` for midline ones (`isMidlinePart`). Scenes use it through `ghost:
-{ patella: 0.4 }` (§7). State test: `node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/fin-body/probe/figtest.ts`.
+{ patella: 0.5 }` (§7, patellofemoral pain). State test: `node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/fin-body/probe/figtest.ts`.
 Probes: bone triangles per part
 `shots/qa3-fix-body/probe/tris.ts`; bone vertices outside the visible skin per pose `shots/qa3-fix-body/probe/skin.ts`
 (run with `node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/qa3-fix-body/probe/<file>`).

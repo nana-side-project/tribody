@@ -1358,10 +1358,15 @@ export const BASE_POSES: Record<BasePoseName, BasePoseDef> = {
     pose: {
       root: { pos: [0, 0.5, 0] },
       joints: {
-        hip: { flex: 90, abd: 5 },
-        knee: { flex: 90 },
+        // fin-clips: hips / knees 76° (shins vertical, feet flat) on a 47 cm seat (3 mm higher under the sit bones than
+        // before), so the thighs slope 14° down to the knees and rest on the seat (thigh skin 5 mm off its front edge,
+        // buttocks 0.3 mm); at 90° / 90° on a 37 cm seat the round thighs hovered 3 cm above it, only the buttocks
+        // touched. The shrug (elev 1) keeps the hands on the side edges of the seat
+        hip: { flex: 76, abd: 5 },
+        knee: { flex: 76 },
         // hands hold the side edges of the seat (palm just outside the edge, fingers under it), arms hanging — they used
         // to hover ~19 cm above the thighs (qa3-fix-clips); also keeps the thighs free for the seated quadriceps demos
+        scapula: { elev: 1 },
         shoulder: { flex: -2.61, abd: 3.49, rot: -0.51 },
         elbow: { flex: 3.94 },
         forearm: { sup: -88.65 },
@@ -1371,7 +1376,7 @@ export const BASE_POSES: Record<BasePoseName, BasePoseDef> = {
     props: [
       {
         kind: 'chair',
-        at: { at: { mix: ['pelvis:ischial_tuberosity_R', 'pelvis:ischial_tuberosity_L'], t: 0.5 }, off: [0, -0.035, -0.03] },
+        at: { at: { mix: ['pelvis:ischial_tuberosity_R', 'pelvis:ischial_tuberosity_L'], t: 0.5 }, off: [0, -0.032, -0.03] },
       },
     ],
     camera: 'iso',

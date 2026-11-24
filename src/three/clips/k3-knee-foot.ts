@@ -404,6 +404,8 @@ const PF_SIT = {
     thorax: { flex: 10, rot: -12 },
     neck: { flex: 22, rot: 8 },
     hip_L: { flex: 82, abd: 5 },
+    // the left knee as it was on the old 90° SIT_CHAIR base (fin-clips): the right foot rests on this shin
+    knee_L: { flex: 90 },
     ankle_L: { dorsi: 0 },
     hip_R: { flex: 125.3, abd: 21.7, rot: 65 },
     knee_R: { flex: 116.8 },
@@ -736,8 +738,10 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     ground: true,
     // over the left shoulder, roughly along the foot's medial–lateral axis (the person's own view): the toes bending
     // back toward the shin turn in the image plane instead of toward the camera (the old front view saw the foot
-    // end-on); close-up of the foot and both hands, with the supporting left shin below it
-    camera: { dir: [0.5, 0.8, -0.4] },
+    // end-on); close-up of the foot and both hands, with the supporting left shin below it. fin-clips: a little more
+    // from the side ([0.5, 0.8, -0.4] before), so the trunk and arms leave the card to the right instead of under the
+    // phase pill at the top-left
+    camera: { dir: [0.62, 0.72, -0.3] },
     focus: 'foot',
     frame: ['hand:palm', 'hand_L:palm'],
     sides: 'R',

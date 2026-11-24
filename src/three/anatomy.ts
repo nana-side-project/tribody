@@ -523,6 +523,8 @@ export class AnatomyLayer {
         this.group.add(sm.mesh);
         v.strands.push(sm);
       } else if ('parts' in part) {
+        // a view's override replaces all of the rig's bone parts (applied once, with the first one)
+        if (over?.bones && v.bones.length) continue;
         for (const p of over?.bones ?? part.parts) v.bones.push({ part: p, side: isMidlinePart(p) ? null : side });
       } else {
         if (part.type === 'spot' && !showSpots) continue;
