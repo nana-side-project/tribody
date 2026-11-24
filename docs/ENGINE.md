@@ -729,6 +729,12 @@ muscles 0.4–0.5 at the insertion.
 Belly colour: `--muscle` (vivid for primary) → deeper red when short, `--muscle-light` when long. Tendons
 `--tendon`. Roles (`Highlight3DRole`): `primary` vivid + slight emissive · `secondary` lighter · `injured`
 red-orange (`--injured`) with a pulsing glow halo · `involved` amber · `selected` brighter emissive.
+`injured` and `involved` keep their hue at every length (a stretched injured muscle stays red, a stretched involved
+one stays amber — never salmon / pink): only their lightness follows the length (shorter a little deeper, longer a
+little lighter in the light theme / more muted in the dark theme); thickness shows the rest.
+The colour always follows the **current** belly ratio (the strand is measured first, then coloured), also for a
+single `setTime()` frame. Flat strands (`flat: {…}`) are shaded with a gently curved normal across their width, so a
+sheet at rest looks like the round strands next to it (not uniformly dark = "contracted").
 Non-scope muscles are hidden (`?all=1` shows every rigged muscle faintly).
 
 ---
@@ -749,16 +755,50 @@ Non-scope muscles are hidden (`?all=1` shows every rigged muscle faintly).
 |---|---|---|
 | `tendon`, `ligament` | `path`, `radius`, `flat?` | cream cord / band |
 | `fascia` | `path`, `radius` (thickness), `flat: { width, normal }` | wide translucent cream sheet (ITB, plantar fascia, thoracolumbar fascia) |
-| `nerve` | `path`, `radius` (~0.003–0.005) | thin yellow cord (sciatic, interdigital); where muscles or bones hide it, a see-through copy keeps it visible (any mode) |
+| `nerve` | `path`, `radius` (~0.003–0.005) | thin yellow cord (sciatic, interdigital); where muscles or bones hide it, a see-through copy keeps it visible (any mode; drawn only where something is in front of it) |
 | `bursa` | `at`, `radii: [lat, y, z]`, `off?` | soft blue ellipsoid oriented with `at`'s bone |
 | `cartilage`, `fatpad` | `at`, `radii`, `off?` | pale cushion (labrum, meniscus, disc, PF cartilage, heel fat pad) |
-| `spot` | `at`, `radius` | glow sphere on a bony point or joint (greater trochanter, joint line, medial tibial border, stress-fracture site) |
-| `bone` | `parts: BonePartId[]` | tints whole bone pieces: `tibia`, `fibula`, `calcaneus`, `talus`, `navicular`, `metatarsals`, `patella`, `scapula`, `acromion`, `humeral_head`, `greater_trochanter`, `femoral_head`, `thoracic`, `cervical`, `lumbar`, `discs`, `sacrum`, `ilium`, `ischial_tuberosity`, `pubic_symphysis`, `lateral_epicondyle`, `medial_malleolus`, `lateral_malleolus` … (see `skeleton-parts.ts`) |
+| `spot` | `at`, `radius` | glow sphere on a bony point or joint (greater trochanter, joint line, medial tibial border, stress-fracture site). A spot is a **lesion marker**: drawn only when the structure is `injured` (then 1.45 × `radius`, the brightest red of the view) or when the structure has nothing else; on a merely `involved` structure (the tibia in shin splints) it is hidden, so it never reads as a focal injury |
+| `bone` | `parts: BonePartId[]` | tints whole bone pieces (injured without a spot: strong red; injured with a spot, or involved: lighter, so the spot / the injured soft tissue stays the strongest colour): `tibia`, `fibula`, `calcaneus`, `talus`, `navicular`, `metatarsals`, `patella`, `scapula`, `acromion`, `humeral_head`, `greater_trochanter`, `femoral_head`, `thoracic`, `cervical`, `lumbar`, `discs`, `sacrum`, `ilium`, `ischial_tuberosity`, `pubic_symphysis`, `lateral_epicondyle`, `medial_malleolus`, `lateral_malleolus` … (see `skeleton-parts.ts`) |
 
 Mix parts freely (e.g. `greater-trochanter` = `bone` tint + `spot`). `labelAt?: AttachRef` sets the label
-anchor; `base`, `camera`, `focus` are used when the structure is shown on its own (condition pages).
-Flat `normal` is a bone-frame direction: `lateral | medial | anterior | posterior | superior | inferior` of the
-**first** path point's bone.
+anchor; `base`, `camera`, `focus` are used when the structure is shown on its own (highlights without a teaching
+scene, or a scene with `camera: 'rig'` — see below). Flat `normal` is a bone-frame direction:
+`lateral | medial | anterior | posterior | superior | inferior` of the **first** path point's bone.
+
+### Condition & region pages: teaching scenes (`scenes.ts`)
+
+Condition pages pass `condition={id}` with their `highlights`; region pages pass `focus` + their key muscles. In
+highlights mode the engine then uses a **scene** from `src/three/scenes.ts` (`CONDITION_SCENES[id]`, else
+`REGION_SCENES[focus]` when there is no condition). Exercise and muscle pages never use scenes.
+
+```ts
+'itb-syndrome': {
+  base: 'STAND',
+  joints: { hip_R: { flex: 20 }, knee_R: { flex: 30 } },          // the posture the text talks about
+  camera: { dir: [-1, 0.12, 0.12] },                               // preset | { dir } (fitted) | 'rig'
+  frame: ['femur:lateral_epicondyle', 'tibia:gerdy_tubercle', …],  // the crop (right side unless _L)
+  minSize: 0.22,
+  fade: { 'iliotibial-band': 0.35 },                               // superficial tissue drawn translucent
+  minor: ['tensor-fasciae-latae', 'gluteus-medius', 'gluteus-maximus'],  // labels start in 「+N」
+},
+```
+
+| field | meaning |
+|---|---|
+| `base`, `joints` | base pose + joint changes (default base: the injured structure rig's `base`, else `STAND`) |
+| `camera` | preset or `{ dir }`, fitted to the crop. `'rig'` = the injured structure rig's own camera as authored (its exact close-ups were made for condition pages). A **muscle** rig's exact camera is never used in highlights mode (it belongs to that muscle's demo): only its direction, fitted |
+| `frame` | crop points. Without `frame`: the injured parts + the focus region's landmarks (`REGION_POINTS`). Involved context parts **never widen the frame**: they may run off the card (their label sits on a visible bit, or goes into 「+N」, see Labels) |
+| `frameInjured` | also frame the injured parts (default: `true` without `frame`, `false` with it) |
+| `minSize` | minimum size of the framed box (m) |
+| `fade` | `{ id: opacity }` — translucent parts (e.g. gluteus maximus over the sciatic nerve). Never applied to an injured part |
+| `both` | parts drawn on both sides (central / bilateral problems: low back, neck) |
+| `roles` | role overrides for this scene (e.g. a nerve the text says is only rarely irritated → `involved`) |
+| `minor` | context parts whose labels start collapsed in 「+N」 |
+
+On top of the scene, every **injured** part in highlights mode gets a see-through copy wherever other anatomy hides
+it (same technique as nerves: drawn after the opaque anatomy with depth test GREATER, so only the hidden stretches
+show, at ~55 % opacity) — an injured tendon or bursa under a superficial muscle is never lost.
 
 ---
 
@@ -882,8 +922,12 @@ Flat `normal` is a bone-frame direction: `lateral | medial | anterior | posterio
   pill / player bar. A rig's exact camera (`{ position, target }`) is kept when all of that fits; otherwise the view
   is fitted to it along the authored direction (like `{ dir }`), so e.g. a gluteus-medius close-up still shows the
   thigh abducting in a 300 px card.
-- Framing keeps clear of the phase pill (top) and the player bar (bottom). Users can orbit / pinch;
+- Framing keeps clear of the phase pill (top, 46 px band) and the player bar (bottom). Users can orbit / pinch;
   「視点リセット」 returns to your framing.
+- **No headless crops**: when a clip's `frame` crop (no `focus`) would show the upper trunk (neck base, breastbone,
+  lower ribs or waist) at some time while the top of the head is out of view — a figure whose head sits under the
+  phase pill — the engine adds the head (`head:vertex`, `head:chin`) to the framed points, i.e. shows the whole
+  figure. Crops at the hips or lower (a calf / ankle close-up) are kept. To get a close-up, crop at the hips or below.
 
 ### Other fields
 
@@ -920,7 +964,11 @@ measured from the DOM and are never covered; a dot under them moves to a visible
 - **Partly visible parts**: when a label's dot (belly centre / `labelAt`) is off-view or under the phase pill / player
   bar, the dot moves to the visible point of the part (its strand / cord control points, sampled in between) nearest
   to it, so a close-up still names the tendon or muscle that runs out of the frame (the tibialis posterior tendon in
-  the short-foot close-up, the quadriceps in a patellar-tendon close-up). A part with nothing in view has no label.
+  the short-foot close-up, the quadriceps in a patellar-tendon close-up). A minor part with nothing in view at all goes
+  into 「+N」; expanding the chip lists it as 「画面外：…」 next to the chip (a major part with nothing in view has no
+  label — scenes frame the injured parts, so this does not happen on condition pages).
+- **Scenes** (condition / region pages) can start context labels collapsed in 「+N」 (`minor`, see §7). The chip is
+  only in the DOM while it has something to show (no hidden 「ほかに0つ」 button).
 - Writing a clip: nothing to do. Long Japanese names are shortened by `labelName()` (parenthetical notes dropped).
 
 ### Clip checklist of good practice
@@ -943,7 +991,7 @@ Dev server (your own port): `VITE_CACHE_DIR=node_modules/.vite-<PORT> npx vite -
 |---|---|
 | `?muscle=<id>` | muscle demo (rest → 収縮 → rest → ストレッチ) |
 | `?exercise=<id>` | exercise clip |
-| `?hl=id:role,id:role` | highlights (condition-page mode), e.g. `?hl=achilles-tendon:injured,gastrocnemius:involved` |
+| `?hl=id:role,id:role` | highlights (condition-page mode), e.g. `?hl=achilles-tendon:injured,gastrocnemius:involved`. Without a condition the generic view is used (with `&focus=<region>`: that region's scene). The harness has no `?condition=` yet: check a condition's teaching scene on its app page (`/#/condition/<id>`, tap 「3Dで見る」) |
 | `?pose=<BASE_POSE>` | static base pose |
 | `?j=shoulder_R.flex:170,elbow_R.flex:90` | joint overrides on top of `?pose` (pose / highlights mode) — great for testing DOFs |
 | `?t=0..1` | **freeze** at a normalised time (deterministic screenshots) |
@@ -958,7 +1006,8 @@ Dev server (your own port): `VITE_CACHE_DIR=node_modules/.vite-<PORT> npx vite -
 | `?coverage=1` | table of rigged / missing ids and the owning file |
 
 `window.__tribody = { ready, setTime(t), engine, engines, remounts, done }` is available for scripts
-(`engine.renders` counts rendered frames, `engine.isPlaying`, `engine.t`). `setTime(t)` is exact — at a key's
+(`engine.renders` counts rendered frames — playback renders ~30 per second, a static view with an injured glow ~20,
+a static view without glow none after the first frames; `engine.isPlaying`, `engine.t`). `setTime(t)` is exact — at a key's
 `t` it shows that key's pose and label (only `t = 1` stays just before the wrap) — and labels snap to their new
 spots; otherwise give labels ~0.4 s to glide before a screenshot.
 
@@ -966,10 +1015,10 @@ Robustness pages (engine maintainers; run them after engine changes):
 
 | URL | checks |
 |---|---|
-| `?multi=1` | four viewers on one page (muscle, exercise, highlights, and one far below the fold that must stay paused: its `renders` stays at ~2) |
+| `?multi=1` | four viewers on one page (muscle, exercise, highlights, and one far below the fold that must stay paused: its `renders` stays at ~0–2) |
 | `?remount=16` | mounts / unmounts the viewer 16 times (no console warnings, one canvas and one live engine at the end) |
 | `?nogl=1&muscle=soleus&card=1` | WebGL unavailable → 「この端末・ブラウザでは3D表示を利用できません。」 |
-| `?lose=1&muscle=soleus&card=1` | context lost → 「3D表示が一時的に停止しました。」 + 「再表示する」 (tap it: the viewer comes back) |
+| `?lose=1&muscle=soleus&card=1` | context lost → 「3D表示が一時的に停止しました。」 + 「再表示する」 (tap it: the viewer comes back). When the browser restores the context (`WEBGL_lose_context.restoreContext()`), the viewer rebuilds itself without a tap and without WebGL warnings |
 | screenshot with reduced motion (`reducedMotion: 'reduce'` in Playwright) | no autoplay, play button shown, no pulsing |
 
 Screenshots (phone): `node scripts/shot.mjs "http://127.0.0.1:<PORT>/dev/engine.html?muscle=soleus&t=0.2&card=1" shots/<you>/soleus-action.png --w 390 --h 844 --wait 2500`
@@ -1010,8 +1059,9 @@ Screenshots (phone): `node scripts/shot.mjs "http://127.0.0.1:<PORT>/dev/engine.
 | `landmarks.ts` | landmark table, ref compilation (`compileRef`, `evalPoint`) |
 | `skeleton.ts`, `skeleton-parts.ts` | procedural bone geometry per highlightable piece |
 | `skin-loft.ts` | smooth CPU-skinned trunk / arm / leg skin; `figure.ts` assembles bones + skin |
-| `strands.ts` | allocation-free animated tubes (muscle / cord), length ratios, halo |
-| `anatomy.ts` | scope → visuals, roles, colours, markers, labels anchors |
+| `strands.ts` | allocation-free animated tubes (muscle / cord), length ratios, halo; `pose()` (centre line, ratios — cheap) and `write()` (geometry; colours only when they changed) |
+| `anatomy.ts` | scope → visuals, roles, colours, markers, labels anchors, fades, see-through copies; `update()` (geometry + colours), `pose()` (pre-passes), `updatePulse()` (glow only) |
+| `scenes.ts` | teaching scenes for condition / region pages (§7) |
 | `clip.ts` | clip compilation, easing, holds, labels, ground/anchor, muscle demo builder |
 | `props.ts`, `labels.ts`, `camera.ts`, `materials.ts`, `geometry.ts` | as named |
 | `engine.ts` | renderer, loop, playback, framing, interaction, debug, lifecycle |
@@ -1024,8 +1074,23 @@ arrays in `update()` paths. Zoom limits follow the home framing (wide poses on t
 
 Rendering: transparent canvas over the card, NeutralToneMapping, sRGB, DPR ≤ 2, camera-relative key light +
 hemisphere. Skin = depth pre-pass + fresnel colour pass (one translucent layer, no overlap blotches), drawn
-after opaque bones/muscles. Loop renders only when something changes (playback, damping, pulse); paused when
-off-screen (IntersectionObserver) or the tab is hidden; disposes everything on unmount; WebGL unavailable /
-context lost show a Japanese message (with 「再表示する」). `prefers-reduced-motion` → no autoplay, no pulse.
+after opaque bones/muscles. The engine creates its own WebGL2 context: MSAA only on DPR < 2 screens and not on
+software rasterisers (SwiftShader / llvmpipe: MSAA costs them 2–4× per frame); no context → the Japanese fallback
+without three's console error. Shader error checks (synchronous program logs) run in development only; with
+`KHR_parallel_shader_compile` the first view's shaders compile in parallel before the first frame.
+
+Loop (`engine.loop`): work only when something changed, and stop when nothing does —
+playback poses + renders at most every ~33 ms (30 fps) unless the camera is moving (drag, damping, reset tween:
+display rate); a static view with an injured part only updates the glow (`anatomy.updatePulse`: emissive, halo,
+bone tint — no geometry, no label layout) every ~48 ms; labels are re-solved only when the pose or the camera
+changed, while they glide, or when the label set / UI changed; otherwise the loop idles (no rAF) until OrbitControls'
+events, `play()`, `setTime()`, a resize, a theme change or the 「+N」 chip wake it (`kick()`). Pre-passes over
+sampled poses (framing, label plan, debug ratios) use `anatomy.pose()` (no geometry writes). 「視点リセット」 first
+clears OrbitControls' damping momentum, so the tween ends exactly at home.
+Paused when off-screen (IntersectionObserver) or the tab is hidden. Unmount detaches the canvas at once and releases
+the context in an idle callback (`forceContextLoss` waits for the GPU — not inside React's commit). WebGL unavailable /
+context lost show a Japanese message (with 「再表示する」); when the browser restores a lost context the viewer
+remounts itself, and a once-lost engine drops its GL objects without deleting them (they belong to the dead
+context). `prefers-reduced-motion` → no autoplay, no pulse.
 If building a view throws (e.g. a malformed rig or clip), the viewer logs `[tribody 3d] could not show this view`
 and falls back to the standing figure with 「3Dモデルを表示できませんでした」 — check the console when a page shows that.

@@ -1,5 +1,5 @@
 // Animated tapered tubes ("strands") between attachment points — muscles, tendons, ligaments, nerves.
-// Geometry is updated in place every frame (no allocations in update()).
+// Geometry is updated in place every frame (no allocations in pose() / write()).
 import { BufferAttribute, BufferGeometry, Color, type Material, Mesh, Quaternion, Vector3 } from 'three';
 import { CurveSampler, TubeWriter } from './geometry';
 import { type CompiledPoint, evalPoint, pointSeg } from './landmarks';
@@ -19,6 +19,13 @@ const FLAT_LOCAL: Record<NonNullable<FlatNormal>, [number, number, number]> = {
   inferior: [0, -1, 0],
 };
 
+/** Flat bands (sheets, aponeuroses): share of the round-tube normal in the shading normal. A true ellipse normal is
+ *  almost one direction over the whole face, so a band facing slightly away from the key light (or catching no
+ *  highlight) reads uniformly dark — i.e. as a deep-red "contracted" muscle while it is at rest. With a gently curved
+ *  normal across the width the band shades like the round strands next to it, so only colour and thickness tell the
+ *  length ratio. 0 = exact ellipse normal, 1 = round tube normal. */
+const FLAT_ROUND = 0.65;
+
 export interface StrandProfile {
   /** belly radius (m) */
   radius: number;
@@ -31,6 +38,90 @@ export interface StrandProfile {
 const _c = new Color();
 const _flatN = new Vector3();
 const _q = new Quaternion();
+const _t = new Vector3();
+const _n = new Vector3();
+const _b = new Vector3();
+const _w = new Vector3();
+const _tmp = new Vector3();
+
+/** Same layout as TubeWriter (ring k has radial + 1 vertices), but per-frame cheaper: cos / sin tables per vertex
+ *  column and closed-form normals (the ring frame is orthonormal), no Math.hypot. Flat bands get the softened normal
+ *  described at FLAT_ROUND. */
+class StrandTubeWriter extends TubeWriter {
+  private cs: Float32Array;
+  private sn: Float32Array;
+  private prev = new Vector3();
+  constructor(n: number, radial: number) {
+    super(n, radial);
+    this.cs = new Float32Array(radial + 1);
+    this.sn = new Float32Array(radial + 1);
+    for (let j = 0; j <= radial; j++) {
+      const a = (j / radial) * Math.PI * 2;
+      this.cs[j] = Math.cos(a);
+      this.sn[j] = Math.sin(a);
+    }
+  }
+
+  write(pts: Vector3[], radii: ArrayLike<number>, flatNormal?: Vector3 | null, flatScale = 1) {
+    const { n, radial, positions: P, normals: N, cs, sn } = this;
+    // flat: shading normal ∝ n·ca·k + b·sa (k between the ellipse value r / rw and 1)
+    const k = flatNormal ? Math.min(1, 1 / Math.max(1e-4, flatScale) + FLAT_ROUND) : 1;
+    for (let i = 0; i < n; i++) {
+      if (i === 0) _t.subVectors(pts[1], pts[0]);
+      else if (i === n - 1) _t.subVectors(pts[n - 1], pts[n - 2]);
+      else _t.subVectors(pts[i + 1], pts[i - 1]);
+      if (_t.lengthSq() < 1e-12) _t.set(0, 1, 0);
+      _t.normalize();
+      if (flatNormal) {
+        _w.crossVectors(_t, flatNormal);
+        if (_w.lengthSq() < 1e-8) _w.crossVectors(_t, _tmp.set(0.3, 0.7, 0.2).normalize());
+        _w.normalize();
+        _n.copy(_w);
+        _b.crossVectors(_t, _w).normalize();
+      } else {
+        // parallel transport of the normal
+        if (i === 0) {
+          const ax = Math.abs(_t.x) < 0.9 ? _tmp.set(1, 0, 0) : _tmp.set(0, 1, 0);
+          _n.crossVectors(_t, ax).normalize();
+        } else {
+          _n.copy(this.prev).addScaledVector(_t, -this.prev.dot(_t));
+          if (_n.lengthSq() < 1e-10) _n.crossVectors(_t, _tmp.set(0, 0, 1));
+          _n.normalize();
+        }
+        this.prev.copy(_n);
+        _b.crossVectors(_t, _n).normalize();
+      }
+      const r = radii[i];
+      const rw = flatNormal ? r * flatScale : r;
+      const c = pts[i];
+      const nx = _n.x,
+        ny = _n.y,
+        nz = _n.z,
+        bx = _b.x,
+        by = _b.y,
+        bz = _b.z;
+      let o = i * (radial + 1) * 3;
+      for (let j = 0; j <= radial; j++, o += 3) {
+        const ca = cs[j];
+        const sa = sn[j];
+        P[o] = c.x + nx * ca * rw + bx * sa * r;
+        P[o + 1] = c.y + ny * ca * rw + by * sa * r;
+        P[o + 2] = c.z + nz * ca * rw + bz * sa * r;
+        if (k === 1) {
+          N[o] = nx * ca + bx * sa;
+          N[o + 1] = ny * ca + by * sa;
+          N[o + 2] = nz * ca + bz * sa;
+        } else {
+          const a = ca * k;
+          const inv = 1 / Math.sqrt(a * a + sa * sa);
+          N[o] = (nx * a + bx * sa) * inv;
+          N[o + 1] = (ny * a + by * sa) * inv;
+          N[o + 2] = (nz * a + bz * sa) * inv;
+        }
+      }
+    }
+  }
+}
 
 export class StrandMesh {
   readonly mesh: Mesh;
@@ -53,6 +144,10 @@ export class StrandMesh {
   private colors: Float32Array;
   private geom: BufferGeometry;
   private flatSide: Side;
+  /** colour buffer cache: rewritten only when a colour or the tendon / belly split changed */
+  private colBelly = new Color(-1, -1, -1);
+  private colTendon = new Color(-1, -1, -1);
+  private colRatio = -1;
 
   constructor(
     readonly ctrl: CompiledPoint[],
@@ -66,7 +161,7 @@ export class StrandMesh {
     this.rings = Array.from({ length: n }, () => new Vector3());
     this.ctrlWorld = ctrl.map(() => new Vector3());
     this.sampler = new CurveSampler(Math.max(2, ctrl.length), 10);
-    this.writer = new TubeWriter(n, radial);
+    this.writer = new StrandTubeWriter(n, radial);
     this.radii = new Float32Array(n);
     this.haloRadii = new Float32Array(n);
     this.shape = new Float32Array(n);
@@ -129,36 +224,44 @@ export class StrandMesh {
     }
   }
 
-  /** Measure the length for a state (used for L0). */
+  /** Measure the length for a state (used for L0). Updates the ring centres. */
   measure(state: RigState): number {
     for (let i = 0; i < this.ctrl.length; i++) evalPoint(this.ctrl[i], state, this.ctrlWorld[i]);
     return this.sampler.sample(this.ctrlWorld, this.ctrl.length, this.rings, RINGS);
   }
 
-  enableHalo(material: Material) {
-    if (this.halo) return;
-    this.haloWriter = new TubeWriter(RINGS, 10);
-    const g = this.haloWriter.toGeometry();
-    this.halo = new Mesh(g, material);
-    this.halo.frustumCulled = false;
-    this.halo.matrixAutoUpdate = false;
-    this.halo.renderOrder = 5;
-  }
-
-  /**
-   * Update geometry for the current rig state.
-   * belly/tendon: linear-space colours. thick: extra radius multiplier (role emphasis).
-   */
-  update(state: RigState, belly: Color, tendon: Color, thick = 1) {
+  /** Pose the centre line for a rig state: ring centres, length, ratio and belly ratio. Writes no geometry (cheap:
+   *  used for framing / label pre-passes and before choosing the colour, which depends on the fresh belly ratio). */
+  pose(state: RigState) {
     this.length = this.measure(state);
     this.ratio = this.L0 > 1e-6 ? this.length / this.L0 : 1;
+    if (this.profile.kind === 'muscle') {
+      const Lt = this.tendonLen[0] + this.tendonLen[1];
+      const L = Math.max(this.length, Lt + 0.01);
+      this.bellyRatio = (L - Lt) / Math.max(1e-4, this.L0 - Lt);
+    } else this.bellyRatio = this.ratio;
+    const f = this.profile.flat;
+    if (f) {
+      // flat bands: sheet normal in the frame of the first point's bone
+      const l = FLAT_LOCAL[f.normal ?? 'lateral'];
+      this.flatDir.set(this.flatSide === 'L' ? -l[0] : l[0], l[1], l[2]).applyQuaternion(_q.copy(state.quat[pointSeg(this.ctrl[0])]));
+    }
+  }
+
+  /** flat bands: world sheet normal of the last pose() */
+  private flatDir = new Vector3();
+
+  /**
+   * Write the tube geometry for the last pose().
+   * belly/tendon: linear-space colours. thick: extra radius multiplier (role emphasis).
+   */
+  write(belly: Color, tendon: Color, thick = 1) {
     const p = this.profile;
     if (p.kind === 'muscle') {
       const Lt = this.tendonLen[0] + this.tendonLen[1];
       const L = Math.max(this.length, Lt + 0.01);
-      this.bellyRatio = (L - Lt) / Math.max(1e-4, this.L0 - Lt);
       if (Lt > 0) this.computeProfile(this.tendonLen[0] / L, this.tendonLen[1] / L);
-    } else this.bellyRatio = this.ratio;
+    }
     const scale = p.kind === 'muscle' ? Math.min(1.5, Math.max(0.65, Math.sqrt(1 / Math.max(0.05, this.bellyRatio)))) : 1;
     const rb = p.radius * scale * thick;
     const rt = p.kind === 'muscle' ? Math.max(0.0016, p.radius * 0.24) * thick : p.radius * thick;
@@ -168,28 +271,32 @@ export class StrandMesh {
     let flatN: Vector3 | null = null;
     let flatScale = 1;
     if (p.flat) {
-      const seg = pointSeg(this.ctrl[0]);
-      const l = FLAT_LOCAL[p.flat.normal ?? 'lateral'];
-      _flatN.set(this.flatSide === 'L' ? -l[0] : l[0], l[1], l[2]).applyQuaternion(_q.copy(state.quat[seg]));
-      flatN = _flatN;
+      flatN = _flatN.copy(this.flatDir);
       flatScale = p.flat.width / 2 / Math.max(1e-4, p.radius * thick);
     }
     this.writer.write(this.rings, this.radii, flatN, flatScale);
-    const radial = this.writer.radial;
-    const C = this.colors;
-    for (let k = 0; k < RINGS; k++) {
-      _c.copy(tendon).lerp(belly, this.mix[k]);
-      for (let j = 0; j <= radial; j++) {
-        const o = (k * (radial + 1) + j) * 3;
-        C[o] = _c.r;
-        C[o + 1] = _c.g;
-        C[o + 2] = _c.b;
-      }
-    }
     const g = this.geom;
     g.attributes.position.needsUpdate = true;
     g.attributes.normal.needsUpdate = true;
-    g.attributes.color.needsUpdate = true;
+    // colours: the tendon / belly split only moves with the length (muscles with tendons)
+    const mixKey = p.kind === 'muscle' && this.tendonLen[0] + this.tendonLen[1] > 0 ? this.ratio : 1;
+    if (!this.colBelly.equals(belly) || !this.colTendon.equals(tendon) || Math.abs(mixKey - this.colRatio) > 0.002) {
+      this.colBelly.copy(belly);
+      this.colTendon.copy(tendon);
+      this.colRatio = mixKey;
+      const radial = this.writer.radial;
+      const C = this.colors;
+      for (let k = 0; k < RINGS; k++) {
+        _c.copy(tendon).lerp(belly, this.mix[k]);
+        for (let j = 0; j <= radial; j++) {
+          const o = (k * (radial + 1) + j) * 3;
+          C[o] = _c.r;
+          C[o + 1] = _c.g;
+          C[o + 2] = _c.b;
+        }
+      }
+      g.attributes.color.needsUpdate = true;
+    }
     if (this.halo && this.haloWriter && this.halo.visible) {
       for (let k = 0; k < RINGS; k++) this.haloRadii[k] = this.radii[k] * 1.9 + 0.004;
       this.haloWriter.write(this.rings, this.haloRadii, flatN, flatN ? flatScale * 0.85 : 1);
@@ -197,6 +304,22 @@ export class StrandMesh {
       hg.attributes.position.needsUpdate = true;
       hg.attributes.normal.needsUpdate = true;
     }
+  }
+
+  /** pose() + write(). */
+  update(state: RigState, belly: Color, tendon: Color, thick = 1) {
+    this.pose(state);
+    this.write(belly, tendon, thick);
+  }
+
+  enableHalo(material: Material) {
+    if (this.halo) return;
+    this.haloWriter = new StrandTubeWriter(RINGS, 10);
+    const g = this.haloWriter.toGeometry();
+    this.halo = new Mesh(g, material);
+    this.halo.frustumCulled = false;
+    this.halo.matrixAutoUpdate = false;
+    this.halo.renderOrder = 5;
   }
 
   dispose() {

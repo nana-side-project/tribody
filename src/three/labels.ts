@@ -28,6 +28,8 @@ export interface LabelSpec {
    *  off-view or under the player UI, the dot moves to the visible point of these nearest to it, so a part that is
    *  only partly in view (a tendon in a foot close-up, the quadriceps in a knee close-up) still gets its name. */
   alt?: CompiledPoint[][];
+  /** minor context part of a scene: starts collapsed in 「+N」 whatever the pre-pass finds */
+  collapse?: boolean;
 }
 
 /** A highlighted part for the overlap mask: polyline through control points (world) with a radius (m). */
@@ -83,6 +85,8 @@ interface Item extends LabelSpec {
   /** pre-pass statistics */
   bad: number;
   seen: number;
+  /** nothing of the part was in view in the pre-pass: listed by name in the expanded 「+N」 (画面外) */
+  offview: boolean;
   /** pre-pass positions → home (medoid): a soft prior that keeps the layout consistent over the clip */
   hist: number[];
   hx: number;
@@ -414,6 +418,11 @@ export class LabelLayer {
   private zonesDirty = true;
   private mo: MutationObserver | null = null;
   private chipState = { x: 0, y: 0, dx: 0, dy: 0, w: 34, h: 22, placed: false, shown: false };
+  /** expanded 「+N」: names of collapsed parts that have nothing in view */
+  private off: HTMLDivElement;
+  /** something changed that the next layout must solve (items, chip, visibility, UI zones) */
+  private dirty = true;
+  private moving = false;
   /** prefers-reduced-motion: labels jump to their new spots instead of gliding */
   reducedMotion = false;
   /** the camera is at the home framing the pre-pass used (false while the user has orbited / zoomed away): the
@@ -425,8 +434,15 @@ export class LabelLayer {
     return this._visible;
   }
   set visible(v: boolean) {
+    if (v !== this._visible) this.dirty = true;
     this._visible = v;
     this.root.style.display = v && this.items.length ? '' : 'none';
+  }
+
+  /** The next layout() must run even if the pose and camera did not change (new items, a snap, the chip, UI zones,
+   *  labels still gliding). Static views skip the layout otherwise. */
+  get pending() {
+    return this.dirty || this.snapNext || this.zonesDirty || this.needMeasure || this.moving;
   }
 
   constructor(
@@ -445,12 +461,20 @@ export class LabelLayer {
     this.chip.addEventListener('click', this.onChip);
     // keep taps on the chip from rotating the model
     this.chip.addEventListener('pointerdown', (e) => e.stopPropagation());
-    this.root.appendChild(this.chip);
+    // the chip is only in the DOM while there is something to collapse (no hidden 「ほかに0つ」 button)
+    this.off = document.createElement('div');
+    this.off.className = 'tb3d-offview';
+    this.off.style.display = 'none';
+    this.root.appendChild(this.off);
     container.appendChild(this.root);
     // UI zones (phase pill, legend, player bar…) are re-measured whenever the overlay's DOM changes
     if (typeof MutationObserver !== 'undefined') {
-      this.mo = new MutationObserver(() => {
+      this.mo = new MutationObserver((muts) => {
+        // ignore the labels' own DOM; the debug panel rewrites itself every frame
+        const ui = muts.some((m) => !this.root.contains(m.target) && !(m.target as Element).closest?.('.tb3d-debug, .tb3d-debuglabels'));
+        if (!ui) return;
         this.zonesDirty = true;
+        this.requestRender();
       });
       this.mo.observe(container, { childList: true, subtree: true, characterData: true });
     }
@@ -458,6 +482,7 @@ export class LabelLayer {
 
   private onChip = () => {
     this.expanded = !this.expanded;
+    this.dirty = true;
     this.updateChipText();
     this.requestRender();
   };
@@ -470,6 +495,7 @@ export class LabelLayer {
   /** Highlighted anatomy for the overlap mask (labels avoid covering it). */
   setCords(cords: MaskCord[]) {
     this.cords = cords;
+    this.dirty = true;
   }
 
   setItems(specs: LabelSpec[]) {
@@ -495,7 +521,7 @@ export class LabelLayer {
         dot.style.display = 'none';
         this.svg.appendChild(line);
         this.svg.appendChild(dot);
-        this.root.insertBefore(el, this.chip);
+        this.root.insertBefore(el, this.off);
         it = {
           ...s,
           el,
@@ -522,6 +548,7 @@ export class LabelLayer {
           lead: 0,
           bad: 0,
           seen: 0,
+          offview: false,
           hist: [],
           hx: 0,
           hy: 0,
@@ -534,6 +561,7 @@ export class LabelLayer {
         this.fill(it);
       }
       it.alt = s.alt;
+      it.collapse = s.collapse;
       let nAlt = 0;
       for (const pl of s.alt ?? []) nAlt += pl.length;
       while (it.altW.length < nAlt) it.altW.push(new Vector3());
@@ -551,7 +579,10 @@ export class LabelLayer {
     this.chipState.placed = false;
     this.chipState.shown = false;
     this.chip.style.display = 'none';
+    this.chip.remove();
+    this.off.style.display = 'none';
     this.snapNext = true;
+    this.dirty = true;
     this.measure();
     // new items start hidden until the first layout() positions them
     this.root.style.display = 'none';
@@ -586,12 +617,15 @@ export class LabelLayer {
       it.el.style.display = d;
     }
     const cd = this.chip.style.display;
+    const attached = this.chip.isConnected;
+    if (!attached) this.root.appendChild(this.chip);
     this.chip.style.display = '';
     this.chip.textContent = '+8';
     this.chipState.w = this.chip.offsetWidth || 34;
     this.chipState.h = this.chip.offsetHeight || 22;
     this.updateChipText();
     this.chip.style.display = cd;
+    if (!attached) this.chip.remove();
     this.root.style.display = prevDisp;
     this.root.style.visibility = prevVis;
     // not laid out yet (detached / display:none ancestor): retry on the next layout
@@ -602,6 +636,8 @@ export class LabelLayer {
 
   private updateChipText() {
     const n = this.nCollapsed;
+    if (n > 0 && !this.chip.isConnected) this.root.appendChild(this.chip);
+    else if (n === 0 && this.chip.isConnected) this.chip.remove();
     this.chip.textContent = this.expanded ? '−' : `+${n}`;
     const names = this.items
       .filter((i) => i.collapsed)
@@ -610,6 +646,8 @@ export class LabelLayer {
     this.chip.setAttribute('aria-expanded', String(this.expanded));
     this.chip.setAttribute('aria-label', this.expanded ? 'ラベルを減らす' : `ほかに${n}つ：${names}（タップで表示）`);
     this.chip.title = this.expanded ? 'ラベルを減らす' : names;
+    const off = this.items.filter((i) => i.collapsed && i.offview).map((i) => i.text);
+    this.off.textContent = off.length ? `画面外：${off.join('・')}` : '';
   }
 
   private removeItem(it: Item) {
@@ -902,6 +940,7 @@ export class LabelLayer {
     for (const it of this.items) {
       it.bad = 0;
       it.seen = 0;
+      it.offview = false;
       it.collapsed = false;
       it.hist.length = 0;
       it.hasHome = false;
@@ -921,8 +960,8 @@ export class LabelLayer {
     for (const it of this.vis) it.placed = false;
     this.solve(W, H, zones, false, true);
     for (const it of this.vis) {
-      if (!it.tier) continue;
       it.seen++;
+      if (!it.tier) continue;
       // skipped by solve() (no good spot this frame), or only reachable with a very long leader → bad
       if (!it.committed || !it.ok || it.lead > Math.max(190, 0.6 * W)) it.bad++;
     }
@@ -947,7 +986,10 @@ export class LabelLayer {
           it.hasHome = true;
         }
       }
-      it.collapsed = it.tier === 1 && it.seen > 0 && it.bad / it.seen > 0.15;
+      // minor labels: collapsed when they land badly too often, when the scene says so, or when nothing of the part
+      // is ever in view (then the expanded chip names it as 画面外 instead of dropping it silently)
+      it.offview = it.seen === 0;
+      it.collapsed = it.tier === 1 && (it.offview || !!it.collapse || it.bad / it.seen > 0.15);
       if (it.collapsed) n++;
       it.placed = false;
       it.has = false;
@@ -962,6 +1004,8 @@ export class LabelLayer {
   /** Project, lay out & draw. Returns true while labels are still moving (keep rendering). */
   layout(camera: PerspectiveCamera, width: number, height: number, dt: number, state: RigState): boolean {
     this.root.style.display = this.visible && this.items.length ? '' : 'none';
+    this.dirty = false;
+    this.moving = false;
     if (!this.visible || !this.items.length) return false;
     if (this.needMeasure) this.measure();
     this.svg.setAttribute('width', String(width));
@@ -1032,7 +1076,47 @@ export class LabelLayer {
       this.chip.style.display = 'none';
       cs.shown = false;
     }
+    this.placeOffview(chipOn, width, height);
+    this.moving = moving;
     return moving;
+  }
+
+  /** Expanded 「+N」: the names of collapsed parts with nothing in view, in a small note next to the chip. */
+  private placeOffview(chipOn: boolean, W: number, H: number) {
+    const el = this.off;
+    if (!chipOn || !this.expanded || !el.textContent) {
+      if (el.style.display !== 'none') el.style.display = 'none';
+      return;
+    }
+    el.style.display = '';
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    const cs = this.chipState;
+    const zones = this.zones;
+    // next to the chip, clear of the placed labels and the UI (first free candidate; else below the chip)
+    const cx = cs.x + cs.w / 2 - w / 2;
+    const cand: [number, number][] = [
+      [cx, cs.y + cs.h + 4],
+      [cx, cs.y - h - 4],
+      [cs.x + cs.w + 4, cs.y + (cs.h - h) / 2],
+      [cs.x - w - 4, cs.y + (cs.h - h) / 2],
+      [cs.x, cs.y + cs.h + 4],
+      [cs.x + cs.w - w, cs.y + cs.h + 4],
+      [cs.x, cs.y - h - 4],
+      [cs.x + cs.w - w, cs.y - h - 4],
+    ];
+    let bx = Math.max(PAD, Math.min(W - PAD - w, cand[0][0]));
+    let by = Math.max(PAD, Math.min(H - PAD - h, cand[0][1]));
+    for (const [x0, y0] of cand) {
+      const x = Math.max(PAD, Math.min(W - PAD - w, x0));
+      const y = Math.max(PAD, Math.min(H - PAD - h, y0));
+      if (!this.blocked(x, y, w, h, zones) && !(x < cs.x + cs.w && x + w > cs.x && y < cs.y + cs.h && y + h > cs.y)) {
+        bx = x;
+        by = y;
+        break;
+      }
+    }
+    el.style.transform = `translate(${bx.toFixed(1)}px, ${by.toFixed(1)}px)`;
   }
 
   /** Put the 「+N」 chip next to the placed labels, in free space (allocation-free: state in this.cb). */

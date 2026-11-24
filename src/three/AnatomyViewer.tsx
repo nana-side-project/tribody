@@ -2,6 +2,7 @@
 // Default export (lazy-loaded by ./index.tsx). Props: AnatomyViewerProps (./contract.ts).
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AnatomyViewerProps } from './contract';
+import { dataReady, loadData } from './data-access';
 import { Engine, type EngineUiState, type ViewSpec, WebGLUnavailableError } from './engine';
 import type { BasePoseName, CameraPresetName, Pose } from './rig';
 import './viewer.css';
@@ -42,6 +43,7 @@ export default function AnatomyViewer(props: AnatomyViewerProps & { dev?: DevOpt
       muscle: props.muscle,
       exercise: props.exercise,
       highlights: props.highlights,
+      condition: props.condition,
       focus: props.focus,
       labels,
       autoPlay,
@@ -59,6 +61,7 @@ export default function AnatomyViewer(props: AnatomyViewerProps & { dev?: DevOpt
       props.muscle,
       props.exercise,
       JSON.stringify(props.highlights ?? null),
+      props.condition,
       props.focus,
       labels,
       autoPlay,
@@ -93,6 +96,11 @@ export default function AnatomyViewer(props: AnatomyViewerProps & { dev?: DevOpt
         },
         onUi: setUi,
         onError: () => setError('lost'),
+        // the browser restored the context: rebuild the viewer by itself (no tap needed)
+        onRestored: () => {
+          setError(null);
+          setGen((g) => g + 1);
+        },
       });
     } catch (e) {
       setError(e instanceof WebGLUnavailableError ? 'nogl' : 'nogl');
@@ -112,7 +120,13 @@ export default function AnatomyViewer(props: AnatomyViewerProps & { dev?: DevOpt
     const en = engineRef.current;
     if (!en) return;
     en.uiControls = controls !== false;
-    en.configure(spec);
+    // exercise targets / muscle regions come from the content data (already in the app bundle: a microtask):
+    // configure once with it instead of configuring twice
+    if (dataReady()) en.configure(spec);
+    else
+      void loadData().then(() => {
+        if (engineRef.current === en && !en.isDisposed) en.configure(spec);
+      });
   }, [spec, gen, controls]);
 
   // sync the scrubber when the bar (re)appears

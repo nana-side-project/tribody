@@ -50,17 +50,17 @@ const THOR: [number, number, number][] = [
   [1.425, -0.04, -0.098],
   [1.402, -0.048, -0.108],
   [1.378, -0.055, -0.115],
-  [1.353, -0.06, -0.12],
-  [1.327, -0.063, -0.123],
-  [1.3, -0.064, -0.125],
-  [1.273, -0.064, -0.125],
-  [1.247, -0.062, -0.123],
-  [1.222, -0.059, -0.12],
-  [1.197, -0.055, -0.115],
-  [1.172, -0.05, -0.11],
+  [1.353, -0.06, -0.116],
+  [1.327, -0.063, -0.118],
+  [1.3, -0.064, -0.12],
+  [1.273, -0.064, -0.12],
+  [1.247, -0.062, -0.119],
+  [1.222, -0.059, -0.117],
+  [1.197, -0.055, -0.112],
+  [1.172, -0.05, -0.107],
 ];
 const LUMB: [number, number, number][] = [
-  [1.145, -0.044, -0.104],
+  [1.145, -0.044, -0.101],
   [1.115, -0.036, -0.099],
   [1.085, -0.03, -0.095],
   [1.056, -0.03, -0.095],
@@ -69,13 +69,13 @@ const LUMB: [number, number, number][] = [
 
 function vertebra(y: number, zb: number, zs: number, bodyR: number, bodyH: number, tpLat: number, tpZ: number, spDrop: number, tpR: number, spR: number) {
   const g: BufferGeometry[] = [];
-  g.push(capsule(M(y - bodyH / 2, zb), M(y + bodyH / 2, zb), bodyR, bodyR, 14, 3));
+  g.push(capsule(M(y - bodyH / 2, zb), M(y + bodyH / 2, zb), bodyR, bodyR, 9, 2));
   // pedicles/arch
-  g.push(capsule(new Vector3(-bodyR * 0.55, y, zb - bodyR * 0.8), new Vector3(bodyR * 0.55, y, zb - bodyR * 0.8), spR * 1.1, spR * 1.1, 8, 3));
+  g.push(capsule(new Vector3(-bodyR * 0.55, y, zb - bodyR * 0.8), new Vector3(bodyR * 0.55, y, zb - bodyR * 0.8), spR * 1.1, spR * 1.1, 5, 1));
   // spinous
-  g.push(capsule(M(y, zb - bodyR * 0.9), M(y - spDrop, zs), spR * 1.2, spR, 8, 3));
+  g.push(capsule(M(y, zb - bodyR * 0.9), M(y - spDrop, zs), spR * 1.2, spR, 6, 2));
   // transverse processes
-  for (const s of [-1, 1]) g.push(capsule(new Vector3(s * bodyR * 0.5, y, zb - bodyR * 0.9), new Vector3(s * tpLat, y + 0.002, tpZ), tpR, tpR * 0.8, 8, 3));
+  for (const s of [-1, 1]) g.push(capsule(new Vector3(s * bodyR * 0.5, y, zb - bodyR * 0.9), new Vector3(s * tpLat, y + 0.002, tpZ), tpR, tpR * 0.8, 5, 1));
   return g;
 }
 
@@ -88,10 +88,10 @@ const RIBS: [number, number, number, number, number][] = [
   [0.132, -0.115, 0.102, 0.08, 2.5],
   [0.14, -0.118, 0.104, 0.088, 2.5],
   [0.145, -0.12, 0.103, 0.095, 2.5],
-  [0.147, -0.12, 0.098, 0.1, 2.35],
-  [0.146, -0.118, 0.09, 0.1, 2.3],
-  [0.141, -0.115, 0.08, 0.095, 2.25],
-  [0.132, -0.11, 0.06, 0.075, 1.9],
+  [0.143, -0.12, 0.098, 0.1, 2.35],
+  [0.142, -0.118, 0.09, 0.1, 2.3],
+  [0.137, -0.115, 0.08, 0.095, 2.25],
+  [0.128, -0.11, 0.06, 0.075, 1.9],
   [0.115, -0.105, 0.03, 0.05, 1.5],
 ];
 const STERNAL: [number, number][] = [
@@ -211,14 +211,14 @@ export const BONE_PIECES: BonePieceDef[] = [
     mat: 'bone',
     midline: true,
     build: () => [
-      ellipsoid(M(1.686, -0.014), [0.068, 0.071, 0.086]),
-      ellipsoid(M(1.656, 0.042), [0.056, 0.05, 0.042]),
+      ellipsoid(M(1.686, -0.006), [0.068, 0.071, 0.08], undefined, 20, 14),
+      ellipsoid(M(1.656, 0.042), [0.056, 0.05, 0.042], undefined, 16, 12),
       ellipsoid(M(1.603, 0.052), [0.04, 0.03, 0.03]),
-      ellipsoid(R(0.05, 1.624, 0.036), [0.013, 0.012, 0.028]),
-      ellipsoid(R(-0.05, 1.624, 0.036), [0.013, 0.012, 0.028]),
-      ellipsoid(M(1.64, -0.072), [0.05, 0.036, 0.026]),
-      sphere(R(0.05, 1.6, -0.027), 0.008),
-      sphere(R(-0.05, 1.6, -0.027), 0.008),
+      ellipsoid(R(0.046, 1.624, 0.033), [0.011, 0.011, 0.026]),
+      ellipsoid(R(-0.046, 1.624, 0.033), [0.011, 0.011, 0.026]),
+      ellipsoid(M(1.64, -0.066), [0.04, 0.036, 0.019]),
+      sphere(R(0.05, 1.6, -0.023), 0.008),
+      sphere(R(-0.05, 1.6, -0.023), 0.008),
     ],
   },
   {
@@ -238,7 +238,7 @@ export const BONE_PIECES: BonePieceDef[] = [
     mat: 'bone',
     midline: true,
     build: () => [
-      tube([R(-0.048, 1.61, -0.006), R(-0.046, 1.562, 0.0), R(-0.03, 1.541, 0.05), M(1.534, 0.072), R(0.03, 1.541, 0.05), R(0.046, 1.562, 0.0), R(0.048, 1.61, -0.006)], 0.0075, { n: 40 }),
+      tube([R(-0.048, 1.61, -0.006), R(-0.046, 1.562, 0.0), R(-0.03, 1.541, 0.05), M(1.534, 0.072), R(0.03, 1.541, 0.05), R(0.046, 1.562, 0.0), R(0.048, 1.61, -0.006)], 0.0075, { n: 22 }),
       // mandible body (fills the gap up to the teeth so the jaw doesn't read as a loose hoop) + chin
       ellipsoid(R(0.036, 1.556, 0.032), [0.008, 0.017, 0.022], deg(0, -38, 0)),
       ellipsoid(R(-0.036, 1.556, 0.032), [0.008, 0.017, 0.022], deg(0, 38, 0)),
@@ -255,9 +255,9 @@ export const BONE_PIECES: BonePieceDef[] = [
       CERV.flatMap(([y, zb, zs], i) =>
         i === 0
           ? [
-              tube([R(-0.016, y, zb - 0.01), R(-0.02, y, zb - 0.03), M(y, zs), R(0.02, y, zb - 0.03), R(0.016, y, zb - 0.01), M(y, zb + 0.006)], 0.0038, { closed: true, n: 30 }),
-              capsule(R(0.018, y, zb - 0.012), R(0.036, y, zb - 0.008), 0.0035, 0.003),
-              capsule(R(-0.018, y, zb - 0.012), R(-0.036, y, zb - 0.008), 0.0035, 0.003),
+              tube([R(-0.016, y, zb - 0.01), R(-0.02, y, zb - 0.03), M(y, zs), R(0.02, y, zb - 0.03), R(0.016, y, zb - 0.01), M(y, zb + 0.006)], 0.0038, { closed: true, n: 18, radial: 5 }),
+              capsule(R(0.018, y, zb - 0.012), R(0.036, y, zb - 0.008), 0.0035, 0.003, 5, 1),
+              capsule(R(-0.018, y, zb - 0.012), R(-0.036, y, zb - 0.008), 0.0035, 0.003, 5, 1),
             ]
           : vertebra(y, zb, zs, 0.0115, 0.011, 0.026, zb - 0.008, i === 6 ? 0.008 : 0.004, 0.0032, 0.0036),
       ),
@@ -285,7 +285,7 @@ export const BONE_PIECES: BonePieceDef[] = [
       const g: BufferGeometry[] = [];
       const ys = [1.16, ...LUMB.slice(0, 4).map(([y], i) => (y + LUMB[i + 1][0]) / 2), 1.015];
       const zs = [-0.047, ...LUMB.slice(0, 4).map(([, z], i) => (z + LUMB[i + 1][1]) / 2), -0.04];
-      ys.forEach((y, i) => g.push(capsule(M(y - 0.0025, zs[i]), M(y + 0.0025, zs[i]), 0.0205, 0.0205, 14, 2)));
+      ys.forEach((y, i) => g.push(capsule(M(y - 0.0025, zs[i]), M(y + 0.0025, zs[i]), 0.0205, 0.0205, 12, 2)));
       return g;
     },
   },
@@ -326,7 +326,8 @@ export const BONE_PIECES: BonePieceDef[] = [
     part: 'ribs',
     seg: 'thorax',
     mat: 'bone',
-    build: () => RIBS.map((_, i) => tube(ribCurve(i), i === 0 ? 0.0055 : 0.0045, { n: 34, radial: 6 })),
+    // no end caps: the rib heads sit in the vertebrae, the front ends in the costal cartilage
+    build: () => RIBS.map((_, i) => tube(ribCurve(i), i === 0 ? 0.0055 : 0.0045, { n: 18, radial: 4, caps: false })),
   },
   {
     part: 'costal_cartilage',
@@ -339,7 +340,7 @@ export const BONE_PIECES: BonePieceDef[] = [
         const [ys, zs] = STERNAL[i];
         const mid = new Vector3().lerpVectors(end, R(0.022, ys, zs), 0.5);
         mid.z += 0.006;
-        g.push(tube([end, mid, R(0.02, ys, zs)], 0.004, { n: 12, radial: 6 }));
+        g.push(tube([end, mid, R(0.02, ys, zs)], 0.004, { n: 7, radial: 4, caps: false }));
       }
       const joins: [number, Vector3][] = [
         [7, R(0.062, 1.24, 0.096)],
@@ -348,7 +349,7 @@ export const BONE_PIECES: BonePieceDef[] = [
       ];
       for (const [i, to] of joins) {
         const end = ribPoint(i, RIBS[i][4]);
-        g.push(tube([end, new Vector3().lerpVectors(end, to, 0.5).add(new Vector3(0, 0.004, 0.006)), to], 0.0038, { n: 12, radial: 6 }));
+        g.push(tube([end, new Vector3().lerpVectors(end, to, 0.5).add(new Vector3(0, 0.004, 0.006)), to], 0.0038, { n: 7, radial: 4, caps: false }));
       }
       return g;
     },
@@ -361,13 +362,13 @@ export const BONE_PIECES: BonePieceDef[] = [
     build: () => [
       slab(iliumGrid(), 0.007),
       // iliac crest (thick rounded rim: ASIS → tubercle → PSIS) so the wing reads as bone, not a flat disc
-      tube(ILIUM_TOP.map(([x, y, z]) => R(x, y, z)), [0.0052, 0.0058, 0.0066, 0.0068, 0.0064, 0.006, 0.0058, 0.0056], { n: 40, radial: 8 }),
+      tube(ILIUM_TOP.map(([x, y, z]) => R(x, y, z)), [0.0052, 0.0058, 0.0066, 0.0068, 0.0064, 0.006, 0.0058, 0.0056], { n: 22, radial: 6 }),
       // anterior border: ASIS → AIIS → acetabular rim
-      tube([R(0.12, 1.0, 0.065), R(0.108, 0.982, 0.06), R(0.103, 0.966, 0.058), R(0.097, 0.948, 0.04)], [0.0048, 0.0042, 0.0052, 0.006], { n: 16 }),
+      tube([R(0.12, 1.0, 0.065), R(0.108, 0.982, 0.06), R(0.103, 0.966, 0.058), R(0.097, 0.948, 0.04)], [0.0048, 0.0042, 0.0052, 0.006], { n: 9 }),
       // posterior border: PSIS → PIIS → greater sciatic notch → posterior acetabulum
-      tube([R(0.045, 1.019, -0.091), R(0.05, 0.99, -0.087), R(0.066, 0.952, -0.072), R(0.088, 0.93, -0.035)], [0.0055, 0.005, 0.0055, 0.0075], { n: 18 }),
+      tube([R(0.045, 1.019, -0.091), R(0.05, 0.99, -0.087), R(0.066, 0.952, -0.072), R(0.088, 0.93, -0.035)], [0.0055, 0.005, 0.0055, 0.0075], { n: 10 }),
       // iliac pillar: the thick column from the acetabulum up to the iliac tubercle
-      tube([R(0.104, 0.94, 0.004), R(0.122, 0.995, 0.0), R(0.138, 1.055, -0.008)], [0.0095, 0.0068, 0.0052], { n: 16 }),
+      tube([R(0.104, 0.94, 0.004), R(0.122, 0.995, 0.0), R(0.138, 1.055, -0.008)], [0.0095, 0.0068, 0.0052], { n: 9 }),
       sphere(R(0.12, 1.0, 0.065), 0.0062),
       sphere(R(0.045, 1.019, -0.091), 0.0062),
     ],
@@ -378,10 +379,10 @@ export const BONE_PIECES: BonePieceDef[] = [
     mat: 'bone',
     build: () => {
       // partial-sphere cup around the femoral head, dome pointing superomedially (+x = medial on the right)
-      const g = new SphereGeometry(0.0305, 22, 10, 0, Math.PI * 2, 0, Math.PI * 0.56);
+      const g = new SphereGeometry(0.0305, 16, 6, 0, Math.PI * 2, 0, Math.PI * 0.56);
       g.applyQuaternion(new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), new Vector3(0.42, 0.86, -0.22).normalize()));
       g.translate(-0.085, 0.92, 0);
-      return [g, tube(ringPts(R(0.085, 0.92, 0), new Vector3(-0.42, -0.86, 0.22).normalize(), 0.03, 0.0058), 0.0035, { closed: true, n: 36, radial: 6 })];
+      return [g, tube(ringPts(R(0.085, 0.92, 0), new Vector3(-0.42, -0.86, 0.22).normalize(), 0.03, 0.0058), 0.0035, { closed: true, n: 24, radial: 4 })];
     },
   },
   {
@@ -389,9 +390,9 @@ export const BONE_PIECES: BonePieceDef[] = [
     seg: 'pelvis',
     mat: 'bone',
     build: () => [
-      tube([R(0.08, 0.912, 0.024), R(0.052, 0.904, 0.057), R(0.022, 0.892, 0.068)], 0.0075, { n: 14 }),
+      tube([R(0.08, 0.912, 0.024), R(0.052, 0.904, 0.057), R(0.022, 0.892, 0.068)], 0.0075, { n: 9 }),
       ellipsoid(R(0.018, 0.882, 0.066), [0.011, 0.017, 0.009]),
-      tube([R(0.02, 0.868, 0.062), R(0.034, 0.852, 0.045), R(0.048, 0.839, 0.012)], 0.0058, { n: 14 }),
+      tube([R(0.02, 0.868, 0.062), R(0.034, 0.852, 0.045), R(0.048, 0.839, 0.012)], 0.0058, { n: 9 }),
     ],
   },
   {
@@ -399,7 +400,7 @@ export const BONE_PIECES: BonePieceDef[] = [
     seg: 'pelvis',
     mat: 'bone',
     build: () => [
-      tube([R(0.048, 0.839, 0.012), R(0.058, 0.834, -0.022), R(0.071, 0.864, -0.045), R(0.08, 0.898, -0.032), R(0.086, 0.914, -0.014)], 0.0078, { n: 20 }),
+      tube([R(0.048, 0.839, 0.012), R(0.058, 0.834, -0.022), R(0.071, 0.864, -0.045), R(0.08, 0.898, -0.032), R(0.086, 0.914, -0.014)], 0.0078, { n: 12 }),
       capsule(R(0.062, 0.886, -0.05), R(0.045, 0.882, -0.06), 0.0045, 0.0025),
     ],
   },
@@ -409,7 +410,7 @@ export const BONE_PIECES: BonePieceDef[] = [
     part: 'clavicle',
     seg: 'clavicle',
     mat: 'bone',
-    build: () => [tube([R(0.024, 1.432, 0.062), R(0.06, 1.442, 0.068), R(0.105, 1.448, 0.048), R(0.145, 1.455, 0.018), R(0.173, 1.456, -0.004)], [0.0075, 0.0062, 0.006, 0.0065, 0.007], { n: 26 })],
+    build: () => [tube([R(0.024, 1.432, 0.062), R(0.06, 1.442, 0.068), R(0.105, 1.448, 0.048), R(0.145, 1.455, 0.018), R(0.173, 1.456, -0.004)], [0.0075, 0.0062, 0.006, 0.0065, 0.007], { n: 16 })],
   },
   {
     part: 'scapula',
@@ -417,17 +418,17 @@ export const BONE_PIECES: BonePieceDef[] = [
     mat: 'bone',
     build: () => [
       slab(scapulaGrid(), 0.0045),
-      tube([R(0.075, 1.382, -0.107), R(0.12, 1.413, -0.096), R(0.162, 1.438, -0.062), R(0.178, 1.448, -0.032)], [0.0045, 0.0058, 0.0065, 0.0065], { n: 22 }),
+      tube([R(0.075, 1.382, -0.107), R(0.12, 1.413, -0.096), R(0.162, 1.438, -0.062), R(0.178, 1.448, -0.032)], [0.0045, 0.0058, 0.0065, 0.0065], { n: 12 }),
       ellipsoid(R(0.141, 1.4, -0.022), [0.011, 0.017, 0.012]),
       sphere(R(0.077, 1.435, -0.09), 0.004),
       sphere(R(0.086, 1.236, -0.104), 0.0045),
     ],
   },
   { part: 'acromion', seg: 'scapula', mat: 'bone', build: () => [ellipsoid(R(0.184, 1.451, -0.008), [0.017, 0.006, 0.02], deg(0, 0, 8))] },
-  { part: 'coracoid', seg: 'scapula', mat: 'bone', build: () => [tube([R(0.138, 1.42, -0.01), R(0.141, 1.43, 0.012), R(0.151, 1.42, 0.034)], 0.0045, { n: 12 })] },
+  { part: 'coracoid', seg: 'scapula', mat: 'bone', build: () => [tube([R(0.138, 1.42, -0.01), R(0.141, 1.43, 0.012), R(0.151, 1.42, 0.034)], 0.0045, { n: 7, radial: 5 })] },
   { part: 'glenoid', seg: 'scapula', mat: 'cartilage', build: () => [ellipsoid(R(0.151, 1.405, -0.012), [0.0035, 0.019, 0.013], deg(0, -20, 0))] },
   // ── arm
-  { part: 'humeral_head', seg: 'humerus', mat: 'bone', build: () => [sphere(R(0.167, 1.409, -0.007), 0.0235, 20, 14)] },
+  { part: 'humeral_head', seg: 'humerus', mat: 'bone', build: () => [sphere(R(0.167, 1.409, -0.007), 0.0235, 16, 10)] },
   { part: 'greater_tubercle', seg: 'humerus', mat: 'bone', build: () => [ellipsoid(R(0.189, 1.405, -0.004), [0.011, 0.017, 0.014])] },
   {
     part: 'humerus',
@@ -435,9 +436,9 @@ export const BONE_PIECES: BonePieceDef[] = [
     mat: 'bone',
     build: () => [
       ellipsoid(R(0.18, 1.396, 0.016), [0.007, 0.008, 0.007]),
-      tube([R(0.182, 1.392, -0.006), R(0.189, 1.26, -0.006), R(0.193, 1.12, -0.012)], [0.014, 0.0112, 0.0122], { n: 20, radial: 10 }),
+      tube([R(0.182, 1.392, -0.006), R(0.189, 1.26, -0.006), R(0.193, 1.12, -0.012)], [0.014, 0.0112, 0.0122], { n: 12, radial: 8 }),
       ellipsoid(R(0.191, 1.094, -0.013), [0.031, 0.011, 0.014]),
-      capsule(R(0.17, 1.088, -0.008), R(0.212, 1.088, -0.006), 0.0098, 0.0092),
+      capsule(R(0.17, 1.088, -0.008), R(0.212, 1.088, -0.006), 0.0098, 0.0092, 8, 2),
       sphere(R(0.225, 1.095, -0.015), 0.006),
       sphere(R(0.156, 1.094, -0.02), 0.0075),
     ],
@@ -448,7 +449,7 @@ export const BONE_PIECES: BonePieceDef[] = [
     mat: 'bone',
     build: () => [
       ellipsoid(R(0.185, 1.098, -0.033), [0.009, 0.013, 0.01]),
-      tube([R(0.183, 1.085, -0.024), R(0.2, 0.96, -0.017), R(0.217, 0.852, -0.011)], [0.0092, 0.0068, 0.0062], { n: 18 }),
+      tube([R(0.183, 1.085, -0.024), R(0.2, 0.96, -0.017), R(0.217, 0.852, -0.011)], [0.0092, 0.0068, 0.0062], { n: 10 }),
       sphere(R(0.218, 0.848, -0.01), 0.0075),
     ],
   },
@@ -457,8 +458,8 @@ export const BONE_PIECES: BonePieceDef[] = [
     seg: 'forearm',
     mat: 'bone',
     build: () => [
-      capsule(R(0.211, 1.077, -0.008), R(0.211, 1.066, -0.007), 0.0095, 0.009),
-      tube([R(0.209, 1.064, -0.006), R(0.228, 0.96, 0.0), R(0.254, 0.862, 0.002)], [0.0058, 0.0075, 0.0105], { n: 18 }),
+      capsule(R(0.211, 1.077, -0.008), R(0.211, 1.066, -0.007), 0.0095, 0.009, 8, 2),
+      tube([R(0.209, 1.064, -0.006), R(0.228, 0.96, 0.0), R(0.254, 0.862, 0.002)], [0.0058, 0.0075, 0.0105], { n: 10 }),
       ellipsoid(R(0.252, 0.85, 0.002), [0.017, 0.009, 0.012]),
     ],
   },
@@ -472,25 +473,25 @@ export const BONE_PIECES: BonePieceDef[] = [
       for (let i = 0; i < 4; i++) {
         const lb = 0.258 - i * 0.011;
         const lh = 0.266 - i * 0.0135;
-        g.push(capsule(R(lb, 0.81, 0.004), R(lh, 0.742, 0.007), 0.0045, 0.0048, 8, 3));
-        g.push(capsule(R(lh, 0.736, 0.008), R(lh + 0.001, 0.736 - lens[i], 0.012), 0.0042, 0.0034, 8, 3));
+        g.push(capsule(R(lb, 0.81, 0.004), R(lh, 0.742, 0.007), 0.0045, 0.0048, 5, 1));
+        g.push(capsule(R(lh, 0.736, 0.008), R(lh + 0.001, 0.736 - lens[i], 0.012), 0.0042, 0.0034, 5, 2));
       }
       // thumb in the palm plane (follows the skin thumb in rig.ts SKIN_SHAPES)
-      g.push(capsule(R(0.268, 0.812, 0.004), R(0.28, 0.779, 0.007), 0.005, 0.005, 8, 3));
-      g.push(capsule(R(0.282, 0.774, 0.007), R(0.291, 0.741, 0.008), 0.0044, 0.0036, 8, 3));
+      g.push(capsule(R(0.268, 0.812, 0.004), R(0.28, 0.779, 0.007), 0.005, 0.005, 5, 1));
+      g.push(capsule(R(0.282, 0.774, 0.007), R(0.291, 0.741, 0.008), 0.0044, 0.0036, 5, 2));
       return g;
     },
   },
   // ── leg
-  { part: 'femoral_head', seg: 'femur', mat: 'bone', build: () => [sphere(R(0.085, 0.92, 0.0), 0.0235, 20, 14)] },
+  { part: 'femoral_head', seg: 'femur', mat: 'bone', build: () => [sphere(R(0.085, 0.92, 0.0), 0.0235, 16, 10)] },
   { part: 'greater_trochanter', seg: 'femur', mat: 'bone', build: () => [ellipsoid(R(0.146, 0.902, -0.01), [0.014, 0.024, 0.018])] },
   {
     part: 'femur',
     seg: 'femur',
     mat: 'bone',
     build: () => [
-      capsule(R(0.092, 0.916, 0.002), R(0.132, 0.899, -0.005), 0.0135, 0.015, 12, 3),
-      tube([R(0.138, 0.88, -0.008), R(0.127, 0.8, -0.002), R(0.11, 0.68, 0.004), R(0.096, 0.565, 0.0)], [0.017, 0.0142, 0.0136, 0.016], { n: 26, radial: 10 }),
+      capsule(R(0.092, 0.916, 0.002), R(0.132, 0.899, -0.005), 0.0135, 0.015, 9, 2),
+      tube([R(0.138, 0.88, -0.008), R(0.127, 0.8, -0.002), R(0.11, 0.68, 0.004), R(0.096, 0.565, 0.0)], [0.017, 0.0142, 0.0136, 0.016], { n: 14, radial: 8 }),
       sphere(R(0.1, 0.857, -0.012), 0.0085),
       ellipsoid(R(0.09, 0.548, -0.004), [0.03, 0.03, 0.021]),
     ],
@@ -518,12 +519,12 @@ export const BONE_PIECES: BonePieceDef[] = [
     build: () => [
       ellipsoid(R(0.088, 0.462, -0.004), [0.036, 0.02, 0.025]),
       ellipsoid(R(0.09, 0.447, 0.026), [0.01, 0.013, 0.008]),
-      tube([R(0.088, 0.452, 0.0), R(0.087, 0.3, 0.004), R(0.085, 0.13, 0.0)], [0.018, 0.0125, 0.0145], { n: 24, radial: 10 }),
+      tube([R(0.088, 0.452, 0.0), R(0.087, 0.3, 0.004), R(0.085, 0.13, 0.0)], [0.018, 0.0125, 0.0145], { n: 14, radial: 8 }),
       ellipsoid(R(0.086, 0.096, -0.003), [0.022, 0.017, 0.02]),
     ],
   },
-  { part: 'medial_malleolus', seg: 'tibia', mat: 'bone', build: () => [capsule(R(0.068, 0.105, 0.0), R(0.062, 0.07, 0.003), 0.0075, 0.007)] },
-  { part: 'fibula', seg: 'tibia', mat: 'bone', build: () => [tube([R(0.124, 0.45, -0.022), R(0.122, 0.26, -0.022), R(0.116, 0.09, -0.02)], [0.0065, 0.0055, 0.0065], { n: 22 })] },
+  { part: 'medial_malleolus', seg: 'tibia', mat: 'bone', build: () => [capsule(R(0.068, 0.105, 0.0), R(0.062, 0.07, 0.003), 0.0075, 0.007, 8, 2)] },
+  { part: 'fibula', seg: 'tibia', mat: 'bone', build: () => [tube([R(0.124, 0.45, -0.022), R(0.122, 0.26, -0.022), R(0.116, 0.09, -0.02)], [0.0065, 0.0055, 0.0065], { n: 12, radial: 5 })] },
   { part: 'fibular_head', seg: 'tibia', mat: 'bone', build: () => [sphere(R(0.125, 0.455, -0.022), 0.0095)] },
   { part: 'lateral_malleolus', seg: 'tibia', mat: 'bone', build: () => [ellipsoid(R(0.118, 0.07, -0.021), [0.0075, 0.017, 0.011])] },
   // ── foot
@@ -564,10 +565,10 @@ export const BONE_PIECES: BonePieceDef[] = [
       ];
       const g: BufferGeometry[] = [];
       for (const [a, b, r] of mt) {
-        g.push(capsule(a, b, r, r * 0.85, 8, 3));
-        g.push(sphere(b, r * 1.25, 10, 8));
+        g.push(capsule(a, b, r, r * 0.85, 6, 1));
+        g.push(sphere(b, r * 1.25, 8, 6));
       }
-      g.push(sphere(R(0.131, 0.02, 0.06), 0.0068));
+      g.push(sphere(R(0.127, 0.022, 0.06), 0.0062)); // 5th metatarsal tuberosity
       return g;
     },
   },
@@ -576,12 +577,12 @@ export const BONE_PIECES: BonePieceDef[] = [
     seg: 'toes',
     mat: 'bone',
     build: () => [
-      capsule(R(0.064, 0.015, 0.146), R(0.063, 0.013, 0.172), 0.0075, 0.007, 8, 3),
-      capsule(R(0.063, 0.013, 0.176), R(0.062, 0.012, 0.192), 0.0068, 0.0055, 8, 3),
-      capsule(R(0.08, 0.013, 0.148), R(0.082, 0.01, 0.184), 0.0048, 0.004, 8, 3),
-      capsule(R(0.095, 0.012, 0.14), R(0.097, 0.01, 0.177), 0.0047, 0.004, 8, 3),
-      capsule(R(0.11, 0.012, 0.13), R(0.112, 0.01, 0.165), 0.0045, 0.0038, 8, 3),
-      capsule(R(0.125, 0.012, 0.119), R(0.127, 0.009, 0.15), 0.0043, 0.0036, 8, 3),
+      capsule(R(0.064, 0.015, 0.146), R(0.063, 0.013, 0.172), 0.0075, 0.007, 6, 1),
+      capsule(R(0.063, 0.013, 0.176), R(0.062, 0.012, 0.192), 0.0068, 0.0055, 6, 1),
+      capsule(R(0.08, 0.013, 0.148), R(0.082, 0.01, 0.184), 0.0048, 0.004, 6, 1),
+      capsule(R(0.095, 0.012, 0.14), R(0.097, 0.01, 0.177), 0.0047, 0.004, 6, 1),
+      capsule(R(0.11, 0.012, 0.13), R(0.112, 0.01, 0.165), 0.0045, 0.0038, 6, 1),
+      capsule(R(0.125, 0.012, 0.119), R(0.127, 0.009, 0.15), 0.0043, 0.0036, 6, 1),
     ],
   },
 ];

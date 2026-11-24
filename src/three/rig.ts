@@ -441,6 +441,24 @@ export const RIG_OPTIONS = {
   scapGain: 0.22,
   scapMax: 30,
   protrGain: 0.3,
+  /**
+   * Retraction (protr −) saturates smoothly: effective girdle angle = −R·tanh(−protr / R). The girdle turns about
+   * the sternoclavicular joint, ~18 cm in front of the medial border, so a linear −20° moved the border 6 cm and
+   * onto the spinous processes; now −10 → −8.7°, −20 → −13°, −30 → −14.5° (border ≥ ~3 cm from the midline).
+   */
+  retractR: 15,
+  /**
+   * Share of the clavicle's elevation that also ROTATES the scapula. Shrug / depression mostly translate the
+   * scapula (it slides up and down the back); rotating it rigidly with the clavicle swung the inferior angle ~8 cm
+   * sideways per 25° of shrug.
+   */
+  elevRot: 0.2,
+  /**
+   * Share of the clavicle's PROTRACTION that also turns the scapula. Turning it fully with the clavicle lifted the
+   * medial border ~5 cm off the ribs at protr +25 (winging); 0.65 keeps it gliding ~1 cm over the ribcage.
+   * Retraction turns it fully (that keeps the border on the flat back).
+   */
+  protrRot: 0.65,
 };
 
 /** Arm elevation (deg, 0 = hanging, 180 = overhead) for given shoulder DOFs. */
@@ -494,7 +512,8 @@ export function solveFK(vecIn: PoseVec, state: RigState): RigState {
     const clav = seg('clavicle');
     const scap = seg('scapula');
     place(state, clav, I.thorax, K.off.clavicle);
-    // girdle base: explicit protraction / elevation about the sternoclavicular joint
+    if (protr < 0) protr = -RIG_OPTIONS.retractR * Math.tanh(-protr / RIG_OPTIONS.retractR);
+    // girdle base: explicit protraction / elevation about the sternoclavicular joint (the clavicle)
     qAxis(_qb, AY, sg * protr).multiply(qAxis(_qa, AZ, -sg * elev));
     // upward rotation about the scapular-plane normal through the middle of the scapular spine
     qAxis(_q, K.scapNormal, sg * upRot);
@@ -503,6 +522,9 @@ export function solveFK(vecIn: PoseVec, state: RigState): RigState {
     _qc.setFromUnitVectors(K.acDir, _v.normalize());
     state.quat[clav].copy(state.quat[I.thorax]).multiply(_qb).multiply(_qc);
     place(state, scap, clav, K.off.scapula);
+    // the scapula turns with the clavicle's protraction (it slides around the ribcage) but only partly with its
+    // elevation (it translates up / down the back): the AC joint stays connected, the AC is its frame origin
+    qAxis(_qb, AY, sg * protr * (protr > 0 ? RIG_OPTIONS.protrRot : 1)).multiply(qAxis(_qa, AZ, -sg * elev * RIG_OPTIONS.elevRot));
     state.quat[scap].copy(state.quat[I.thorax]).multiply(_qb).multiply(_q);
     // humerus: orientation relative to the THORAX, position at the glenoid
     const hum = seg('humerus');
@@ -556,19 +578,39 @@ export type SkinShapeDef =
   | { seg: BaseSeg; kind: 'capsule'; a: Vec3; b: Vec3; ra: number; rb: number; pair?: boolean; loft?: boolean }
   | { seg: BaseSeg; kind: 'ellipsoid'; c: Vec3; r: Vec3; rot?: Vec3; pair?: boolean; loft?: boolean };
 
-/** Smooth mannequin volumes (lateral-positive rest coords). `pair` = axial shape duplicated on both sides. */
+/**
+ * Smooth mannequin volumes (lateral-positive rest coords). `pair` = axial shape duplicated on both sides.
+ * Shapes without `loft` are drawn (together with the lofted trunk / arm / leg tubes of skin-loft.ts) and every shape
+ * grounds the figure, so a drawn shape is also a contact surface. The drawn skin covers the bones with a few mm to
+ * spare: probe it with shots/qa3-fix-body/probe/skin.ts (bone vertices outside the visible skin, per pose).
+ */
 export const SKIN_SHAPES: SkinShapeDef[] = [
-  // head & neck
+  // head & neck (the back of the main ellipsoid is the supine head contact: the cranium was moved inside it instead)
   { seg: 'head', kind: 'ellipsoid', c: [0, 1.668, 0.006], r: [0.077, 0.1, 0.097] },
-  { seg: 'head', kind: 'ellipsoid', c: [0, 1.588, 0.042], r: [0.055, 0.05, 0.058] },
+  { seg: 'head', kind: 'ellipsoid', c: [0, 1.584, 0.03], r: [0.068, 0.054, 0.07] },
+  // occiput + mastoids (the lower back of the skull), jaw line down to the chin
+  { seg: 'head', kind: 'ellipsoid', c: [0, 1.62, -0.03], r: [0.07, 0.05, 0.058] },
+  { seg: 'head', kind: 'ellipsoid', c: [0, 1.552, 0.035], r: [0.056, 0.032, 0.062], rot: [19.3, 0, 0] },
   { seg: 'neck', kind: 'capsule', a: [0, 1.45, -0.03], b: [0, 1.6, -0.006], ra: 0.056, rb: 0.05, loft: true },
   // trunk
   { seg: 'thorax', kind: 'ellipsoid', c: [0, 1.302, -0.008], r: [0.148, 0.188, 0.116], loft: true },
   { seg: 'thorax', kind: 'ellipsoid', c: [0, 1.4, -0.02], r: [0.13, 0.07, 0.095], loft: true },
+  // shoulder top (trapezius) and the clavicle ridge, both riding the clavicle
   { seg: 'clavicle', kind: 'capsule', a: [0.045, 1.462, -0.035], b: [0.17, 1.448, -0.022], ra: 0.042, rb: 0.04 },
+  { seg: 'clavicle', kind: 'capsule', a: [0.03, 1.437, 0.064], b: [0.105, 1.449, 0.047], ra: 0.019, rb: 0.018 },
+  { seg: 'clavicle', kind: 'capsule', a: [0.105, 1.449, 0.047], b: [0.168, 1.455, 0.0], ra: 0.018, rb: 0.02 },
+  // over the spine of the scapula / supraspinatus (rides the scapula: shrug, protraction, upward rotation)
+  { seg: 'scapula', kind: 'capsule', a: [0.08, 1.39, -0.098], b: [0.13, 1.42, -0.08], ra: 0.024, rb: 0.023 },
+  { seg: 'scapula', kind: 'capsule', a: [0.13, 1.42, -0.08], b: [0.17, 1.445, -0.04], ra: 0.023, rb: 0.022 },
+  // superior angle (levator scapulae), inferior angle + lateral border (teres major), coracoid (front of the shoulder)
+  { seg: 'scapula', kind: 'capsule', a: [0.081, 1.428, -0.083], b: [0.08, 1.39, -0.098], ra: 0.014, rb: 0.016 },
+  { seg: 'scapula', kind: 'capsule', a: [0.089, 1.242, -0.098], b: [0.128, 1.31, -0.062], ra: 0.012, rb: 0.016 },
+  { seg: 'scapula', kind: 'capsule', a: [0.128, 1.31, -0.062], b: [0.147, 1.378, -0.031], ra: 0.016, rb: 0.014 },
+  { seg: 'scapula', kind: 'capsule', a: [0.14, 1.425, 0.0], b: [0.152, 1.42, 0.035], ra: 0.016, rb: 0.014 },
   { seg: 'lumbar', kind: 'ellipsoid', c: [0, 1.095, -0.006], r: [0.128, 0.115, 0.098], loft: true },
   { seg: 'pelvis', kind: 'ellipsoid', c: [0, 0.958, -0.008], r: [0.163, 0.112, 0.108], loft: true },
-  { seg: 'pelvis', kind: 'ellipsoid', c: [0.068, 0.885, -0.05], r: [0.082, 0.082, 0.072], pair: true, loft: true },
+  // buttocks: drawn (the lofted trunk alone was ~2 cm smaller, so seated / lying figures seemed to hover)
+  { seg: 'pelvis', kind: 'ellipsoid', c: [0.068, 0.885, -0.05], r: [0.082, 0.082, 0.072], pair: true },
   // arm
   { seg: 'humerus', kind: 'ellipsoid', c: [0.182, 1.39, -0.006], r: [0.056, 0.068, 0.054], loft: true },
   { seg: 'humerus', kind: 'capsule', a: [0.186, 1.36, -0.008], b: [0.195, 1.105, -0.015], ra: 0.046, rb: 0.036, loft: true },
@@ -578,14 +620,28 @@ export const SKIN_SHAPES: SkinShapeDef[] = [
   // thumb: in the palm plane, ~22° out from the index side (it used to stick 2 cm out palmar, so a palm flat on a
   // wall / floor pushed the thumb tip into it); palmar surface stays behind the palm & finger surfaces
   { seg: 'hand', kind: 'capsule', a: [0.272, 0.795, 0.005], b: [0.293, 0.743, 0.008], ra: 0.0115, rb: 0.0095 },
+  // ring + little finger (inside the palm / finger surfaces palmar and dorsal)
+  { seg: 'hand', kind: 'capsule', a: [0.232, 0.735, 0.009], b: [0.227, 0.685, 0.012], ra: 0.0145, rb: 0.012 },
   // leg
   { seg: 'femur', kind: 'capsule', a: [0.093, 0.875, -0.006], b: [0.09, 0.53, 0.0], ra: 0.086, rb: 0.055, loft: true },
-  { seg: 'tibia', kind: 'ellipsoid', c: [0.089, 0.497, 0.006], r: [0.052, 0.056, 0.052], loft: true },
+  // knee: drawn rigid volumes on the femur (condyles), patella (kneecap) and tibia — the lofted knee rings blend
+  // two bones and cut the corner when the knee bends, so a kneeling knee used to float ~2 cm off the floor
+  { seg: 'femur', kind: 'ellipsoid', c: [0.09, 0.515, 0.0], r: [0.05, 0.045, 0.05] },
+  { seg: 'patella', kind: 'ellipsoid', c: [0.09, 0.528, 0.043], r: [0.033, 0.036, 0.019] },
+  { seg: 'tibia', kind: 'ellipsoid', c: [0.089, 0.497, 0.006], r: [0.052, 0.056, 0.052] },
   { seg: 'tibia', kind: 'capsule', a: [0.088, 0.455, -0.008], b: [0.09, 0.105, -0.01], ra: 0.049, rb: 0.032, loft: true },
   { seg: 'tibia', kind: 'ellipsoid', c: [0.087, 0.355, -0.03], r: [0.047, 0.1, 0.046], loft: true },
   { seg: 'foot', kind: 'ellipsoid', c: [0.09, 0.045, -0.04], r: [0.037, 0.045, 0.045] },
+  // foot: the ball of the foot under the metatarsal heads (bottom exactly at the sole plane y = 0, like the heel and
+  // the toes; the old sole curved up 2.5 cm under the heads). It rides the TOES segment: it straddles the MTP axis,
+  // and on the foot its front half swung into the floor in every heel raise. Lateral edges stay inside the old foot /
+  // toe volumes (side-lying contacts).
   { seg: 'foot', kind: 'ellipsoid', c: [0.093, 0.04, 0.052], r: [0.045, 0.04, 0.092] },
+  { seg: 'toes', kind: 'capsule', a: [0.065, 0.0195, 0.137], b: [0.12, 0.0195, 0.113], ra: 0.0195, rb: 0.015 },
   { seg: 'toes', kind: 'ellipsoid', c: [0.093, 0.02, 0.165], r: [0.044, 0.02, 0.04] },
+  // big toe and little toe (their tips stuck out of the toe volume); bottoms 1–3 mm above the sole plane
+  { seg: 'toes', kind: 'capsule', a: [0.063, 0.0145, 0.15], b: [0.062, 0.0135, 0.188], ra: 0.0125, rb: 0.0125 },
+  { seg: 'toes', kind: 'capsule', a: [0.124, 0.0125, 0.121], b: [0.125, 0.0115, 0.148], ra: 0.0085, rb: 0.0085 },
 ];
 
 export type SkinPrim =

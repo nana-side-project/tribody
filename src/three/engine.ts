@@ -18,10 +18,11 @@ import {
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { dataReady, getExerciseSafe as getExercise, getMuscleSafe as getMuscle, loadData } from './data-access';
-import type { ExerciseId, MuscleId, RegionId, StructureId } from '../data/registry';
+import type { ConditionId, ExerciseId, MuscleId, RegionId, StructureId } from '../data/registry';
 import { STRUCTURES } from '../data/registry';
 import { AnatomyLayer, isMuscleId, labelName, type PartId } from './anatomy';
 import { CAMERA_PRESETS, framePoints, PRESET_DIRS, REGION_CAMERA, regionMinSize, regionPoints } from './camera';
+import { CONDITION_SCENES, REGION_SCENES, type Scene3D } from './scenes';
 import {
   clipPhase,
   compileClip,
@@ -40,7 +41,7 @@ import type { Highlight3DRole } from './contract';
 import { Figure } from './figure';
 import { DebugLabels, LabelLayer, type LabelSpec, type MaskCord } from './labels';
 import { type CompiledPoint, compileRef, evalPoint, LANDMARKS, pointSeg } from './landmarks';
-import { colorOf, type Palette, readPalette, xrayMaterial } from './materials';
+import { type Palette, readPalette } from './materials';
 import { PropLayer } from './props';
 import {
   type BasePoseName,
@@ -56,12 +57,13 @@ import {
   solveFK,
 } from './rig';
 import { MUSCLE_RIGS, STRUCTURE_RIGS } from './rig-data';
-import { StrandMesh } from './strands';
 
 export interface ViewSpec {
   muscle?: MuscleId;
   exercise?: ExerciseId;
   highlights?: Partial<Record<MuscleId | StructureId, Highlight3DRole>>;
+  /** highlights mode: the condition they belong to (picks its teaching scene, see scenes.ts) */
+  condition?: ConditionId;
   focus?: RegionId;
   labels: boolean;
   autoPlay: boolean;
@@ -95,10 +97,68 @@ export interface EngineEvents {
   onTime?: (t: number) => void;
   onUi?: (s: EngineUiState) => void;
   onError?: (kind: 'lost', msg: string) => void;
+  /** the browser restored a lost context: the viewer should be rebuilt (remount) */
+  onRestored?: () => void;
   onReady?: () => void;
 }
 
 export class WebGLUnavailableError extends Error {}
+
+/** Playback renders at most every ~33 ms while nobody touches the view (every 2nd frame at 60 Hz): the slow clips
+ *  look the same and CPU / GPU work halves. Orbiting, zooming and the reset tween stay at the display rate. */
+const PLAY_FRAME_MS = 1000 / 30 - 3;
+/** injured glow pulse on a static view: ~20 fps is smooth for a 2 s breathing glow */
+const PULSE_FRAME_MS = 48;
+
+/** Software rasterisers (SwiftShader, llvmpipe…): MSAA multiplies their per-frame cost 2–4×. Probed once. */
+let softwareGL: boolean | undefined;
+const SOFTWARE_RE = /swiftshader|llvmpipe|softpipe|software|basic render/i;
+
+/** Our own WebGL2 context (three uses it): no MSAA on high-DPR screens (phones: jaggies are tiny there and MSAA
+ *  costs fill rate) nor on software GL; null when WebGL is unavailable (no console error from three). */
+function createContext(): { canvas: HTMLCanvasElement; gl: WebGL2RenderingContext } | null {
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  const attrs = (antialias: boolean): WebGLContextAttributes => ({
+    alpha: true,
+    antialias,
+    depth: true,
+    stencil: false,
+    premultipliedAlpha: true,
+    preserveDrawingBuffer: false,
+    powerPreference: 'high-performance',
+  });
+  const want = dpr < 2 && softwareGL !== true;
+  let canvas = document.createElement('canvas');
+  let gl: WebGL2RenderingContext | null = null;
+  try {
+    gl = canvas.getContext('webgl2', attrs(want));
+  } catch {
+    gl = null;
+  }
+  if (!gl) return null;
+  if (softwareGL === undefined) {
+    let name = '';
+    try {
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      name = String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER) ?? '');
+    } catch {
+      /* ignore */
+    }
+    softwareGL = SOFTWARE_RE.test(name);
+    if (softwareGL && want) {
+      // recreate without MSAA (a canvas keeps its first context): release this one right away
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
+      canvas = document.createElement('canvas');
+      try {
+        gl = canvas.getContext('webgl2', attrs(false));
+      } catch {
+        gl = null;
+      }
+      if (!gl) return null;
+    }
+  }
+  return { canvas, gl };
+}
 
 const ROLE_ORDER: Highlight3DRole[] = ['injured', 'selected', 'primary', 'involved', 'secondary'];
 /** Label tier: major roles get full pills; minor roles are smaller and may collapse into 「+N」. */
@@ -119,6 +179,12 @@ const DISTAL_REF: Partial<Record<string, string>> = {
  *  joint: thigh to the knee, shin to the ankle, upper arm to the elbow…) stays in view through the loop — at 60 % a
  *  300 px card cut the thigh of a gluteus medius / piriformis demo off under the player bar */
 const distalFraction = (_aspect: number) => 1;
+
+/** Framing keeps clear of the phase pill (top 10 px + ~26 px tall) with a small gap. */
+const INSET_TOP_PILL = 46;
+/** head / upper trunk landmarks for the "headless crop" check (exercise clips with a `frame` crop) */
+const HEAD_REFS = ['head:vertex', 'head:chin'] as const;
+const TRUNK_REFS = ['neck:spinous_C7', 'thorax:xiphoid', 'thorax:sternum_body', 'thorax:spinous_T10', 'thorax:costal_margin', 'lumbar:spinous_L3'] as const;
 
 const isRigged = (id: string) =>
   isMuscleId(id) ? !!MUSCLE_RIGS[id]?.strands?.length : !!STRUCTURE_RIGS[id as StructureId]?.parts?.length;
@@ -149,6 +215,13 @@ const STRUCTURE_REGION = new Map<string, RegionId>(STRUCTURES.map((x) => [x.id, 
 const _right = new Vector3();
 const _up = new Vector3();
 const _back = new Vector3();
+
+function nearlyEqual(a: Matrix4, b: Matrix4, eps = 1e-6) {
+  const x = a.elements;
+  const y = b.elements;
+  for (let i = 0; i < 16; i++) if (Math.abs(x[i] - y[i]) > eps) return false;
+  return true;
+}
 
 function blobTexture(inner: number, outer: number) {
   const c = document.createElement('canvas');
@@ -214,9 +287,16 @@ export class Engine {
   private mo: MutationObserver | null = null;
   private mq: MediaQueryList | null = null;
   private frameDt = 0;
-  /** nerves in scope: see-through copy so a deep nerve stays visible behind muscles / bones */
-  private xray: { sm: StrandMesh; role: Highlight3DRole }[] = [];
-  private xrayMat = xrayMaterial();
+  /** highlights mode: the teaching scene in use (scenes.ts) and the injured parts (framing) */
+  private scene3d: Scene3D | null = null;
+  private injuredIds = new Set<string>();
+  /** loop bookkeeping: time of the last processed frame, labels still gliding, a context loss happened */
+  private lastFrame = 0;
+  private labelsMoving = false;
+  private everLost = false;
+  /** camera matrices at the last label layout (skip the layout when nothing moved) */
+  private lastLabelCam = new Matrix4();
+  private lastLabelProj = new Matrix4();
   /** muscle demo framing: insertion → distal joint pairs */
   private ctxPts: { ins: CompiledPoint; dist: CompiledPoint }[] = [];
   private mode: EngineUiState['mode'] = 'pose';
@@ -232,14 +312,19 @@ export class Engine {
     private events: EngineEvents = {},
   ) {
     let renderer: WebGLRenderer;
+    // One context per mount, created by us (see createContext); no probe context is kept alive (browsers cap the
+    // number of live contexts and drop the oldest).
+    const ctx = createContext();
+    if (!ctx) throw new WebGLUnavailableError('WebGL unavailable');
     try {
-      // No separate probe canvas: a probe would hold an extra WebGL context per mount (browsers cap the number of
-      // live contexts and drop the oldest). WebGLRenderer throws when no context can be created.
-      renderer = new WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+      renderer = new WebGLRenderer({ canvas: ctx.canvas, context: ctx.gl, alpha: true, powerPreference: 'high-performance' });
     } catch {
+      ctx.gl.getExtension('WEBGL_lose_context')?.loseContext();
       throw new WebGLUnavailableError('WebGL unavailable');
     }
     this.renderer = renderer;
+    // shader error checks read program logs synchronously (a ~0.2 s stall on the first frame): development only
+    renderer.debug.checkShaderErrors = !!import.meta.env?.DEV;
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     renderer.setClearColor(0x000000, 0);
     renderer.toneMapping = NeutralToneMapping;
@@ -251,6 +336,7 @@ export class Engine {
     canvas.setAttribute('role', 'img');
     host.appendChild(canvas);
     canvas.addEventListener('webglcontextlost', this.onLost, false);
+    canvas.addEventListener('webglcontextrestored', this.onRestored, false);
 
     this.reducedMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.pal = readPalette(host);
@@ -295,10 +381,13 @@ export class Engine {
     controls.addEventListener('start', () => {
       this.userMoved = true;
       this.tween = null;
+      this.kick();
     });
     controls.addEventListener('change', () => {
       if (this.userMoved) this.clampTarget();
       this.needsRender = true;
+      // pointer / wheel / keys move the camera outside the loop: wake it (it idles when nothing changes)
+      this.kick();
     });
     this.controls = controls;
 
@@ -381,6 +470,7 @@ export class Engine {
     this.legend = false;
     let cameraSpec: CameraSpec | undefined;
     let focus: RegionId | undefined = spec.focus;
+    let scene: Scene3D | null = null;
     if (spec.muscle) {
       this.mode = 'muscle';
       const rig = MUSCLE_RIGS[spec.muscle];
@@ -413,16 +503,33 @@ export class Engine {
       }
     } else if (spec.highlights && Object.keys(spec.highlights).length) {
       this.mode = 'highlights';
-      const ids = Object.keys(spec.highlights) as PartId[];
-      // only structure rigs may suggest a base pose here (muscle-rig bases belong to their demo)
-      const structBase = ids.map((id) => (isMuscleId(id) ? undefined : STRUCTURE_RIGS[id as StructureId]?.base)).find(Boolean);
-      clipSrc = staticClip(spec.pose ?? structBase ?? 'STAND');
       scope = { ...spec.highlights };
-      const firstRig = ids.map((id) => (isMuscleId(id) ? MUSCLE_RIGS[id] : STRUCTURE_RIGS[id as StructureId])).find(Boolean);
-      cameraSpec = firstRig?.camera;
-      focus ??= firstRig?.focus;
+      // teaching scene: the condition's own; on a region page (highlights + focus, no condition) the region's
+      scene = (spec.condition ? CONDITION_SCENES[spec.condition] : spec.focus ? REGION_SCENES[spec.focus] : undefined) ?? null;
+      for (const [id, r] of Object.entries(scene?.roles ?? {}) as [PartId, Highlight3DRole][]) if (scope[id]) scope[id] = r;
+      const ids = Object.keys(scope) as PartId[];
+      const injured = ids.filter((id) => scope[id] === 'injured');
+      const rigOf = (id: PartId) => (isMuscleId(id) ? MUSCLE_RIGS[id] : STRUCTURE_RIGS[id as StructureId]);
+      const order = [...injured, ...ids.filter((id) => scope[id] !== 'injured')];
+      // only structure rigs may suggest a base pose here (muscle-rig bases belong to their demo)
+      const structBase = order.map((id) => (isMuscleId(id) ? undefined : STRUCTURE_RIGS[id as StructureId]?.base)).find(Boolean);
+      clipSrc = staticClip(spec.pose ?? scene?.base ?? structBase ?? 'STAND');
+      if (scene?.joints) clipSrc = { ...clipSrc, pose: { joints: scene.joints } };
+      if (scene?.frame?.length) clipSrc = { ...clipSrc, frame: scene.frame };
+      // camera: the scene's; else (or 'rig') the injured tissue's rig camera. A muscle rig's exact camera belongs to
+      // its demo (it frames that muscle's movement), so here it only lends its direction and the view is fitted.
+      const camId = order.find((id) => rigOf(id));
+      const camRig = camId ? rigOf(camId) : undefined;
+      let rigCam: CameraSpec | undefined = camRig?.camera;
+      if (rigCam && typeof rigCam === 'object' && 'position' in rigCam && camId && isMuscleId(camId)) {
+        const [px, py, pz] = rigCam.position;
+        const [tx, ty, tz] = rigCam.target;
+        rigCam = { dir: [px - tx, py - ty, pz - tz] };
+      }
+      cameraSpec = scene?.camera && scene.camera !== 'rig' ? scene.camera : rigCam;
+      focus ??= camRig?.focus;
       // nothing rigged yet: still frame the right body region (structure registry region / muscle data)
-      if (!firstRig && ids.length) focus ??= isMuscleId(ids[0]) ? getMuscle(ids[0])?.regions?.[0] : STRUCTURE_REGION.get(ids[0]);
+      if (!camRig && ids.length) focus ??= isMuscleId(ids[0]) ? getMuscle(ids[0])?.regions?.[0] : STRUCTURE_REGION.get(ids[0]);
     } else {
       this.mode = 'pose';
       clipSrc = staticClip(spec.pose ?? 'STAND');
@@ -430,7 +537,9 @@ export class Engine {
     if (spec.highlights && this.mode !== 'highlights') Object.assign(scope, spec.highlights);
     if (spec.pose && this.mode !== 'exercise' && this.mode !== 'muscle') clipSrc = { ...clipSrc, base: spec.pose };
     if ((spec.joints || spec.root) && this.mode !== 'exercise' && this.mode !== 'muscle')
-      clipSrc = { ...clipSrc, pose: { joints: spec.joints, root: spec.root } };
+      clipSrc = { ...clipSrc, pose: { joints: { ...clipSrc.pose?.joints, ...spec.joints }, root: spec.root ?? clipSrc.pose?.root } };
+    this.scene3d = scene;
+    this.injuredIds = new Set(Object.keys(scope).filter((id) => scope[id as PartId] === 'injured'));
 
     const cc = compileClip(clipSrc);
     this.clip = cc;
@@ -440,8 +549,8 @@ export class Engine {
     else if (this.mode === 'muscle' && spec.muscle && MUSCLE_RIGS[spec.muscle]) focus = cc.focus ?? spec.focus;
     else focus ??= cc.focus;
     const scopeSides = this.mode === 'highlights' || this.mode === 'muscle' ? [cc.side] : cc.sides;
-    this.anatomy.setScope(scope, scopeSides, { markers, ghosts: !!spec.all });
-    this.buildXray(scope, scopeSides);
+    const both = new Set<string>(scene?.both ?? []);
+    this.anatomy.setScope(scope, scopeSides, { markers, ghosts: !!spec.all, fade: scene?.fade, xrayInjured: this.mode === 'highlights', both });
     this.ctxPts = this.mode === 'muscle' && spec.muscle ? this.muscleContext(spec.muscle, cc.side) : [];
     if (this.mode === 'highlights' && Object.keys(scope).length && !this.anatomy.hasVisuals) this.note = '3Dモデルは準備中です';
     if (this.mode === 'exercise' && !this.note && Object.keys(scope).length && !this.anatomy.hasVisuals) this.note = '筋肉の3Dモデルは準備中です';
@@ -479,7 +588,7 @@ export class Engine {
     this.controls.update();
 
     // labels: one per highlighted part, on the side actually highlighted (both sides → the side nearer the camera)
-    this.setupLabels(scope, scopeSides, st0);
+    this.setupLabels(scope, scopeSides, st0, both, new Set<string>(scene?.minor ?? []));
     this.labels.visible = spec.labels;
     this.planLabels();
     // floor disc follows the reference bounds
@@ -495,8 +604,29 @@ export class Engine {
     else this.debugInfo = '';
     this.needsPose = true;
     this.needsRender = true;
+    this.warmShaders();
     this.emitUi();
     this.kick();
+  }
+
+  private warmed = false;
+  private compiling = false;
+  /** First view: compile the shader programs in parallel (KHR_parallel_shader_compile) before the first frame, so
+   *  linking does not block the main thread (~0.1–0.3 s on phones). Without the extension nothing changes. */
+  private warmShaders() {
+    if (this.warmed) return;
+    this.warmed = true;
+    if (!this.renderer.extensions.has('KHR_parallel_shader_compile')) return;
+    this.compiling = true;
+    const done = () => {
+      if (!this.compiling || this.disposed) return;
+      this.compiling = false;
+      this.needsRender = true;
+      this.kick();
+    };
+    this.updatePose(0);
+    this.renderer.compileAsync(this.scene, this.camera).then(done, done);
+    setTimeout(done, 1500);
   }
 
   private roleSwatch(role: Highlight3DRole) {
@@ -516,14 +646,21 @@ export class Engine {
   }
 
   /** Label items (one per part, on the highlighted side nearest the home camera) + the overlap mask's cords. */
-  private setupLabels(scope: Partial<Record<PartId, Highlight3DRole>>, sides: Side[], st0: RigState) {
+  private setupLabels(
+    scope: Partial<Record<PartId, Highlight3DRole>>,
+    sides: Side[],
+    st0: RigState,
+    both: ReadonlySet<string> = new Set(),
+    minor: ReadonlySet<string> = new Set(),
+  ) {
+    const sidesOf = (id: string): Side[] => (both.has(id) ? ['R', 'L'] : sides);
     // highlighted anatomy as polylines per part & side: the overlap mask (labels avoid covering it) and each label's
     // fallback anchor points (used when its main anchor is off-view or under the player UI)
     const cords: MaskCord[] = [];
     const polys = new Map<string, CompiledPoint[][]>();
     for (const [id, role] of Object.entries(scope) as [PartId, Highlight3DRole][]) {
       if (!role) continue;
-      for (const side of sides) {
+      for (const side of sidesOf(id)) {
         const pl: CompiledPoint[][] = [];
         if (isMuscleId(id)) {
           for (const st of MUSCLE_RIGS[id]?.strands ?? []) {
@@ -554,8 +691,8 @@ export class Engine {
     this.labels.setCords(cords);
 
     const sideOf = new Map<string, Side>();
-    if (sides.length > 1) {
-      this.anatomy.update(st0, 0, false);
+    if (sides.length > 1 || both.size) {
+      this.anatomy.pose(st0);
       const score = new Map<string, number>();
       const cam = this.camera;
       cam.updateMatrixWorld();
@@ -593,6 +730,7 @@ export class Engine {
         color: this.swatch(id, role),
         tier: MINOR_ROLES.has(role) ? 1 : 0,
         alt: polys.get(key),
+        collapse: MINOR_ROLES.has(role) && minor.has(id),
         order: ROLE_ORDER.indexOf(role),
       });
     }
@@ -621,43 +759,12 @@ export class Engine {
     for (const t of ts) {
       solveFK(evalClip(cc, t, vec), st);
       placeState(cc, st);
-      this.anatomy.update(st, 0, false);
+      this.anatomy.pose(st);
       this.anatomy.labelAnchors(st, this.setLabelAnchor);
       this.labels.planFrame(this.camera, this.width, this.height, zones, st);
     }
     this.labels.planEnd();
     this.needsPose = true;
-  }
-
-  /** Nerves in scope get a see-through copy (drawn over bones / muscles, under the skin layer). */
-  private buildXray(scope: Partial<Record<PartId, Highlight3DRole>>, sides: Side[]) {
-    for (const x of this.xray) {
-      this.scene.remove(x.sm.mesh);
-      x.sm.dispose();
-    }
-    this.xray = [];
-    for (const [id, role] of Object.entries(scope) as [PartId, Highlight3DRole][]) {
-      if (!role || isMuscleId(id)) continue;
-      for (const part of STRUCTURE_RIGS[id as StructureId]?.parts ?? []) {
-        if (part.type !== 'nerve' || !('path' in part)) continue;
-        for (const side of sides) {
-          const cps = part.path.map((r) => quietCompile(r, side));
-          if (cps.length < 2 || !cps.every(Boolean)) continue;
-          const sm = new StrandMesh(cps as CompiledPoint[], { radius: part.radius, tendon: [0, 0], kind: 'cord' }, this.xrayMat, side);
-          sm.setRest(sm.measure(this.refState));
-          sm.mesh.renderOrder = 6;
-          this.scene.add(sm.mesh);
-          this.xray.push({ sm, role });
-        }
-      }
-    }
-  }
-
-  private updateXray() {
-    for (const x of this.xray) {
-      const c = colorOf(x.role === 'injured' ? this.pal.injured : x.role === 'involved' ? this.pal.involved : this.pal.nerve);
-      x.sm.update(this.state, c, c, x.role === 'primary' || x.role === 'selected' ? 1.12 : 1);
-    }
   }
 
   /** Muscle demo: insertion → distal-joint pairs (keeps the moving limb in the frame). */
@@ -690,7 +797,7 @@ export class Engine {
     const tanH = tanV * aspect;
     const H = Math.max(1, this.height);
     const bar = this.uiControls;
-    const iTop = bar && cc.animated ? 40 : 6;
+    const iTop = bar && cc.animated ? INSET_TOP_PILL : 6;
     const iBot = bar ? (cc.animated ? 62 : 8) : 6;
     const up = tanV * Math.max(0.2, 1 - (2 * iTop) / H);
     const down = tanV * Math.max(0.2, 1 - (2 * iBot) / H);
@@ -702,7 +809,7 @@ export class Engine {
     for (const t of framingTimes(cc)) {
       solveFK(evalClip(cc, t, newPoseVec()), st);
       placeState(cc, st);
-      this.anatomy.update(st, 0, false);
+      this.anatomy.pose(st);
       this.anatomy.collectPoints(pts);
       for (const c of this.ctxPts) pts.push(evalPoint(c.ins, st, a).clone().lerp(evalPoint(c.dist, st, b), distalFraction(aspect)));
     }
@@ -753,6 +860,7 @@ export class Engine {
     const dir =
       camSpec && typeof camSpec === 'object' && 'dir' in camSpec && !spec.cam ? new Vector3(...camSpec.dir).normalize() : PRESET_DIRS[preset].clone();
     if (cc.mirror) dir.x = -dir.x;
+    if (this.mode === 'highlights') return this.highlightFraming(cc, dir, focus, aspect);
     const pts: Vector3[] = [];
     const st = new RigState();
     const ts = framingTimes(cc);
@@ -768,34 +876,108 @@ export class Engine {
         continue;
       }
       if (this.mode === 'muscle' && this.anatomy.hasVisuals) {
-        this.anatomy.update(st, 0, false);
+        this.anatomy.pose(st);
         this.anatomy.collectPoints(pts);
         for (const c of this.ctxPts) pts.push(evalPoint(c.ins, st, a).clone().lerp(evalPoint(c.dist, st, b), distalFraction(aspect)));
         minSize = focus ? regionMinSize(focus) * 0.85 : 0.42;
       } else if (focus) {
         regionPoints(focus, st, cc.side, pts);
         minSize = regionMinSize(focus);
-        if (this.mode === 'highlights' && this.anatomy.hasVisuals) {
-          this.anatomy.update(st, 0, false);
-          this.anatomy.collectPoints(pts);
-        }
-      } else if (this.mode === 'highlights' && this.anatomy.hasVisuals) {
-        this.anatomy.update(st, 0, false);
-        this.anatomy.collectPoints(pts);
-        minSize = 0.45;
       } else {
         forEachSkinBox(st, (x0, y0, z0, x1, y1, z1) => {
           pts.push(new Vector3(x0, y0, z0), new Vector3(x1, y1, z1));
         });
       }
     }
+    if (this.mode === 'muscle' && this.anatomy.hasVisuals) this.needsPose = true;
     if (!focus && !cc.frame.length) pts.push(...this.props.framing);
     const bar = this.uiControls;
-    return framePoints(pts, dir, this.camera, aspect, {
+    const opts = {
       margin: this.mode === 'muscle' && aspect < 0.8 ? 1.16 : focus || this.mode === 'muscle' ? 1.1 : 1.06,
       minSize,
       heightPx: this.height,
-      insetTop: bar && cc.animated ? 40 : 6,
+      insetTop: bar && cc.animated ? INSET_TOP_PILL : 6,
+      insetBottom: bar ? (cc.animated ? 62 : 8) : 6,
+    };
+    const home = framePoints(pts, dir, this.camera, aspect, opts);
+    // A clip crop (`frame`) that cuts through the chest or neck leaves a headless figure whose head sits under the
+    // phase pill: show the whole head instead (a crop at the hips or lower is a clean close-up and is kept).
+    if (this.mode === 'exercise' && cc.frame.length && !focus && this.cutsHead(cc, home, aspect, opts.insetTop, opts.insetBottom)) {
+      for (const t of ts) {
+        solveFK(evalClip(cc, t, newPoseVec()), st);
+        placeState(cc, st);
+        for (const r of HEAD_REFS) {
+          const cp = quietCompile(r, cc.side);
+          if (cp) pts.push(evalPoint(cp, st, new Vector3()));
+        }
+      }
+      return framePoints(pts, dir, this.camera, aspect, opts);
+    }
+    return home;
+  }
+
+  /** Does this home view show the upper trunk (neck base or breastbone) at some time of the clip while the top of the
+   *  head is out of view (above the card / under the phase pill)? */
+  private cutsHead(cc: CompiledClip, home: { position: Vector3; target: Vector3 }, aspect: number, insetTop: number, insetBottom: number) {
+    const cam = new PerspectiveCamera(this.camera.fov, aspect, 0.02, 60);
+    cam.position.copy(home.position);
+    cam.lookAt(home.target);
+    cam.updateMatrixWorld();
+    cam.updateProjectionMatrix();
+    const H = Math.max(1, this.height);
+    const yTop = 1 - (2 * insetTop) / H;
+    const yBot = -1 + (2 * insetBottom) / H;
+    const vis = (p: Vector3) => {
+      p.project(cam);
+      return p.z < 1 && Math.abs(p.x) < 1 && p.y < yTop && p.y > yBot;
+    };
+    const st = new RigState();
+    const q = new Vector3();
+    const vertex = quietCompile('head:vertex', cc.side);
+    const trunk = TRUNK_REFS.map((r) => quietCompile(r, cc.side)).filter((c): c is CompiledPoint => !!c);
+    if (!vertex) return false;
+    for (const t of framingTimes(cc)) {
+      solveFK(evalClip(cc, t, newPoseVec()), st);
+      placeState(cc, st);
+      if (vis(evalPoint(vertex, st, q))) continue;
+      if (trunk.some((cp) => vis(evalPoint(cp, st, q)))) return true;
+    }
+    return false;
+  }
+
+  /** Highlights mode (condition / region pages): frame what the view is about — the scene's crop points, else the
+   *  injured parts plus the focus region. Involved context parts never widen the frame (they may run off the card). */
+  private highlightFraming(cc: CompiledClip, dir: Vector3, focus: RegionId | undefined, aspect: number) {
+    const sc = this.scene3d;
+    const pts: Vector3[] = [];
+    const st = new RigState();
+    const frameInjured = sc?.frameInjured ?? !cc.frame.length;
+    const hasInjured = this.injuredIds.size > 0;
+    for (const t of framingTimes(cc)) {
+      solveFK(evalClip(cc, t, newPoseVec()), st);
+      placeState(cc, st);
+      for (const cp of cc.frame) pts.push(evalPoint(cp, st, new Vector3()));
+      if (!cc.frame.length && focus) regionPoints(focus, st, cc.side, pts);
+      if (this.anatomy.hasVisuals && (frameInjured || (!cc.frame.length && !focus))) {
+        this.anatomy.pose(st);
+        // the injured tissue (no injured part, e.g. a region page without focus: everything highlighted)
+        this.anatomy.collectPoints(pts, hasInjured && (frameInjured || focus) ? this.injuredIds : undefined);
+      }
+    }
+    this.needsPose = true;
+    if (!pts.length) {
+      solveFK(evalClip(cc, 0, newPoseVec()), st);
+      placeState(cc, st);
+      forEachSkinBox(st, (x0, y0, z0, x1, y1, z1) => {
+        pts.push(new Vector3(x0, y0, z0), new Vector3(x1, y1, z1));
+      });
+    }
+    const bar = this.uiControls;
+    return framePoints(pts, dir, this.camera, aspect, {
+      margin: sc ? 1.15 : 1.1,
+      minSize: sc?.minSize ?? (focus ? regionMinSize(focus) : 0.45),
+      heightPx: this.height,
+      insetTop: bar && cc.animated ? INSET_TOP_PILL : 6,
       insetBottom: bar ? (cc.animated ? 62 : 8) : 6,
     });
   }
@@ -857,6 +1039,11 @@ export class Engine {
   }
   resetView() {
     if (!this.home) return;
+    // drop OrbitControls' leftover damping momentum first: otherwise it carries the camera off again after the tween
+    const c = this.controls as unknown as { _sphericalDelta?: { set(a: number, b: number, c: number): void }; _panOffset?: Vector3; _scale?: number };
+    c._sphericalDelta?.set(0, 0, 0);
+    c._panOffset?.set(0, 0, 0);
+    if (typeof c._scale === 'number') c._scale = 1;
     this.tween = {
       from: { p: this.camera.position.clone(), t: this.controls.target.clone() },
       to: { p: this.home.position.clone(), t: this.home.target.clone() },
@@ -891,7 +1078,8 @@ export class Engine {
     if (this.disposed || this.lost) return;
     const active = this.visible && !this.docHidden;
     if (active && !this.raf) {
-      this.last = performance.now();
+      // waking from idle: count the next frame's dt from now (no jump in playback time)
+      if (!this.inLoop) this.lastFrame = Math.max(this.lastFrame, performance.now() - 1000 / 60);
       this.raf = requestAnimationFrame(this.loop);
     }
     if (!active && this.raf) {
@@ -900,59 +1088,75 @@ export class Engine {
     }
   }
 
+  private inLoop = false;
+
+  /**
+   * One display frame. Work is only done when something changed:
+   * - playback: pose + render at most every PLAY_FRAME_MS (≈30 fps) unless the user is moving the camera;
+   * - injured glow on a static view: only the glow (no geometry, no label layout) every PULSE_FRAME_MS;
+   * - camera moves (drag, damping, reset tween), resizes, theme / view changes, gliding labels: render right away.
+   * When nothing is animating the loop stops; OrbitControls' events, play() / setTime() etc. wake it (kick()).
+   */
   private loop = (now: number) => {
     this.raf = 0;
     if (this.disposed || this.lost || !this.visible || this.docHidden) return;
-    const dt = Math.min(0.05, Math.max(0, (now - this.last) / 1000));
-    this.last = now;
-    this.frameDt = dt;
-    let render = this.needsRender;
-    if (this.playing && this.clip) {
-      this.time += dt * this.speed;
-      this.needsPose = true;
-    }
-    const pulsing = this.anatomy.hasInjured && !this.reducedMotion;
-    if (this.needsPose || pulsing) {
-      this.updatePose(now / 1000);
-      render = true;
-    }
+    this.inLoop = true;
+    let cam = false;
     if (this.tween) {
       const u = Math.min(1, (now - this.tween.start) / 450);
       const e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
       this.camera.position.lerpVectors(this.tween.from.p, this.tween.to.p, e);
       this.controls.target.lerpVectors(this.tween.from.t, this.tween.to.t, e);
       if (u >= 1) this.tween = null;
-      render = true;
+      cam = true;
     }
-    if (this.controls.update()) render = true;
-    if (render) this.render();
-    this.raf = requestAnimationFrame(this.loop);
+    // damping momentum (and the lookAt of a tween step); true when the camera moved
+    if (this.controls.update()) cam = true;
+    const pulsing = this.anatomy.hasInjured && !this.reducedMotion;
+    const since = now - this.lastFrame;
+    let due = this.needsRender || this.needsPose || cam;
+    if (!due && this.playing) due = since >= PLAY_FRAME_MS;
+    else if (!due && this.labelsMoving) due = true;
+    if (!due && pulsing) due = since >= PULSE_FRAME_MS;
+    if (due && this.configured && !this.compiling) {
+      const dt = Math.min(0.05, Math.max(0, since / 1000));
+      this.lastFrame = now;
+      this.frameDt = dt;
+      if (this.playing && this.clip) {
+        this.time += dt * this.speed;
+        this.needsPose = true;
+      }
+      const posed = this.needsPose;
+      if (posed) this.updatePose(now / 1000);
+      else if (pulsing) this.anatomy.updatePulse(now / 1000);
+      this.render(posed);
+    }
+    this.inLoop = false;
+    const idle = !this.playing && !pulsing && !this.tween && !cam && !this.needsRender && !this.needsPose && !this.labelsMoving;
+    if (!idle && !this.raf) this.raf = requestAnimationFrame(this.loop);
   };
 
   private updatePose(seconds: number) {
     const cc = this.clip;
     if (!cc) return;
-    if (this.needsPose) {
-      const t = this.frozenT ?? clipPhase(cc, this.time);
-      evalClip(cc, t, this.vec);
-      solveFK(this.vec, this.state);
-      placeState(cc, this.state);
-      this.figure.apply(this.state);
-      this.props.update(this.state);
-      this.updateShadow();
-      const ph = phaseLabel(cc, t);
-      if (ph !== this.lastPhase) {
-        this.lastPhase = ph;
-        this.events.onPhase?.(ph);
-      }
-      const nowMs = performance.now();
-      if (nowMs - this.lastTimeEmit > 90 || !this.playing) {
-        this.lastTimeEmit = nowMs;
-        this.events.onTime?.(t);
-      }
+    const t = this.frozenT ?? clipPhase(cc, this.time);
+    evalClip(cc, t, this.vec);
+    solveFK(this.vec, this.state);
+    placeState(cc, this.state);
+    this.figure.apply(this.state);
+    this.props.update(this.state);
+    this.updateShadow();
+    const ph = phaseLabel(cc, t);
+    if (ph !== this.lastPhase) {
+      this.lastPhase = ph;
+      this.events.onPhase?.(ph);
+    }
+    const nowMs = performance.now();
+    if (nowMs - this.lastTimeEmit > 90 || !this.playing) {
+      this.lastTimeEmit = nowMs;
+      this.events.onTime?.(t);
     }
     this.anatomy.update(this.state, this.reducedMotion ? 0 : seconds, !this.reducedMotion);
-    if (this.xray.length) this.updateXray();
     this.needsPose = false;
   }
 
@@ -974,7 +1178,8 @@ export class Engine {
     this.shadow.visible = b.min.y < 0.6;
   }
 
-  private render() {
+  /** Draw a frame. `posed`: the pose changed this frame (labels follow their anchors). */
+  private render(posed = true) {
     this.needsRender = false;
     // camera-relative lights (always lit from the viewer's upper-left)
     const cam = this.camera;
@@ -988,12 +1193,20 @@ export class Engine {
     this.fill.target.position.copy(tgt);
     this.renderer.render(this.scene, cam);
     this.renders++;
-    // labels
+    // labels: re-solved when the pose or the camera changed, while they glide, or when the label set / UI changed
+    // (a glow-only frame of a static condition view moves nothing)
+    this.labelsMoving = false;
     if (this.labels.visible) {
-      this.anatomy.labelAnchors(this.state, this.setLabelAnchor);
-      this.labels.homeView = !this.userMoved;
-      // keep rendering while labels glide to new positions
-      if (this.labels.layout(cam, this.width, this.height, this.frameDt, this.state)) this.needsRender = true;
+      // (OrbitControls' spherical round trip changes the camera by ~1e-9 every update(): compare with a tolerance)
+      const camMoved = !nearlyEqual(this.lastLabelCam, cam.matrixWorld) || !nearlyEqual(this.lastLabelProj, cam.projectionMatrix);
+      if (posed || camMoved || this.labels.pending) {
+        this.lastLabelCam.copy(cam.matrixWorld);
+        this.lastLabelProj.copy(cam.projectionMatrix);
+        this.anatomy.labelAnchors(this.state, this.setLabelAnchor);
+        this.labels.homeView = !this.userMoved;
+        // keep rendering while labels glide to new positions
+        this.labelsMoving = this.labels.layout(cam, this.width, this.height, this.frameDt, this.state);
+      }
     }
     if (this.spec.debug) this.renderDebug();
     if (!this.readyFired) {
@@ -1083,7 +1296,7 @@ export class Engine {
     const at = (t: number) => {
       solveFK(evalClip(cc, t, newPoseVec()), st);
       placeState(cc, st);
-      this.anatomy.update(st, 0, false);
+      this.anatomy.pose(st);
       return this.anatomy.ratios();
     };
     const rest = at(0);
@@ -1104,7 +1317,7 @@ export class Engine {
     for (let i = 0; i <= 40; i++) {
       solveFK(evalClip(cc, i / 40, newPoseVec()), st);
       placeState(cc, st);
-      this.anatomy.update(st, 0, false);
+      this.anatomy.pose(st);
       for (const r of this.anatomy.ratios()) {
         const k = `${r.id}_${r.side}`;
         const a = acc.get(k) ?? { min: 9, max: 0 };
@@ -1148,9 +1361,16 @@ export class Engine {
   private onLost = (e: Event) => {
     e.preventDefault();
     this.lost = true;
+    this.everLost = true;
     if (this.raf) cancelAnimationFrame(this.raf);
     this.raf = 0;
     this.events.onError?.('lost', '3D表示が一時的に停止しました。');
+  };
+
+  /** The browser gave the context back (GPU reset, backgrounding): the viewer rebuilds itself (React remount). */
+  private onRestored = () => {
+    if (this.disposed) return;
+    this.events.onRestored?.();
   };
 
   private themeTimer = 0;
@@ -1178,21 +1398,28 @@ export class Engine {
   dispose() {
     this.disposed = true;
     if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = 0;
     clearTimeout(this.themeTimer);
     this.ro?.disconnect();
     this.io?.disconnect();
     this.mo?.disconnect();
     this.mq?.removeEventListener?.('change', this.onTheme);
     document.removeEventListener('visibilitychange', this.onVis);
-    this.renderer.domElement.removeEventListener('webglcontextlost', this.onLost);
+    const canvas = this.renderer.domElement;
+    canvas.removeEventListener('webglcontextlost', this.onLost);
+    canvas.removeEventListener('webglcontextrestored', this.onRestored);
     this.controls.dispose();
+    this.labels.dispose();
+    this.debugLabels?.dispose();
+    this.debugPanel?.remove();
+    // detach right away (the next page commits without waiting for the GPU)
+    canvas.remove();
+    // after a context loss every GL object belongs to a dead context: drop the references (garbage-collected) —
+    // deleting them would only log INVALID_OPERATION warnings against the restored context
+    if (this.everLost) return;
     this.setupDebug(false);
     this.anatomy.dispose();
     this.props.dispose();
-    this.labels.dispose();
-    for (const x of this.xray) x.sm.dispose();
-    this.xray = [];
-    this.xrayMat.dispose();
     this.figure.dispose();
     for (const m of [this.floor, this.shadow]) {
       m.geometry.dispose();
@@ -1200,10 +1427,16 @@ export class Engine {
       mat.map?.dispose();
       mat.dispose();
     }
-    this.renderer.dispose();
-    // release the GL context right away (browsers cap live contexts); a lost context is already released
-    if (!this.lost) this.renderer.forceContextLoss();
-    this.renderer.domElement.remove();
+    // Release the context soon (browsers cap live contexts), but not inside React's unmount: forceContextLoss waits
+    // for the GPU to finish (0.2–0.3 s), which would delay the next page's first paint.
+    const r = this.renderer;
+    const release = () => {
+      r.dispose();
+      r.forceContextLoss();
+    };
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    if (ric) ric(release, { timeout: 600 });
+    else setTimeout(release, 50);
   }
 }
 

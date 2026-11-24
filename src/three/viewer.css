@@ -129,6 +129,21 @@
   outline: 2px solid var(--accent, #b5524c);
   outline-offset: 1px;
 }
+/* expanded 「+N」: names of highlighted parts with nothing in view */
+.tb3d-offview {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: 70%;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: var(--tb3d-glass);
+  box-shadow: 0 1px 2px rgb(30 27 24 / 0.08);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-2, #5f5852);
+  white-space: normal;
+}
 
 /* phase label & legend */
 .tb3d-phase,
@@ -239,15 +254,16 @@
   outline-offset: 1px;
 }
 .tb3d-play {
+  /* 44 × 44 tap area; the visible disc stays 40 px (background clipped to the content box) */
   border-radius: 50%;
+  padding: 2px;
   background: var(--accent, #b5524c);
+  background-clip: content-box;
   color: var(--on-accent, #fff);
-  width: 40px;
-  height: 40px;
-  margin: 2px;
 }
 .tb3d-play:active {
   background: color-mix(in srgb, var(--accent, #b5524c) 85%, #000);
+  background-clip: content-box;
 }
 .tb3d-speed {
   font-size: 13px;

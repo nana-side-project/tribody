@@ -7,10 +7,14 @@ import { type BaseSeg, type RigState, SEG_INDEX, type SegName, segName, segRestO
 interface RingDef {
   /** rest centre, lateral-positive */
   c: Vec3;
-  /** half-width (x) and half-depth (z) */
+  /** half-width (x) and half-depth (z, front half; also the back half unless `bb` is given) */
   a: number;
   b: number;
   w: [BaseSeg, number][];
+  /** back half-depth (z−) when the ring is not front/back symmetric */
+  bb?: number;
+  /** superellipse exponent of this ring (default: the chain's) — > 2 = boxier corners (pelvis, shoulders) */
+  n?: number;
 }
 interface ChainDef {
   rings: RingDef[];
@@ -19,8 +23,12 @@ interface ChainDef {
   sided: boolean;
 }
 
-const r = (c: Vec3, a: number, b: number, w: [BaseSeg, number][]): RingDef => ({ c, a, b, w });
+const r = (c: Vec3, a: number, b: number, w: [BaseSeg, number][], o: { bb?: number; n?: number } = {}): RingDef => ({ c, a, b, w, ...o });
 
+// Ring sizes cover the bones with a few mm of "soft tissue" (probe: shots/qa3-fix-body/probe/skin.ts): iliac crest &
+// ASIS (boxier pelvis rings, n 2.8), lower ribs, lumbar / thoracic spinous processes (deeper back, `bb`), sternum and
+// clavicles (deeper front at the top). The back (supine / wall contact) and the waist (where the towel clips squeeze a
+// towel against the trunk) changed only ~3 mm: there the bones were made a little smaller instead.
 const TRUNK: ChainDef = {
   n: 2.35,
   sided: false,
@@ -29,17 +37,18 @@ const TRUNK: ChainDef = {
     r([0, 0.832, -0.012], 0.085, 0.06, [['pelvis', 1]]),
     r([0, 0.862, -0.018], 0.138, 0.092, [['pelvis', 1]]),
     r([0, 0.9, -0.02], 0.158, 0.106, [['pelvis', 1]]),
-    r([0, 0.95, -0.014], 0.162, 0.104, [['pelvis', 1]]),
-    r([0, 1.0, -0.008], 0.152, 0.097, [['pelvis', 0.75], ['lumbar', 0.25]]),
-    r([0, 1.05, -0.004], 0.136, 0.092, [['pelvis', 0.3], ['lumbar', 0.7]]),
-    r([0, 1.1, -0.004], 0.13, 0.094, [['lumbar', 1]]),
-    r([0, 1.15, -0.006], 0.134, 0.1, [['lumbar', 0.5], ['thorax', 0.5]]),
-    r([0, 1.2, -0.008], 0.142, 0.108, [['lumbar', 0.15], ['thorax', 0.85]]),
-    r([0, 1.26, -0.008], 0.148, 0.115, [['thorax', 1]]),
-    r([0, 1.32, -0.01], 0.15, 0.117, [['thorax', 1]]),
-    r([0, 1.375, -0.016], 0.148, 0.11, [['thorax', 1]]),
-    r([0, 1.415, -0.02], 0.138, 0.098, [['thorax', 1]]),
-    r([0, 1.448, -0.024], 0.098, 0.078, [['thorax', 0.7], ['neck', 0.3]]),
+    r([0, 0.95, -0.014], 0.162, 0.112, [['pelvis', 1]], { bb: 0.104 }),
+    r([0, 1.0, -0.008], 0.155, 0.108, [['pelvis', 0.8], ['lumbar', 0.2]], { bb: 0.097, n: 2.8 }),
+    r([0, 1.05, -0.004], 0.156, 0.094, [['pelvis', 0.65], ['lumbar', 0.35]], { bb: 0.102, n: 2.8 }),
+    r([0, 1.075, -0.004], 0.154, 0.093, [['pelvis', 0.4], ['lumbar', 0.6]], { bb: 0.103, n: 2.6 }),
+    r([0, 1.11, -0.004], 0.134, 0.094, [['pelvis', 0.08], ['lumbar', 0.92]], { bb: 0.104 }),
+    r([0, 1.15, -0.006], 0.136, 0.1, [['lumbar', 0.4], ['thorax', 0.6]], { bb: 0.103 }),
+    r([0, 1.2, -0.008], 0.153, 0.115, [['lumbar', 0.05], ['thorax', 0.95]], { bb: 0.11 }),
+    r([0, 1.26, -0.008], 0.156, 0.117, [['thorax', 1]], { bb: 0.117 }),
+    r([0, 1.32, -0.01], 0.153, 0.118, [['thorax', 1]], { bb: 0.118 }),
+    r([0, 1.375, -0.016], 0.149, 0.119, [['thorax', 1]], { bb: 0.11 }),
+    r([0, 1.415, -0.02], 0.14, 0.111, [['thorax', 1]], { bb: 0.098 }),
+    r([0, 1.448, -0.024], 0.098, 0.09, [['thorax', 0.7], ['neck', 0.3]], { bb: 0.078 }),
     r([0, 1.475, -0.026], 0.06, 0.058, [['thorax', 0.25], ['neck', 0.75]]),
     r([0, 1.53, -0.018], 0.05, 0.052, [['neck', 1]]),
     r([0, 1.58, -0.01], 0.05, 0.053, [['neck', 0.5], ['head', 0.5]]),
@@ -57,13 +66,15 @@ const ARM: ChainDef = {
     r([0.187, 1.37, -0.006], 0.053, 0.05, [['humerus', 1]]),
     r([0.19, 1.31, -0.008], 0.047, 0.046, [['humerus', 1]]),
     r([0.192, 1.23, -0.01], 0.043, 0.045, [['humerus', 1]]),
-    r([0.194, 1.16, -0.013], 0.04, 0.042, [['humerus', 1]]),
-    r([0.196, 1.095, -0.015], 0.038, 0.039, [['humerus', 0.55], ['forearm', 0.45]]),
-    r([0.203, 1.04, -0.012], 0.039, 0.037, [['humerus', 0.1], ['forearm', 0.9]]),
+    r([0.193, 1.16, -0.013], 0.041, 0.042, [['humerus', 1]]),
+    // elbow: wide enough for both epicondyles (the medial one used to stick out ~1 cm)
+    r([0.191, 1.095, -0.015], 0.045, 0.039, [['humerus', 0.55], ['forearm', 0.45]]),
+    r([0.202, 1.04, -0.012], 0.04, 0.037, [['humerus', 0.1], ['forearm', 0.9]]),
     r([0.214, 0.97, -0.008], 0.034, 0.03, [['forearm', 1]]),
-    r([0.227, 0.9, -0.003], 0.028, 0.022, [['forearm', 1]]),
-    r([0.237, 0.848, 0.0], 0.025, 0.018, [['forearm', 0.6], ['hand', 0.4]]),
-    r([0.24, 0.825, 0.002], 0.022, 0.015, [['hand', 1]]),
+    r([0.228, 0.9, -0.003], 0.03, 0.022, [['forearm', 1]]),
+    // wrist: radial styloid + ulnar head
+    r([0.238, 0.848, -0.001], 0.034, 0.019, [['forearm', 0.6], ['hand', 0.4]]),
+    r([0.241, 0.825, 0.002], 0.031, 0.016, [['hand', 1]]),
   ],
 };
 
@@ -81,11 +92,12 @@ const LEG: ChainDef = {
     r([0.089, 0.495, 0.006], 0.051, 0.053, [['femur', 0.45], ['tibia', 0.55]]),
     r([0.088, 0.45, -0.003], 0.05, 0.052, [['femur', 0.05], ['tibia', 0.95]]),
     r([0.088, 0.39, -0.014], 0.048, 0.057, [['tibia', 1]]),
-    r([0.088, 0.32, -0.017], 0.045, 0.054, [['tibia', 1]]),
-    r([0.089, 0.24, -0.012], 0.038, 0.043, [['tibia', 1]]),
-    r([0.09, 0.165, -0.008], 0.031, 0.034, [['tibia', 1]]),
-    r([0.09, 0.11, -0.008], 0.029, 0.031, [['tibia', 0.85], ['foot', 0.15]]),
-    r([0.09, 0.085, -0.008], 0.026, 0.028, [['tibia', 0.5], ['foot', 0.5]]),
+    r([0.088, 0.32, -0.017], 0.046, 0.054, [['tibia', 1]]),
+    // lower leg & ankle: fibula, both malleoli and the Achilles tendon inside (deeper back `bb`)
+    r([0.09, 0.24, -0.012], 0.04, 0.043, [['tibia', 1]], { bb: 0.052 }),
+    r([0.092, 0.165, -0.012], 0.038, 0.034, [['tibia', 1]], { bb: 0.05 }),
+    r([0.092, 0.11, -0.016], 0.037, 0.038, [['tibia', 0.85], ['foot', 0.15]], { bb: 0.044 }),
+    r([0.091, 0.085, -0.014], 0.04, 0.038, [['tibia', 0.6], ['foot', 0.4]], { bb: 0.04 }),
   ],
 };
 
@@ -138,9 +150,9 @@ function buildChain(def: ChainDef, side: Side | null): Chain {
       const t = (j / SEGS_AROUND) * Math.PI * 2;
       const c = Math.cos(t);
       const s = Math.sin(t);
-      const e = 2 / def.n;
+      const e = 2 / (ring.n ?? def.n);
       const x = ring.a * Math.sign(c) * Math.pow(Math.abs(c), e);
-      const z = ring.b * Math.sign(s) * Math.pow(Math.abs(s), e);
+      const z = (s < 0 ? (ring.bb ?? ring.b) : ring.b) * Math.sign(s) * Math.pow(Math.abs(s), e);
       // ring centre in world rest coords; mirror lateral offsets for the side
       p.set(sx * ring.c[0] + (side === 'R' ? -x : x), ring.c[1], ring.c[2] + z);
       const v = i * A + j;

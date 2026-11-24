@@ -7,20 +7,22 @@ export const M = (y: number, z: number) => new Vector3(0, y, z);
 
 const UP = new Vector3(0, 1, 0);
 
-export function ellipsoid(c: Vector3, r: [number, number, number], rot?: Euler, w = 20, h = 14): BufferGeometry {
-  const g = new SphereGeometry(1, w, h);
+/** Ellipsoid; default tessellation follows its size (small bony bumps need few facets under the 25 % skin). */
+export function ellipsoid(c: Vector3, r: [number, number, number], rot?: Euler, w?: number, h?: number): BufferGeometry {
+  const big = Math.max(r[0], r[1], r[2]);
+  const g = new SphereGeometry(1, w ?? (big < 0.009 ? 8 : big < 0.016 ? 11 : 14), h ?? (big < 0.009 ? 6 : big < 0.016 ? 8 : 10));
   g.scale(r[0], r[1], r[2]);
   if (rot) g.applyQuaternion(new Quaternion().setFromEuler(rot));
   g.translate(c.x, c.y, c.z);
   return g;
 }
 
-export function sphere(c: Vector3, r: number, w = 16, h = 12): BufferGeometry {
+export function sphere(c: Vector3, r: number, w?: number, h?: number): BufferGeometry {
   return ellipsoid(c, [r, r, r], undefined, w, h);
 }
 
 /** Tapered capsule between a and b (radii ra at a, rb at b). */
-export function capsule(a: Vector3, b: Vector3, ra: number, rb = ra, radial = 14, capSeg = 6): BufferGeometry {
+export function capsule(a: Vector3, b: Vector3, ra: number, rb = ra, radial = 10, capSeg = 3): BufferGeometry {
   const dir = new Vector3().subVectors(b, a);
   const len = Math.max(1e-5, dir.length());
   dir.divideScalar(len);
@@ -244,7 +246,7 @@ export class TubeWriter {
 /** Static tube along control points with per-control-point radii (interpolated). Capped with spheres. */
 export function tube(ctrl: Vector3[], radius: number | number[], opts: { n?: number; radial?: number; caps?: boolean; closed?: boolean } = {}) {
   const n = opts.n ?? Math.max(8, ctrl.length * 8);
-  const radial = opts.radial ?? 8;
+  const radial = opts.radial ?? 6;
   const closed = !!opts.closed;
   const sampler = new CurveSampler(ctrl.length + 1, 12);
   const pts = Array.from({ length: n }, () => new Vector3());
@@ -263,7 +265,9 @@ export function tube(ctrl: Vector3[], radius: number | number[], opts: { n?: num
   w.write(pts, radii);
   const g = w.toGeometry();
   if (opts.caps === false || closed) return g;
-  return merge([g, sphere(pts[0], radii[0], 10, 8), sphere(pts[n - 1], radii[n - 1], 10, 8)]);
+  // end caps: just enough rows to read as rounded (thin bones are mostly hidden under the 25 % skin)
+  const cap = (k: number) => sphere(pts[k], radii[k], Math.max(6, radial), radii[k] < 0.006 ? 4 : Math.max(4, Math.round(radial * 0.75)));
+  return merge([g, cap(0), cap(n - 1)]);
 }
 
 /** Thick sheet from a grid of points (rows × cols). */
