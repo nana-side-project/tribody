@@ -120,17 +120,20 @@ function ribCurve(i: number): Vector3[] {
   return pts;
 }
 
+/** Iliac crest, ASIS → iliac tubercle → PSIS (lateral-positive). */
+const ILIUM_TOP: [number, number, number][] = [
+  [0.12, 1.0, 0.065],
+  [0.132, 1.03, 0.05],
+  [0.139, 1.052, 0.028],
+  [0.142, 1.068, -0.012],
+  [0.126, 1.072, -0.045],
+  [0.092, 1.066, -0.068],
+  [0.062, 1.046, -0.085],
+  [0.045, 1.02, -0.092],
+];
+
 function iliumGrid(): Vector3[][] {
-  const top = [
-    [0.12, 1.0, 0.065],
-    [0.132, 1.03, 0.05],
-    [0.139, 1.052, 0.028],
-    [0.142, 1.068, -0.012],
-    [0.126, 1.072, -0.045],
-    [0.092, 1.066, -0.068],
-    [0.062, 1.046, -0.085],
-    [0.045, 1.02, -0.092],
-  ].map(([x, y, z]) => R(x, y, z));
+  const top = ILIUM_TOP.map(([x, y, z]) => R(x, y, z));
   const bot = [
     [0.103, 0.966, 0.058],
     [0.108, 0.952, 0.036],
@@ -151,7 +154,9 @@ function iliumGrid(): Vector3[][] {
     grid.push(
       T.map((t, c) => {
         const p = new Vector3().lerpVectors(t, B[c], v);
-        const bulge = Math.sin(Math.PI * v) * 0.007 * Math.sin((Math.PI * c) / (N - 1));
+        // gluteal surface: convex outward in front, slightly concave behind (the wing's gentle S-curve)
+        const cu = c / (N - 1);
+        const bulge = Math.sin(Math.PI * v) * (0.011 * Math.sin(Math.PI * Math.min(1, cu * 1.25)) - 0.004 * Math.max(0, cu - 0.7) / 0.3);
         p.x -= bulge; // slightly convex outwards (right side lateral = −x)
         return p;
       }),
@@ -234,7 +239,10 @@ export const BONE_PIECES: BonePieceDef[] = [
     midline: true,
     build: () => [
       tube([R(-0.048, 1.61, -0.006), R(-0.046, 1.562, 0.0), R(-0.03, 1.541, 0.05), M(1.534, 0.072), R(0.03, 1.541, 0.05), R(0.046, 1.562, 0.0), R(0.048, 1.61, -0.006)], 0.0075, { n: 40 }),
-      ellipsoid(M(1.537, 0.07), [0.015, 0.011, 0.009]),
+      // mandible body (fills the gap up to the teeth so the jaw doesn't read as a loose hoop) + chin
+      ellipsoid(R(0.036, 1.556, 0.032), [0.008, 0.017, 0.022], deg(0, -38, 0)),
+      ellipsoid(R(-0.036, 1.556, 0.032), [0.008, 0.017, 0.022], deg(0, 38, 0)),
+      ellipsoid(M(1.553, 0.064), [0.021, 0.02, 0.011]),
     ],
   },
   // ── spine
@@ -346,7 +354,24 @@ export const BONE_PIECES: BonePieceDef[] = [
     },
   },
   // ── pelvis (sided)
-  { part: 'ilium', seg: 'pelvis', mat: 'bone', build: () => [slab(iliumGrid(), 0.007), sphere(R(0.12, 1.0, 0.065), 0.006), sphere(R(0.045, 1.019, -0.091), 0.006)] },
+  {
+    part: 'ilium',
+    seg: 'pelvis',
+    mat: 'bone',
+    build: () => [
+      slab(iliumGrid(), 0.007),
+      // iliac crest (thick rounded rim: ASIS → tubercle → PSIS) so the wing reads as bone, not a flat disc
+      tube(ILIUM_TOP.map(([x, y, z]) => R(x, y, z)), [0.0052, 0.0058, 0.0066, 0.0068, 0.0064, 0.006, 0.0058, 0.0056], { n: 40, radial: 8 }),
+      // anterior border: ASIS → AIIS → acetabular rim
+      tube([R(0.12, 1.0, 0.065), R(0.108, 0.982, 0.06), R(0.103, 0.966, 0.058), R(0.097, 0.948, 0.04)], [0.0048, 0.0042, 0.0052, 0.006], { n: 16 }),
+      // posterior border: PSIS → PIIS → greater sciatic notch → posterior acetabulum
+      tube([R(0.045, 1.019, -0.091), R(0.05, 0.99, -0.087), R(0.066, 0.952, -0.072), R(0.088, 0.93, -0.035)], [0.0055, 0.005, 0.0055, 0.0075], { n: 18 }),
+      // iliac pillar: the thick column from the acetabulum up to the iliac tubercle
+      tube([R(0.104, 0.94, 0.004), R(0.122, 0.995, 0.0), R(0.138, 1.055, -0.008)], [0.0095, 0.0068, 0.0052], { n: 16 }),
+      sphere(R(0.12, 1.0, 0.065), 0.0062),
+      sphere(R(0.045, 1.019, -0.091), 0.0062),
+    ],
+  },
   {
     part: 'acetabulum',
     seg: 'pelvis',
@@ -477,6 +502,9 @@ export const BONE_PIECES: BonePieceDef[] = [
       ellipsoid(R(0.09, 0.51, -0.006), [0.043, 0.024, 0.029]),
       ellipsoid(R(0.067, 0.508, -0.016), [0.019, 0.022, 0.022]),
       ellipsoid(R(0.112, 0.508, -0.016), [0.019, 0.022, 0.021]),
+      // trochlea and the anterior condyles: the patella glides on these (see rig.ts PAT_TILT)
+      ellipsoid(R(0.09, 0.53, 0.012), [0.026, 0.028, 0.021]),
+      ellipsoid(R(0.09, 0.505, 0.006), [0.036, 0.021, 0.026]),
     ],
   },
   { part: 'lateral_epicondyle', seg: 'femur', mat: 'bone', build: () => [sphere(R(0.128, 0.516, -0.004), 0.0065)] },

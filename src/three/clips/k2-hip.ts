@@ -7,9 +7,10 @@ const HOOK = { hip: { flex: 45, abd: 4 }, knee: { flex: 104 }, ankle: { dorsi: -
 // bridge top: trunk 20° off the floor; feet & shoulders stay on the floor
 const TOP = { root: { rot: [-110, 0, 0] as [number, number, number] }, joints: { hip: { flex: 5 }, knee: { flex: 90 }, ankle: { dorsi: -25 }, neck: { flex: 20 } } };
 
-// clamshell "open": the top leg rotates 35° about the hip–ankle axis (feet stay together, knee rises ~17 cm).
-// Solved numerically: equivalent to hip flex 42.5 / abd 23 / external rotation 27 from (flex 48, knee 88).
-const OPEN = { joints: { hip_R: { flex: 42.5, abd: 23, rot: 27 } } };
+// clamshell "open": the top leg rotates 35° about the hip–heel axis (heels stay together, knee rises ~17 cm).
+// Solved numerically: equivalent to hip flex 42.8 / abd 18.3 / external rotation 23.2 from the start
+// (flex 48, knee 88, and SIDE_LYING's top-leg adduction of −8° so the knees rest on each other).
+const OPEN = { joints: { hip_R: { flex: 42.8, abd: 18.3, rot: 23.2 } } };
 
 export const clips: Partial<Record<ExerciseId, Clip>> = {
   // SAMPLE — glute bridge from hook-lying (SUPINE, knees bent, feet flat). Feet pinned in xz, body grounded.
@@ -46,8 +47,10 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     ],
     loop: 'loop',
     props: [{ kind: 'mat', rotY: 90 }],
-    camera: { dir: [-0.5, 0.62, 0.72] },
+    // from the front (the side the knees point to), a little above: the top knee visibly lifts off the bottom one
+    camera: { dir: [-0.22, 0.42, 1] },
     focus: 'hip',
+    frame: ['femur:lateral_epicondyle', 'femur_L:lateral_epicondyle', 'foot:calcaneus_post', 'pelvis:iliac_crest_mid'],
     sides: 'R',
     highlights: { 'gluteus-medius': 'primary', 'gluteus-minimus': 'secondary', piriformis: 'secondary' },
   },

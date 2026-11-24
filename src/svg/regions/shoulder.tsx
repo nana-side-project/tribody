@@ -142,6 +142,8 @@ export interface Field {
   i: readonly P[];
   /** optional control line (quadratic bulge of each fibre) */
   c?: readonly P[];
+  /** optional second control line → cubic fibres (S-shaped paths) */
+  c2?: readonly P[];
 }
 
 function fibre(f: Field, u: number) {
@@ -159,6 +161,14 @@ const qb = (O: XY, C: XY, I: XY, t: number): XY => {
 /** Point of the field at fibre u, position s along the fibre. */
 export function fpt(f: Field, u: number, s: number): XY {
   const { O, C, I } = fibre(f, u);
+  if (f.c2) {
+    const C2 = crAt(f.c2, u);
+    const a = (1 - s) ** 3;
+    const b = 3 * (1 - s) ** 2 * s;
+    const c = 3 * (1 - s) * s * s;
+    const d = s ** 3;
+    return [a * O[0] + b * C[0] + c * C2[0] + d * I[0], a * O[1] + b * C[1] + c * C2[1] + d * I[1]];
+  }
   return qb(O, C, I, s);
 }
 
@@ -188,7 +198,8 @@ export function band(f: Field | Surf, u0: number, u1: number, s0: Num, s1: Num, 
 /** Fibre lines at u = u0 + (u1-u0)·(k+off)/n (exact quadratics for fields, smoothed samples for surfaces). */
 export function fibres(f: Field | Surf, n: number, s0: Num, s1: Num, off = 0.5, inset = 0.025, u0 = 0, u1 = 1): string {
   let d = '';
-  if (typeof f === 'function') {
+  if (typeof f === 'function' || f.c2) {
+    const S = surfOf(f);
     for (let k = 0; k < n; k++) {
       const u = u0 + ((u1 - u0) * (k + off)) / n;
       if (u <= 0.001 || u >= 0.999) continue;
@@ -196,7 +207,7 @@ export function fibres(f: Field | Surf, n: number, s0: Num, s1: Num, off = 0.5, 
       const b = numAt(s1, u, 1) - inset;
       if (b - a < 0.02) continue;
       const pts: P[] = [];
-      for (let j = 0; j <= 8; j++) pts.push(f(u, a + ((b - a) * j) / 8));
+      for (let j = 0; j <= 8; j++) pts.push(S(u, a + ((b - a) * j) / 8));
       d += sp(pts, false);
     }
     return d;
@@ -230,7 +241,10 @@ export interface MuscleSpec extends Field {
   seams?: number[];
 }
 export interface MuscleGeo {
+  /** outline (for the stroke) */
   body: string;
+  /** fill: the outline, or (when neighbouring fibres cross) separate thin strips — no winding holes */
+  fill: string[];
   ten: string[];
   tenFib: string;
   fib: string;
@@ -281,6 +295,25 @@ export function muscle(m: MuscleSpec): MuscleGeo {
   return geoOf(m, m);
 }
 
+/** Do neighbouring fibres cross anywhere? (Twisted / folded muscles.) A crossing would punch winding holes in a single fill path. */
+function crosses(S: Surf): boolean {
+  const N = 24;
+  const M = 14;
+  const fib = (u: number) => Array.from({ length: M + 1 }, (_, j) => S(u, 0.04 + (0.92 * j) / M));
+  const hit = (a: XY, b: XY, c: XY, d: XY) => {
+    const o = (p: XY, q: XY, r: XY) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+    return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0;
+  };
+  for (let k = 0; k < N; k++) {
+    const A = fib(k / N);
+    const Bf = fib((k + 1) / N);
+    for (let i = 0; i < M; i++)
+      for (let j = 0; j < M; j++)
+        if (hit(A[i], A[i + 1], Bf[j], Bf[j + 1])) return true;
+  }
+  return false;
+}
+
 function geoOf(m: Field | Surf, o: { t0?: Num; t1?: Num; n?: number; seams?: number[] }): MuscleGeo {
   const S = surfOf(m);
   const n = o.n ?? 9;
@@ -306,8 +339,12 @@ function geoOf(m: Field | Surf, o: { t0?: Num; t1?: Num; n?: number; seams?: num
       return pl(pts);
     })
     .join('');
+  const body = band(m, 0, 1, t0, t1);
+  const K = 16;
+  const fill = crosses(S) ? Array.from({ length: K }, (_, j) => band(m, j / K - 0.004, (j + 1) / K + 0.004, t0, t1, 2, 14)) : [body];
   return {
-    body: band(m, 0, 1, t0, t1),
+    body,
+    fill,
     ten,
     tenFib,
     fib: fibres(m, n, t0, t1, 0.5),
@@ -354,6 +391,8 @@ export const KIT_CSS = `
 .tbu .bone-sh { fill: var(--rd-bone-sh); opacity: var(--rd-bone-sh-o); stroke: none; }
 .tbu .rib-o { fill: none; stroke: var(--bone-ink); stroke-linecap: round; }
 .tbu .rib-i { fill: none; stroke: var(--bone); stroke-linecap: round; }
+.tbu .hole { fill: var(--bone-ink); opacity: .3; stroke: var(--bone-ink); stroke-width: .7; }
+.tbu .tooth { fill: color-mix(in srgb, var(--bone) 40%, #fff); stroke: var(--bone-ink); stroke-width: .6; }
 .tbu .ghost { fill: none; stroke: var(--bone-ink); stroke-width: .8; opacity: .38; stroke-linecap: round; }
 .tbu .skin { fill: none; stroke: var(--text-2); stroke-width: 1; opacity: .28; stroke-dasharray: 3 3; }
 .tbu .bursa { fill: var(--bursa); stroke: color-mix(in srgb, var(--bursa) 55%, #102a44); stroke-width: .8; }
@@ -369,6 +408,11 @@ export const KIT_CSS = `
 .tbu .tone-deep .mus { fill: color-mix(in srgb, var(--muscle) 82%, #3a0805); }
 .tbu .labrum { fill: color-mix(in srgb, var(--rd-cart) 62%, var(--bursa)); stroke: color-mix(in srgb, var(--bursa) 45%, #0e2a44); stroke-width: .9; }
 .tbu .tbu-halo .drop { display: none; }
+
+.tbu .sec-skin { fill: color-mix(in srgb, var(--surface-2) 70%, var(--surface)); stroke: var(--text-2); stroke-width: 1; stroke-opacity: .45; }
+.tbu .sec-cav { fill: var(--surface); stroke: var(--text-2); stroke-width: .8; stroke-opacity: .35; stroke-dasharray: 3 3; }
+.tbu .sec-canal { fill: color-mix(in srgb, var(--nerve) 20%, var(--surface)); stroke: var(--bone-ink); stroke-width: .7; }
+.tbu .lamella { fill: none; stroke: color-mix(in srgb, var(--rd-cart) 45%, #2c4a62); stroke-width: .6; opacity: .7; }
 
 /* parts & highlight roles */
 .tbu-part, .tbu-ctx { transition: opacity .25s ease; }
@@ -414,19 +458,19 @@ export const KIT_CSS = `
 .tbu-lab.is-involved .ld, .tbu-lab.is-involved .ldot { stroke: var(--rd-amber); fill: var(--rd-amber); opacity: 1; }
 .tbu-lab.is-dim { opacity: .3; }
 
-/* pain-spot hotspots */
+/* pain-spot hotspots: white target markers so they read on red muscle and grey bone */
 .tbu-spot { cursor: pointer; outline: none; }
 .tbu-spot .s-hit { fill: transparent; }
-.tbu-spot .s-ring { fill: var(--accent); opacity: .25; transform-box: fill-box; transform-origin: center;
+.tbu-spot .s-ring { fill: var(--accent); opacity: .3; transform-box: fill-box; transform-origin: center;
   animation: tbu-ring 2.2s ease-out infinite; }
-.tbu-spot .s-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2.2; }
-.tbu-spot .s-sel { fill: none; stroke: var(--accent); stroke-width: 2.2; }
-.tbu-spot.is-sel .s-dot { fill: var(--injured); }
-.tbu-spot.is-sel .s-ring { fill: var(--injured); opacity: .3; }
-.tbu-spot.is-sel .s-sel { stroke: var(--injured); }
-.tbu-spot:focus-visible .s-sel { stroke: var(--text); stroke-width: 2.6; }
-.tbu-spot .s-pill { fill: var(--injured); }
-.tbu-spot .s-pill-t { font-size: 11.5px; font-weight: 700; fill: #fff; }
+.tbu-spot .s-sh { fill: #000; opacity: .22; }
+.tbu-spot .s-dot { fill: var(--surface); stroke: var(--accent); stroke-width: 2.6; }
+.tbu-spot .s-core { fill: var(--accent); }
+.tbu-spot .s-sel { fill: none; stroke: var(--injured); stroke-width: 2.2; }
+.tbu-spot.is-sel .s-dot { fill: var(--injured); stroke: #fff; }
+.tbu-spot.is-sel .s-core { fill: #fff; }
+.tbu-spot.is-sel .s-ring { fill: var(--injured); opacity: .35; }
+.tbu-spot:focus-visible .s-sel, .tbu-spot:focus-visible .s-dot { stroke: var(--text); }
 @keyframes tbu-ring { 0% { transform: scale(.55); opacity: .5; } 80%, 100% { transform: scale(1.5); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   .tbu-halo { animation: none; opacity: .55; }
@@ -519,7 +563,9 @@ export function M({ g, ctx = false, deep = false, flat = false }: { g: MuscleGeo
         {g.ten.map((d, i) => (
           <path key={i} className="ten" d={d} />
         ))}
-        <path className="mus-ctx" d={g.body} />
+        {g.fill.map((d, i) => (
+          <path key={i} className="mus-ctx" d={d} />
+        ))}
         <path className="fib-ctx" d={g.fib} />
       </>
     );
@@ -534,7 +580,9 @@ function MBody({ g }: { g: MuscleGeo }) {
         <path key={i} className="ten" d={d} />
       ))}
       {g.tenFib && <path className="ten-fib" d={g.tenFib} />}
-      <path className="mus" d={g.body} />
+      {g.fill.map((d, i) => (
+        <path key={i} className="mus" d={d} />
+      ))}
       <path className="hi" d={g.hi} />
       <path className="shade" d={g.shade} />
       <path className="fib" d={g.fib} />
@@ -565,6 +613,8 @@ export interface Lab {
   x: number;
   y: number;
   a?: 'start' | 'end' | 'middle';
+  /** plain caption: no leader line / anchor dot */
+  bare?: boolean;
 }
 
 export interface Spot {
@@ -596,8 +646,8 @@ function Label({ k, l }: { k: Ctx; l: Lab }) {
       aria-hidden={on ? undefined : 'true'}
       aria-label={on && id ? partName(id) : undefined}
     >
-      <path className="ld" d={`M${xy(l.at)}L${xy(tip)}`} />
-      <circle className="ldot" cx={l.at[0]} cy={l.at[1]} r={1.6} />
+      {!l.bare && <path className="ld" d={`M${xy(l.at)}L${xy(tip)}`} />}
+      {!l.bare && <circle className="ldot" cx={l.at[0]} cy={l.at[1]} r={1.6} />}
       <rect className="lhit" x={x0 - 3} y={l.y - FS} width={w + 6} height={h + 3} />
       <text x={l.x} y={l.y} textAnchor={a}>
         {lines.map((s, i) => (
@@ -627,9 +677,11 @@ function SpotMark({ s, sel, onSel }: { s: Spot; sel: boolean; onSel?: (id: PainS
     >
       <title>{name}</title>
       <circle className="s-hit" r={24} />
-      <circle className="s-ring" r={sel ? 13 : 11} />
-      {sel && <circle className="s-sel" r={10.5} />}
-      <circle className="s-dot" r={sel ? 6.5 : 5.5} />
+      <circle className="s-ring" r={sel ? 15 : 12} />
+      {sel && <circle className="s-sel" r={12.5} />}
+      <circle className="s-sh" cx={0.6} cy={1.2} r={sel ? 8.6 : 7.6} />
+      <circle className="s-dot" r={sel ? 8 : 7} />
+      <circle className="s-core" r={sel ? 3 : 2.8} />
     </g>
   );
 }
@@ -874,19 +926,28 @@ const CAPSULE_B_LN = [
   sp(PS('214,160 226,162 236,157'), false),
 ].join('');
 
-function BackView({ k, deep }: { k: Ctx; deep: boolean }) {
+/**
+ * Posterior shoulder layers, back to front. Exported so the neck diagram can reuse them
+ * (scaled / mirrored); `skip` omits named layers.
+ */
+export function ShoulderBackLayers({ k, deep, skip = [] }: { k: Ctx; deep: boolean; skip?: string[] }) {
+  const has = (n: string) => !skip.includes(n);
   return (
     <>
-      <Ctxt k={k}>
-        <g opacity={0.5}>
-          <Rib d={B.ribsL} w={6} />
-        </g>
-        <Rib d={B.ribsR} w={6.5} />
-        <path className="bone" d={B.cerv} />
-      </Ctxt>
-      <Part k={k} id="thoracic-spine">
-        <path className="bone" d={B.spine} />
-      </Part>
+      {has('ribs') && (
+        <Ctxt k={k}>
+          <g opacity={0.5}>
+            <Rib d={B.ribsL} w={6} />
+          </g>
+          <Rib d={B.ribsR} w={6.5} />
+          <path className="bone" d={B.cerv} />
+        </Ctxt>
+      )}
+      {has('spine') && (
+        <Part k={k} id="thoracic-spine">
+          <path className="bone" d={B.spine} />
+        </Part>
+      )}
       <Part k={k} id="scapula">
         <path className="bone" d={B.scap} />
         <path className="bone-sh" d={B.scapSh} />
@@ -896,7 +957,7 @@ function BackView({ k, deep }: { k: Ctx; deep: boolean }) {
         <path className="bone" d={B.humerus} />
         <path className="bone-ln" d={B.humLn} />
       </Ctxt>
-      {!deep && (
+      {!deep && has('lat') && (
         <Part k={k} id="latissimus-dorsi">
           <M g={MB.lat} />
         </Part>
@@ -933,31 +994,40 @@ function BackView({ k, deep }: { k: Ctx; deep: boolean }) {
       </Part>
       {deep && (
         <>
-          <Part k={k} id="levator-scapulae">
-            <M g={MB.levator} />
-          </Part>
-          <Part k={k} id="rhomboids">
-            <M g={MB.rhMinor} />
-            <M g={MB.rhMajor} />
-          </Part>
+          {has('levator') && (
+            <Part k={k} id="levator-scapulae">
+              <M g={MB.levator} />
+            </Part>
+          )}
+          {has('rhomboids') && (
+            <Part k={k} id="rhomboids">
+              <M g={MB.rhMinor} />
+              <M g={MB.rhMajor} />
+            </Part>
+          )}
         </>
       )}
       {!deep && (
         <>
-          <Part k={k} id="trapezius">
-            <M g={MB.trap} />
-          </Part>
+          {has('trap') && (
+            <Part k={k} id="trapezius">
+              <M g={MB.trap} />
+            </Part>
+          )}
           <Part k={k} id="deltoid">
             <M g={MB.deltoid} />
           </Part>
         </>
       )}
-      <Part k={k} id="thoracic-spine">
-        <path className="bone" d={B.spinous} />
-      </Part>
+      {has('spine') && (
+        <Part k={k} id="thoracic-spine">
+          <path className="bone" d={B.spinous} />
+        </Part>
+      )}
     </>
   );
 }
+const BackView = ShoulderBackLayers;
 
 const LABELS_BACK: Lab[] = [
   { id: 'trapezius', t: '僧帽筋', at: [140, 60], x: 168, y: 40 },
@@ -1058,7 +1128,7 @@ const MF = {
     t1: [0.74, 0.76, 0.78, 0.8, 0.8],
     n: 14,
   }),
-  supra: muscle({ o: PS('228,78 226,94'), i: ab(PS('110,86 113,95')), c: PS('170,72 168,92'), t1: 0.55, n: 5 }),
+  supra: muscle({ o: PS('230,74 228,84 224,96'), i: ab(PS('110,85 112,90 114,95')), c: PS('176,66 172,80 166,94'), t1: 0.56, n: 6 }),
 };
 
 /** Serratus anterior: one finger-like slip per rib (4th–9th), pointed tip on the rib, running back-up under the lat. */
@@ -1074,12 +1144,12 @@ const SERRATUS = [4, 5, 6, 7, 8, 9].map((r, j) => {
       [xt + 1, yt + 3],
     ],
     i: [
-      [xp, yp - 11],
-      [xp, yp + 12],
+      [xp, yp - 14],
+      [xp, yp + 14],
     ],
     c: [
-      [(xt + xp) / 2 + 2, yt - 19 - j],
-      [(xt + xp) / 2 + 4, yt - 2],
+      [(xt + xp) / 2 + 2, yt - 25 - j],
+      [(xt + xp) / 2 + 4, yt + 1],
     ],
     t0: 0.1,
     n: 5,

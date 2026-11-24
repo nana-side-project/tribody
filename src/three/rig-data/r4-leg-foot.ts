@@ -40,7 +40,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     // heel raise on the step edge (toes stay flat: toe extension = plantarflexion)
     actionPose: { joints: { ankle: { dorsi: -30 }, toes: { ext: 30 } } },
     // heel drop with straight knees
-    stretchPose: { joints: { ankle: { dorsi: 22 }, toes: { ext: -22 } } },
+    stretchPose: { joints: { ankle: { dorsi: 28 }, toes: { ext: -28 } } },
     camera: 'isoBack',
     focus: 'calf',
   },
@@ -89,7 +89,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     base: 'STAND_STEP',
     restPose: { joints: { knee: { flex: 28 }, hip: { flex: 12 }, lumbar: { flex: 5 } } },
     actionPose: { joints: { ankle: { dorsi: -28 }, toes: { ext: 28 } } },
-    stretchPose: { joints: { ankle: { dorsi: 24 }, toes: { ext: -24 } } },
+    stretchPose: { joints: { ankle: { dorsi: 30 }, toes: { ext: -30 } } },
     camera: 'isoBack',
     focus: 'calf',
   },

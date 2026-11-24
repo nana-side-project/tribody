@@ -1,7 +1,7 @@
 // The mannequin: one Object3D per rig segment carrying its bone pieces and translucent skin volumes.
 import { type BufferGeometry, Color, Group, Mesh, type MeshStandardMaterial, Object3D, type ShaderMaterial, SphereGeometry } from 'three';
 import { capsule, merge } from './geometry';
-import { type Palette, rimMaterial, type RimUniforms, skinMaterials } from './materials';
+import { colorOf, type Palette, rimMaterial, type RimUniforms, skinMaterials } from './materials';
 import { type RigState, SEGMENTS, SKIN_PRIMS, type Side } from './rig';
 import { buildSkeletonGeometry } from './skeleton';
 import { SkinLoft } from './skin-loft';
@@ -145,7 +145,7 @@ export class Figure {
       this.tinted.set(key, mat);
       for (const m of meshes) m.material = mat;
     }
-    mat.color.set(this.pal.bone).lerp(color, 0.62);
+    mat.color.copy(colorOf(this.pal.bone)).lerp(color, 0.62);
     mat.emissive.copy(color);
     mat.emissiveIntensity = emissive;
   }

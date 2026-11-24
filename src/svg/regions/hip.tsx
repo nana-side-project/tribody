@@ -292,7 +292,8 @@ const DARK = `
   --k-amber: #f2b13e; --k-cart: #a8bccb; --k-labrum: #7f9fb8; --k-vivid: #ff6a55; --k-shade: #000; --k-shade-o: .2;
   --k-hi-o: .05; --k-mus-ink: color-mix(in srgb, var(--muscle) 52%, #000); --k-ten-ink: color-mix(in srgb, var(--tendon) 52%, #000);
   --k-bone-sh: #000; --k-bone-sh-o: .18; --k-body: color-mix(in srgb, var(--surface-2) 70%, var(--surface));
-  --k-ctx: color-mix(in srgb, var(--muscle) 46%, var(--surface)); --k-cut: color-mix(in srgb, var(--muscle) 70%, #fff);`;
+  --k-ctx: color-mix(in srgb, var(--muscle) 46%, var(--surface)); --k-cut: color-mix(in srgb, var(--muscle) 70%, #fff);
+  --k-fat: color-mix(in srgb, var(--nerve) 42%, #6a6258);`;
 
 export const KIT_CSS = `
 .thk { --k-amber: #e0901a; --k-cart: #e1ebf2; --k-labrum: #a9c3d8; --k-vivid: #d8342a; --k-shade: #2b0805; --k-shade-o: .14;
@@ -300,7 +301,8 @@ export const KIT_CSS = `
   --k-ten-ink: color-mix(in srgb, var(--tendon) 60%, #5a4524); --k-bone-sh: #4a443d; --k-bone-sh-o: .1;
   --k-inj-ink: color-mix(in srgb, var(--injured) 70%, #000); --k-body: color-mix(in srgb, var(--surface-2) 55%, var(--surface));
   --k-ctx: color-mix(in srgb, var(--muscle) 40%, var(--surface)); --k-cut: color-mix(in srgb, var(--muscle) 55%, #fff);
-  display: block; width: 100%; height: auto; max-width: 480px; margin: 0 auto; overflow: visible;
+  --k-fat: color-mix(in srgb, var(--nerve) 30%, #fff);
+  display: block; width: 100%; height: auto; max-width: 480px; margin: 0 auto; overflow: hidden;
   font-family: inherit; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
   touch-action: manipulation; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .thk { ${DARK} } }
@@ -326,6 +328,8 @@ export const KIT_CSS = `
 .thk .bone-g { fill: var(--bone); stroke: var(--bone-ink); stroke-width: .8; opacity: .5; }
 .thk .bone-ln { fill: none; stroke: var(--bone-ink); stroke-width: .7; opacity: .5; stroke-linecap: round; stroke-linejoin: round; }
 .thk .bone-sh { fill: var(--k-bone-sh); opacity: var(--k-bone-sh-o); stroke: none; }
+.thk .bone-t { fill: var(--bone); fill-opacity: .6; stroke: var(--bone-ink); stroke-width: 1; stroke-dasharray: 2.4 1.6; }
+.thk .fat { fill: var(--k-fat); stroke: color-mix(in srgb, var(--nerve) 40%, var(--bone-ink)); stroke-width: .6; }
 .thk .hole { fill: var(--k-body); stroke: var(--bone-ink); stroke-width: .8; }
 .thk .bursa { fill: var(--bursa); stroke: color-mix(in srgb, var(--bursa) 55%, #102a44); stroke-width: .8; fill-opacity: .92; }
 .thk .cart { fill: var(--k-cart); stroke: color-mix(in srgb, var(--k-cart) 50%, #2c4a62); stroke-width: .75; }
@@ -333,7 +337,8 @@ export const KIT_CSS = `
 .thk .nerve { fill: var(--nerve); stroke: color-mix(in srgb, var(--nerve) 55%, #4a3600); stroke-width: .7; }
 .thk .nerve-ln { fill: none; stroke: color-mix(in srgb, var(--nerve) 55%, #4a3600); stroke-width: .5; opacity: .55; }
 .thk .ghost { fill: none; stroke: var(--text-2); stroke-width: .9; opacity: .5; stroke-dasharray: 3 2.5; }
-.thk .rim { fill: none; stroke: var(--k-mus-ink); stroke-width: 1.4; opacity: .7; }
+.thk .rim { fill: none; stroke: var(--k-mus-ink); stroke-width: 1; opacity: .8; }
+.thk .rimc { fill: none; stroke: var(--k-cut); stroke-width: 3.4; opacity: .95; }
 .thk .rim-t { fill: none; stroke: var(--k-ten-ink); stroke-width: 1.2; opacity: .8; }
 .thk .inset-bg { fill: var(--surface); stroke: var(--border); stroke-width: 1.2; }
 .thk .inset-ring { fill: none; stroke: var(--text-2); stroke-width: .9; opacity: .55; }
@@ -346,7 +351,7 @@ export const KIT_CSS = `
 .thk-part[role="button"] { cursor: pointer; outline: none; }
 .thk-part.is-dim { opacity: .22; }
 .thk-ctx.is-dim { opacity: .3; }
-.thk .is-injured :is(.mus, .ten, .lig, .cap, .fascia, .fascia-t, .bone, .bursa, .cart, .labrum, .nerve, .cutf) {
+.thk .is-injured :is(.mus, .ten, .lig, .cap, .fascia, .fascia-t, .bone, .bone-t, .bursa, .cart, .labrum, .nerve, .cutf) {
   fill: var(--injured); stroke: var(--k-inj-ink); opacity: 1; fill-opacity: 1; }
 .thk .is-injured .ol { stroke: var(--k-inj-ink); stroke-width: 1.1; }
 .thk .is-injured :is(.fib, .ten-fib, .bone-ln, .nerve-ln, .raphe) { stroke: #fff; opacity: .35; }
@@ -356,12 +361,12 @@ export const KIT_CSS = `
 @keyframes thk-pulse { 0%, 100% { opacity: .22; } 50% { opacity: .8; } }
 .thk .is-involved .mus { fill: color-mix(in srgb, var(--muscle) 72%, var(--k-amber)); }
 .thk .is-involved .ol { stroke: var(--k-amber); stroke-width: 1.7; }
-.thk .is-involved :is(.bone, .cart, .labrum) { fill: color-mix(in srgb, var(--bone) 70%, var(--k-amber)); stroke: var(--k-amber); stroke-width: 1.7; }
+.thk .is-involved :is(.bone, .bone-t, .cart, .labrum) { fill: color-mix(in srgb, var(--bone) 70%, var(--k-amber)); stroke: var(--k-amber); stroke-width: 1.7; }
 .thk .is-involved :is(.ten, .lig, .cap, .fascia, .fascia-t) { fill: color-mix(in srgb, var(--tendon) 62%, var(--k-amber)); stroke: var(--k-amber); stroke-width: 1.5; fill-opacity: 1; }
 .thk .is-involved :is(.bursa, .nerve) { stroke: var(--k-amber); stroke-width: 1.8; }
 .thk .is-muscle .mus { fill: var(--k-vivid); }
 .thk .is-muscle .ol { stroke: color-mix(in srgb, var(--k-vivid) 60%, #000); stroke-width: 1.1; }
-.thk .is-selected :is(.ol, .bone, .ten, .lig, .cap, .bursa, .cart, .labrum, .fascia, .fascia-t, .nerve) { stroke: var(--text); stroke-width: 2.2; }
+.thk .is-selected :is(.ol, .bone, .bone-t, .ten, .lig, .cap, .bursa, .cart, .labrum, .fascia, .fascia-t, .nerve) { stroke: var(--text); stroke-width: 2.2; }
 .thk-part:focus-visible :is(.ol, .bone, .ten, .lig, .bursa, .cart, .labrum, .cap, .fascia, .fascia-t, .nerve) { stroke: var(--accent); stroke-width: 2.4; }
 
 /* labels */
@@ -753,3 +758,936 @@ export function HoleMask({ id, d, w, h }: { id: string; d: string; w: number; h:
     </mask>
   );
 }
+
+/* ═════════════════════════════════════ HIP ═════════════════════════════════════ */
+
+const W = 360;
+const H = 470;
+
+/** Mirror a point list across x = mx (for the opposite half of the pelvis). */
+const mirror = (pts: readonly P[], mx: number): P[] => pts.map((q) => (q[2] ? [2 * mx - q[0], q[1], 1] : [2 * mx - q[0], q[1]]) as P);
+/** Points on a circular arc (degrees, screen coordinates: 0° = +x, 90° = +y). */
+export const arc = (cx: number, cy: number, r: number, a0: number, a1: number, n = 8): XY[] =>
+  Array.from({ length: n + 1 }, (_, i) => {
+    const a = ((a0 + ((a1 - a0) * i) / n) * Math.PI) / 180;
+    return [cx + Math.cos(a) * r, cy + Math.sin(a) * r] as XY;
+  });
+/** Closed crescent between radii r0 < r1 over an arc. */
+export const crescent = (cx: number, cy: number, r0: number, r1: number, a0: number, a1: number) =>
+  sp([...arc(cx, cy, r1, a0, a1, 10).map((p, i, a) => (i === 0 || i === a.length - 1 ? [p[0], p[1], 1] : p) as P), ...arc(cx, cy, r0, a1, a0, 10).map((p, i, a) => (i === 0 || i === a.length - 1 ? [p[0], p[1], 1] : p) as P)]);
+
+/* ───────────── front view: right hip from the front (midline at the viewer's right) ───────────── */
+const MXF = 302; // midline
+const HCF: XY = [210, 178]; // femoral head centre
+
+const FR = {
+  body: sp([[152, -10], [146, 40], [130, 100], [114, 158], [110, 200], [113, 260], [118, 330], [124, 400], [131, 480], [370, 480], [370, -10]]),
+  l5: sp([[278, 30, 1], [326, 30, 1], [329, 64], [302, 68], [275, 64]]),
+  l5tp: sp([[279, 40], [262, 42], [248, 46], [246, 54], [262, 56], [279, 56]]),
+  l4: sp([[279, -20, 1], [325, -20, 1], [327, 22], [302, 25], [277, 22]]),
+  disc: sp([[278, 23], [302, 26], [326, 23], [327, 30], [302, 31], [277, 30]]),
+  sacrum: (() => {
+    const r: P[] = [[302, 76, 1], [288, 73], [272, 75], [262, 82], [261, 104], [265, 132], [273, 158], [284, 184], [293, 202], [302, 213, 1]];
+    return sp([...r, ...mirror(r, MXF).reverse().slice(1, -1)]);
+  })(),
+  sacrumLn: [104, 126, 148, 168].map((y, i) => ell(286 + i * 2.2, y, 4.2 - i * 0.4, 3.3 - i * 0.2) + ell(318 - i * 2.2, y, 4.2 - i * 0.4, 3.3 - i * 0.2)).join(''),
+  coccyx: sp([[296, 214], [308, 214], [306, 226], [303, 236], [301, 236], [298, 226]]),
+};
+
+/** Right hemipelvis, front (outer contour) + obturator foramen (hole). */
+const PELVIS_F: P[] = [
+  [302, 191, 1], [292, 186], [282, 186], [276, 189], [266, 188], [252, 184], [238, 177], [229, 168], [235, 150], [243, 128],
+  [251, 108], [259, 92], [266, 82, 1], [259, 66], [242, 54], [218, 47], [192, 49], [170, 57], [156, 71], [157, 89], [167, 106],
+  [176, 117, 1], [176, 128], [182, 136], [186, 143], [183, 151], [185, 160], [190, 176], [200, 196], [212, 214], [220, 236],
+  [226, 254], [236, 264], [250, 262], [264, 254], [280, 246], [294, 242], [302, 240, 1],
+];
+const OBT_F: P[] = [[246, 205], [262, 200], [278, 206], [282, 222], [274, 239], [258, 244], [241, 238], [233, 222]];
+const pelvisF = sp(PELVIS_F) + sp(OBT_F);
+const pelvisFL = sp(mirror(PELVIS_F, MXF)) + sp(mirror(OBT_F, MXF));
+
+const FEMUR_F = sp([
+  [156, 163], [172, 165], [192, 160], [210, 153], [228, 160], [235, 178], [229, 196], [214, 203], [203, 209], [194, 222], [192, 231],
+  [196, 238, 1], [186, 250], [177, 259], [172, 282], [172, 340], [177, 400], [184, 480], [152, 480], [145, 400], [138, 340], [132, 282],
+  [128, 232], [122, 212], [119, 195], [123, 178], [134, 166], [146, 161],
+]);
+const HEAD_F = ell(HCF[0], HCF[1], 25, 25);
+const CAPSULE_F = sp([[186, 150], [168, 158], [150, 168], [144, 184], [152, 208], [176, 236], [196, 236], [222, 210], [236, 190], [238, 162], [228, 150], [210, 146]]);
+const LABRUM_F = crescent(HCF[0], HCF[1], 24.5, 29, 185, 300);
+
+const FM = {
+  gmed: muscle({
+    r: [
+      [[181, 100], [170, 84], [160, 73], [151, 76]],
+      [[170, 130], [151, 124], [134, 126], [121, 140]],
+      [[154, 171], [146, 172], [138, 172], [129, 170]],
+    ],
+    t1: 0.84,
+    n: 9,
+  }),
+  iliacus: muscle({
+    r: [
+      [[182, 112], [172, 95], [167, 77], [177, 63], [196, 56], [219, 54], [240, 59], [254, 70], [260, 86]],
+      [[188, 140], [199, 137], [212, 136], [225, 137], [236, 140]],
+      [[190, 196], [198, 197], [206, 196], [213, 193], [219, 190]],
+      [[190, 234], [192, 236], [194, 238], [196, 239], [198, 240]],
+    ],
+    t1: 0.9,
+    n: 13,
+  }),
+  psoas: muscle({
+    r: [
+      [[251, -20], [279, -18]],
+      [[248, 40], [278, 46]],
+      [[240, 100], [267, 108]],
+      [[226, 156], [251, 162]],
+      [[212, 200], [233, 206]],
+      [[196, 238], [203, 243]],
+    ],
+    t1: 0.84,
+    n: 8,
+  }),
+  pect: muscle({
+    r: [
+      [[230, 182], [244, 186], [258, 190], [272, 193]],
+      [[198, 246], [199, 256], [200, 266], [201, 276]],
+    ],
+    n: 6,
+  }),
+  amag: muscle({
+    r: [
+      [[262, 256], [277, 250], [292, 246]],
+      [[214, 340], [256, 346], [292, 346]],
+      [[205, 480], [250, 490], [290, 490]],
+    ],
+    n: 9,
+  }),
+  alon: muscle({
+    r: [
+      [[277, 196], [286, 201]],
+      [[247, 252], [281, 268]],
+      [[210, 320], [266, 352]],
+      [[200, 360], [232, 480]],
+    ],
+    t0: 0.1,
+    n: 10,
+  }),
+  grac: muscle({
+    r: [
+      [[284, 228], [300, 214]],
+      [[280, 290], [299, 290]],
+      [[282, 380], [298, 382]],
+      [[285, 480], [297, 480]],
+    ],
+    t0: 0.05,
+    n: 4,
+  }),
+  vl: muscle({
+    r: [
+      [[127, 188], [123, 250], [126, 320], [132, 390], [140, 480]],
+      [[172, 232], [177, 310], [181, 390], [185, 470], [189, 550]],
+    ],
+    n: 12,
+  }),
+  rf: muscle({
+    r: [
+      [[181, 142], [189, 145]],
+      [[178, 204], [197, 206]],
+      [[175, 282], [214, 284]],
+      [[177, 380], [219, 382]],
+      [[185, 490], [219, 490]],
+    ],
+    t0: 0.13,
+    n: 13,
+    pen: 'bi',
+    penD: 0.09,
+  }),
+  tfl: muscle({
+    r: [
+      [[162, 96], [171, 106], [179, 118]],
+      [[139, 160], [155, 166], [170, 172]],
+      [[131, 232], [142, 238], [152, 244]],
+    ],
+    n: 8,
+  }),
+  sart: muscle({
+    r: [
+      [[172, 114], [180, 119]],
+      [[176, 140], [193, 134]],
+      [[199, 197], [221, 189]],
+      [[225, 265], [249, 258]],
+      [[237, 345], [265, 342]],
+      [[241, 490], [269, 492]],
+    ],
+    t0: 0.05,
+    n: 6,
+  }),
+  ra: muscle({
+    r: [
+      [[269, 126], [299, 128]],
+      [[273, 156], [300, 158]],
+      [[279, 184], [299, 187]],
+    ],
+    t1: 0.8,
+    n: 6,
+  }),
+};
+const ITB_F: P[] = [[126, 150], [127, 200], [130, 250], [133, 305], [136, 360], [140, 420], [146, 480]];
+const INGUINAL_F: P[] = [[176, 118], [202, 141], [231, 163], [258, 181], [277, 191]];
+const RA_CUT = ell(284, 127, 15.4, 3.1, 3.5);
+
+/** Hip-joint cross-section (coronal, seen from the front; lateral = left), local coords around the inset centre. */
+function hipSection(c: XY) {
+  const t = (q: readonly number[]): P => (q[2] ? [c[0] + q[0], c[1] + q[1], 1] : [c[0] + q[0], c[1] + q[1]]);
+  const T = (qs: readonly (readonly number[])[]) => qs.map(t);
+  const h: XY = [c[0] + 10, c[1] + 2];
+  const R = 14.5;
+  return {
+    h,
+    pelvis: sp(
+      T([
+        [-34, -62], [-24, -40], [-16, -24], [-12, -11], [-8.1, -3.9, 1],
+        ...arc(10, 2, 19, 198, 350, 12),
+        [30, 8], [31, 15], [38, 20], [62, 20], [62, -62],
+      ]),
+    ),
+    trab: line(T([[-26, -48], [-18, -30], [-8, -22], [8, -24], [24, -18], [34, -6], [40, 8]])),
+    femur: sp(
+      T([
+        [-4, 5.8, 1], ...arc(10, 2, R, 165, 460, 22).slice(1, -1), [7.5, 16.3, 1],
+        [0, 27], [-3, 34], [2, 40], [-6, 46], [-13, 60], [-15, 76], [-46, 76], [-48, 50], [-48, 26], [-46, 10], [-38, 0], [-31, 2],
+        [-26, 12], [-17, 13],
+      ]),
+    ),
+    femLn: line(T([[-22, 16], [-14, 24], [-8, 38]])) + line(T([[-40, 20], [-36, 40], [-32, 66]])),
+    cartA: crescent(h[0], h[1], 17, 19, 202, 340),
+    cartH: crescent(h[0], h[1], R, 16.3, 172, 392),
+    labrum: sp(T([[-13, -11, 1], [-7.6, -5.4, 1], [-9.6, 5.4, 1], [-13.6, -1]])),
+    capL: tube(T([[-15.5, -12], [-17.5, -2], [-21, 7], [-27, 14]]), 3.6),
+    capM: tube(T([[33, 18], [22, 26], [10, 31], [-2, 37]]), 3.6),
+  };
+}
+function HipFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
+  const IC: XY = [54, 412];
+  const IR = 46;
+  const hs = hipSection(IC);
+  const labels: Lab[] = [
+    { id: 'asis', t: '上前腸骨棘', at: [175, 116], x: 100, y: 104, a: 'end' },
+    { id: 'gluteus-medius', t: '中殿筋', at: [138, 134], x: 100, y: 142, a: 'end' },
+    { id: 'tensor-fasciae-latae', t: '大腿筋膜張筋', at: [152, 184], x: 100, y: 190, a: 'end' },
+    { id: 'iliotibial-band', t: '腸脛靱帯', at: [131, 252], x: 100, y: 248, a: 'end' },
+    { id: 'vastus-lateralis', t: '外側広筋', at: [150, 300], x: 100, y: 292, a: 'end' },
+    { id: 'rectus-femoris', t: '大腿直筋', at: [196, 326], x: 100, y: 334, a: 'end' },
+    { id: 'hip-labrum', t: '関節唇', at: [IC[0] - 11, IC[1] - 2], x: IC[0] - 21, y: IC[1] - 16, a: 'middle' },
+    { t: '軟骨', at: [IC[0] + 23.5, IC[1] - 9.5], x: IC[0] + 23, y: IC[1] - 23, a: 'middle' },
+    { id: 'iliopsoas', t: '腸腰筋', at: [262, 36], x: 306, y: 42 },
+    { id: 'rectus-abdominis', t: '腹直筋', at: [288, 146], x: 306, y: 114 },
+    { id: 'pubic-symphysis', t: '恥骨結合', at: [303, 222], x: 308, y: 238 },
+    { id: 'adductor-longus', t: '長内転筋', at: [263, 262], x: 306, y: 272 },
+    { id: 'gracilis', t: '薄筋', at: [289, 318], x: 306, y: 316 },
+    { id: 'adductor-magnus', t: '大内転筋', at: [272, 384], x: 306, y: 364 },
+    { id: 'sartorius', t: '縫工筋', at: [252, 410], x: 306, y: 412 },
+  ];
+  const spots: Spot[] = [
+    { id: 'hip-front', at: [214, 196] },
+    { id: 'groin-inner', at: [279, 212] },
+    { id: 'hip-outer', at: [126, 174] },
+  ];
+  return (
+    <Frame
+      k={k}
+      p={p}
+      w={W}
+      h={H}
+      title="右の股関節を前から見た図（左が外側、右が体の中心）"
+      cap={['右脚・前から', '体の中心 →']}
+      labels={labels}
+      spots={spots}
+      fade={{ top: 28, bottom: 46 }}
+      overlay={
+        <>
+          <Ctxt k={k}>
+            <circle className="inset-ln" cx={HCF[0]} cy={HCF[1]} r={31} />
+            <path className="inset-ln" d={`M${xy([IC[0] + 31, IC[1] - 31])}L${xy([188, 199])}`} />
+          </Ctxt>
+          <Inset k={k} name="hj" cx={IC[0]} cy={IC[1]} r={IR}>
+            <Ctxt k={k}>
+              <path className="bone" d={hs.pelvis} />
+              <path className="bone-ln" d={hs.trab} />
+            </Ctxt>
+            <Part k={k} id="hip-joint">
+              <path className="cap" d={hs.capL} />
+              <path className="cap" d={hs.capM} />
+              <path className="bone" d={hs.femur} />
+              <path className="bone-ln" d={hs.femLn} />
+              <path className="cart" d={hs.cartH} />
+              <path className="cart" d={hs.cartA} />
+            </Part>
+            <Part k={k} id="hip-labrum">
+              <path className="labrum" d={hs.labrum} />
+            </Part>
+          </Inset>
+          <text className="cap-t" x={IC[0]} y={IC[1] - IR - 7} textAnchor="middle" aria-hidden="true">
+            股関節の断面
+          </text>
+        </>
+      }
+    >
+      <Ctxt k={k}>
+        <path className="body" d={FR.body} />
+        <path className="bone-g" d={FR.l4} />
+        <path className="cart" d={FR.disc} />
+        <path className="bone-g" d={FR.l5 + FR.l5tp + sp(mirror([[279, 40], [262, 42], [248, 46], [246, 54], [262, 56], [279, 56]], MXF))} />
+        <path className="bone-g" d={FR.sacrum} />
+        <path className="bone-ln" d={FR.sacrumLn} />
+        <path className="bone-g" d={FR.coccyx} />
+        <path className="bone-g" d={pelvisFL} fillRule="evenodd" />
+        <path className="bone" d={pelvisF} fillRule="evenodd" />
+        <path className="bone-ln" d={line([[262, 84], [266, 110], [272, 140], [282, 170], [292, 190]])} />
+        <path className="bone" d={FEMUR_F} />
+      </Ctxt>
+      <Part k={k} id="hip-joint">
+        <path className="cap" d={CAPSULE_F} />
+        <path className="bone" d={HEAD_F} />
+      </Part>
+      <Part k={k} id="hip-labrum">
+        <path className="labrum" d={LABRUM_F} />
+      </Part>
+      <Part k={k} id="adductor-magnus">
+        <M g={FM.amag} />
+      </Part>
+      <Part k={k} id="iliopsoas">
+        <M g={FM.iliacus} />
+        <M g={FM.psoas} />
+      </Part>
+      <Ctxt k={k}>
+        <M g={FM.pect} ctx />
+      </Ctxt>
+      <Part k={k} id="adductor-longus">
+        <M g={FM.alon} />
+      </Part>
+      <Part k={k} id="gracilis">
+        <M g={FM.grac} />
+      </Part>
+      <Part k={k} id="vastus-lateralis">
+        <M g={FM.vl} />
+      </Part>
+      <Part k={k} id="iliotibial-band">
+        <Ten c={ITB_F} w={[22, 26, 20, 15, 13, 13, 13]} cls="fascia" lines={3} />
+      </Part>
+      <Part k={k} id="gluteus-medius">
+        <M g={FM.gmed} />
+      </Part>
+      <Part k={k} id="rectus-femoris">
+        <M g={FM.rf} />
+      </Part>
+      <Part k={k} id="tensor-fasciae-latae">
+        <M g={FM.tfl} />
+      </Part>
+      <Ctxt k={k}>
+        <Ten c={INGUINAL_F} w={4} cls="lig" lines={1} />
+      </Ctxt>
+      <Part k={k} id="sartorius">
+        <M g={FM.sart} />
+      </Part>
+      <Part k={k} id="rectus-abdominis">
+        <M g={FM.ra} />
+        <path className="cutf" d={RA_CUT} />
+      </Part>
+      <Part k={k} id="pubic-symphysis">
+        <path className="cart" d={sp([[299, 189, 1], [305, 189, 1], [306, 214], [305, 240, 1], [299, 240, 1], [298, 214]])} />
+      </Part>
+      <Part k={k} id="asis">
+        <path className="bone" d={ell(176, 117, 4.2, 3.4, -30)} />
+      </Part>
+    </Frame>
+  );
+}
+/* ───────────── back & deep views: right hip from behind (midline at the viewer's left) ───────────── */
+const MXB = 64;
+
+const BK = {
+  body: sp([[-20, -10], [214, -10], [222, 40], [238, 100], [254, 158], [261, 205], [258, 252], [252, 320], [246, 400], [240, 480], [-20, 480]]),
+  cleft: line([[64, 150], [64.5, 200], [65, 248]]),
+  fold: line([[70, 266], [100, 282], [138, 296], [176, 304]]),
+  sacrum: (() => {
+    const r: P[] = [[64, 84, 1], [80, 82], [98, 86], [112, 93], [116, 110], [114, 130], [108, 150], [98, 172], [86, 194], [76, 208], [70, 214], [64, 216, 1]];
+    return sp([...r, ...mirror(r, MXB).reverse().slice(1, -1)]);
+  })(),
+  sacrumLn:
+    [104, 126, 148, 168].map((y, i) => ell(MXB + 19 - i * 1.6, y, 4 - i * 0.3, 3.2) + ell(MXB - 19 + i * 1.6, y, 4 - i * 0.3, 3.2)).join('') +
+    line([[64, 92], [64, 104], [64, 116], [64, 128], [64, 140], [64, 152], [64, 166]]),
+  crest: [100, 122, 144, 164].map((y) => ell(MXB, y, 3.4, 5)).join(''),
+  coccyx: sp([[59, 218], [69, 218], [68, 230], [64, 240], [60, 230]]),
+  l5: (() => {
+    const r: P[] = [[64, 26, 1], [72, 26], [80, 22], [86, 24], [88, 34], [106, 36], [116, 40], [114, 47], [98, 49], [86, 50], [78, 56], [70, 58], [68, 70], [64, 76, 1]];
+    return sp([...r, ...mirror(r, MXB).reverse().slice(1, -1)]);
+  })(),
+};
+const PELVIS_B: P[] = [
+  [108, 122, 1], [114, 102], [126, 80], [146, 62], [170, 52], [196, 53], [214, 62], [222, 78], [220, 100], [212, 124], [206, 146], [204, 162],
+  [196, 178], [182, 192], [166, 204], [156, 222], [150, 242], [144, 258], [134, 265], [121, 261], [113, 249], [110, 232], [111, 214], [108, 198, 1],
+  [116, 188], [119, 172], [117, 154], [110, 140], [105, 131],
+];
+const pelvisB = sp(PELVIS_B);
+const RAMUS_B: P[] = [[124, 258], [102, 254], [82, 248], [64, 244]];
+const FEMUR_B = sp([
+  [160, 166], [176, 168], [196, 166], [212, 160], [224, 158, 1], [238, 164], [248, 174], [251, 192], [248, 214], [240, 232], [234, 270], [226, 330],
+  [218, 400], [212, 480], [180, 480], [184, 400], [190, 330], [192, 280], [190, 256], [182, 246], [176, 238, 1], [184, 228], [192, 214], [186, 204],
+  [172, 202], [158, 198], [140, 196], [134, 180], [142, 166],
+]);
+const HEAD_B = ell(156, 178, 25, 25);
+
+const BM = {
+  gmed: muscle({
+    r: [
+      [[128, 80], [148, 64], [172, 56], [196, 57], [214, 66], [222, 82]],
+      [[160, 128], [174, 118], [190, 112], [206, 110], [220, 114], [233, 124]],
+      [[214, 166], [220, 164], [226, 163], [232, 162], [238, 163], [244, 166]],
+    ],
+    t1: 0.9,
+    n: 12,
+  }),
+  gmax: muscle({
+    r: [
+      [[121, 86], [115, 108], [110, 128], [104, 150], [94, 172], [84, 194], [74, 214], [68, 232]],
+      [[168, 116], [165, 142], [160, 166], [154, 192], [146, 218], [138, 244], [131, 266], [127, 284]],
+      [[236, 160], [243, 182], [247, 204], [247, 226], [243, 248], [235, 268], [225, 288], [214, 305]],
+    ],
+    t1: [0.86, 0.88, 0.9, 0.92, 0.95, 0.99, 1, 1],
+    n: 24,
+    seams: [0.14, 0.28, 0.42, 0.56, 0.7, 0.84],
+  }),
+  bf: muscle({
+    r: [
+      [[118, 240], [132, 236]],
+      [[134, 290], [168, 282]],
+      [[150, 360], [196, 350]],
+      [[162, 440], [208, 432]],
+      [[170, 492], [212, 488]],
+    ],
+    t0: 0.1,
+    n: 8,
+  }),
+  st: muscle({
+    r: [
+      [[118, 242], [130, 246]],
+      [[108, 292], [140, 298]],
+      [[99, 362], [137, 368]],
+      [[96, 440], [131, 446]],
+      [[96, 492], [127, 496]],
+    ],
+    t0: 0.1,
+    n: 7,
+  }),
+  sm: muscle({
+    r: [
+      [[112, 248], [134, 252]],
+      [[96, 300], [132, 306]],
+      [[84, 380], [114, 386]],
+      [[82, 460], [112, 466]],
+      [[84, 500], [114, 500]],
+    ],
+    n: 6,
+  }),
+  amag: muscle({
+    r: [
+      [[66, 242], [92, 248], [116, 256]],
+      [[64, 330], [86, 336], [110, 330]],
+      [[66, 480], [90, 480], [112, 470]],
+    ],
+    n: 8,
+  }),
+  grac: muscle({
+    r: [
+      [[60, 250], [72, 248]],
+      [[59, 330], [73, 330]],
+      [[61, 480], [74, 480]],
+    ],
+    n: 3,
+  }),
+  vl: muscle({
+    r: [
+      [[246, 214], [243, 300], [238, 390], [234, 480]],
+      [[176, 274], [182, 360], [188, 444], [192, 520]],
+    ],
+    n: 9,
+  }),
+};
+const ITB_B: P[] = [[246, 150], [250, 200], [248, 260], [244, 330], [240, 400], [236, 480]];
+const ITB_BW = [20, 26, 22, 16, 14, 13];
+
+function HipBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
+  const labels: Lab[] = [
+    { t: '仙骨', at: [84, 112], x: 58, y: 104, a: 'end' },
+    { id: 'gluteus-medius', t: '中殿筋', at: [204, 86], x: 264, y: 74 },
+    { id: 'gluteus-maximus', t: '大殿筋', at: [186, 196], x: 264, y: 140 },
+    { id: 'iliotibial-band', t: '腸脛靱帯', at: [247, 300], x: 264, y: 290 },
+    { id: 'vastus-lateralis', t: '外側広筋', at: [222, 392], x: 264, y: 372 },
+    { id: 'biceps-femoris', t: '大腿二頭筋', at: [178, 400], x: 264, y: 418 },
+    { id: 'gracilis', t: '薄筋', at: [66, 300], x: 58, y: 292, a: 'end' },
+    { id: 'adductor-magnus', t: '大内転筋', at: [78, 344], x: 58, y: 334, a: 'end' },
+    { id: 'semitendinosus', t: '半腱様筋', at: [116, 372], x: 58, y: 376, a: 'end' },
+    { id: 'semimembranosus', t: '半膜様筋', at: [96, 428], x: 58, y: 418, a: 'end' },
+  ];
+  const spots: Spot[] = [
+    { id: 'buttock-deep', at: [150, 166] },
+    { id: 'sit-bone', at: [126, 238] },
+    { id: 'hip-outer', at: [246, 180] },
+  ];
+  return (
+    <Frame
+      k={k}
+      p={p}
+      w={W}
+      h={H}
+      title="右のお尻と股関節を後ろから見た図（左が体の中心、右が外側）"
+      cap={['← 体の中心', '右のお尻・後ろから']}
+      labels={labels}
+      spots={spots}
+      fade={{ top: 20, bottom: 46 }}
+    >
+      <Ctxt k={k}>
+        <path className="body" d={BK.body} />
+        <path className="bone-g" d={BK.l5} />
+        <path className="bone-g" d={sp(mirror(PELVIS_B, MXB))} />
+        <path className="bone" d={BK.sacrum} />
+        <path className="bone-ln" d={BK.sacrumLn} />
+        <path className="bone" d={BK.coccyx} />
+        <path className="bone" d={pelvisB} />
+        <Ten c={RAMUS_B} w={12} cls="bone" lines={0} />
+        <path className="bone" d={FEMUR_B} />
+        <path className="bone" d={HEAD_B} />
+        <path className="ghost" d={BK.cleft} />
+      </Ctxt>
+      <Part k={k} id="adductor-magnus">
+        <M g={BM.amag} />
+      </Part>
+      <Part k={k} id="gracilis">
+        <M g={BM.grac} />
+      </Part>
+      <Part k={k} id="semimembranosus">
+        <M g={BM.sm} />
+      </Part>
+      <Part k={k} id="vastus-lateralis">
+        <M g={BM.vl} />
+      </Part>
+      <Part k={k} id="iliotibial-band">
+        <Ten c={ITB_B} w={ITB_BW} cls="fascia" lines={3} />
+      </Part>
+      <Part k={k} id="biceps-femoris">
+        <M g={BM.bf} />
+      </Part>
+      <Part k={k} id="semitendinosus">
+        <M g={BM.st} />
+      </Part>
+      <Part k={k} id="gluteus-medius">
+        <M g={BM.gmed} />
+      </Part>
+      <Part k={k} id="gluteus-maximus">
+        <M g={BM.gmax} />
+      </Part>
+    </Frame>
+  );
+}
+
+const DM = {
+  gmin: muscle({
+    r: [
+      [[148, 118], [166, 102], [190, 92], [214, 92], [232, 104]],
+      [[178, 140], [190, 132], [204, 128], [218, 128], [232, 132]],
+      [[214, 160], [221, 158], [228, 157], [235, 158], [242, 160]],
+    ],
+    n: 11,
+  }),
+  pir: muscle({
+    r: [
+      [[109, 128], [111, 142], [111, 156], [107, 170]],
+      [[160, 140], [161, 150], [161, 160], [158, 170]],
+      [[216, 157], [217, 160], [218, 163], [218, 166]],
+    ],
+    t1: 0.84,
+    n: 9,
+  }),
+  gemS: muscle({ r: [[[116, 186], [117, 193]], [[166, 178], [166, 184]], [[214, 171], [214, 175]]], n: 3 }),
+  gemI: muscle({ r: [[[114, 204], [113, 212]], [[166, 192], [166, 198]], [[214, 180], [214, 185]]], n: 3 }),
+  qf: muscle({ r: [[[140, 214], [143, 239]], [[200, 201], [203, 228]]], n: 7 }),
+  amin: muscle({ r: [[[126, 244], [118, 264]], [[170, 244], [170, 270]], [[204, 232], [200, 276]]], n: 7 }),
+  bf: muscle({
+    r: [
+      [[126, 270], [138, 266]],
+      [[136, 300], [168, 288]],
+      [[150, 360], [196, 350]],
+      [[162, 440], [208, 432]],
+      [[170, 492], [212, 488]],
+    ],
+    n: 8,
+  }),
+  st: muscle({
+    r: [
+      [[118, 272], [128, 276]],
+      [[108, 302], [139, 306]],
+      [[99, 362], [137, 368]],
+      [[96, 440], [131, 446]],
+      [[96, 492], [127, 496]],
+    ],
+    n: 7,
+  }),
+};
+const GMED_HOLE = ell(192, 133, 31, 17, -12);
+const SACROTUB: P[] = [[103, 150], [106, 176], [110, 204], [116, 232]];
+const SCIATIC: P[] = [[136, 150], [142, 172], [150, 196], [156, 222], [160, 252], [164, 292], [166, 340], [164, 400], [160, 490]];
+
+function HipDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
+  const hole = `${k.uid}-gmh`;
+  const labels: Lab[] = [
+    { t: '仙骨', at: [84, 112], x: 58, y: 104, a: 'end' },
+    { id: 'piriformis', t: '梨状筋', at: [124, 146], x: 58, y: 150, a: 'end' },
+    { id: 'ischial-tuberosity', t: '坐骨結節', at: [120, 230], x: 58, y: 230, a: 'end' },
+    { id: 'adductor-magnus', t: '大内転筋', at: [78, 344], x: 58, y: 334, a: 'end' },
+    { id: 'semitendinosus', t: '半腱様筋', at: [116, 372], x: 58, y: 376, a: 'end' },
+    { id: 'semimembranosus', t: '半膜様筋', at: [96, 428], x: 58, y: 418, a: 'end' },
+    { id: 'gluteus-medius', t: '中殿筋', at: [204, 84], x: 264, y: 64 },
+    { id: 'gluteus-minimus', t: '小殿筋', at: [205, 136], x: 264, y: 104 },
+    { id: 'gluteal-tendons', t: '中・小殿筋の腱', at: [236, 167], x: 264, y: 140 },
+    { id: 'greater-trochanter', t: '大転子', at: [246, 182], x: 264, y: 172 },
+    { id: 'trochanteric-bursa', t: '大転子滑液包', at: [240, 202], x: 264, y: 204 },
+    { t: '外旋筋群', at: [190, 198], x: 264, y: 236 },
+    { id: 'proximal-hamstring-tendon', t: 'ハムストリング腱', at: [134, 262], x: 258, y: 268 },
+    { id: 'sciatic-nerve', t: '坐骨神経', at: [164, 318], x: 264, y: 322 },
+    { id: 'biceps-femoris', t: '大腿二頭筋', at: [184, 404], x: 264, y: 418 },
+  ];
+  const spots: Spot[] = [
+    { id: 'buttock-deep', at: [144, 172] },
+    { id: 'sit-bone', at: [124, 240] },
+    { id: 'hip-outer', at: [244, 190] },
+  ];
+  return (
+    <Frame
+      k={k}
+      p={p}
+      w={W}
+      h={H}
+      title="右のお尻の深層を後ろから見た図（大殿筋を取り除いたところ。左が体の中心）"
+      cap={['← 体の中心', '深層（大殿筋を除いた図）']}
+      labels={labels}
+      spots={spots}
+      fade={{ top: 20, bottom: 46 }}
+      defs={<HoleMask id={hole} d={GMED_HOLE} w={W} h={H} />}
+    >
+      <Ctxt k={k}>
+        <path className="body" d={BK.body} />
+        <path className="bone-g" d={BK.l5} />
+        <path className="bone-g" d={sp(mirror(PELVIS_B, MXB))} />
+        <path className="bone" d={BK.sacrum} />
+        <path className="bone-ln" d={BK.sacrumLn} />
+        <path className="bone" d={BK.coccyx} />
+        <path className="bone" d={pelvisB} />
+        <Ten c={RAMUS_B} w={12} cls="bone" lines={0} />
+        <path className="bone" d={FEMUR_B} />
+        <path className="bone" d={HEAD_B} />
+        <path className="bone-ln" d={line([[226, 170], [214, 190], [200, 214], [186, 236]])} />
+        <Ten c={SACROTUB} w={[18, 15, 12, 10]} cls="lig" lines={3} />
+      </Ctxt>
+      <Part k={k} id="greater-trochanter">
+        <path className="bone" d={sp([[214, 160], [224, 157, 1], [238, 163], [248, 174], [251, 192], [248, 212], [238, 222], [222, 214], [214, 196], [212, 176]])} />
+        <path className="bone-ln" d={line([[222, 166], [230, 184], [232, 206]])} />
+      </Part>
+      <Part k={k} id="vastus-lateralis">
+        <M g={BM.vl} />
+      </Part>
+      <Part k={k} id="adductor-magnus">
+        <M g={DM.amin} />
+        <M g={BM.amag} />
+      </Part>
+      <Part k={k} id="gracilis">
+        <M g={BM.grac} />
+      </Part>
+      <Part k={k} id="semimembranosus">
+        <M g={BM.sm} />
+      </Part>
+      <Part k={k} id="iliotibial-band">
+        <Ten c={ITB_B.slice(1)} w={ITB_BW.slice(1)} cls="fascia" lines={3} />
+      </Part>
+      <Ctxt k={k}>
+        <M g={DM.qf} ctx />
+        <M g={DM.gemS} ctx />
+        <M g={DM.gemI} ctx />
+        <Ten c={[[118, 199], [166, 189], [214, 178]]} w={[7, 6, 5]} cls="ten" lines={1} />
+      </Ctxt>
+      <Part k={k} id="trochanteric-bursa">
+        <path className="bursa" d={ell(240, 197, 10, 17, 12)} />
+      </Part>
+      <Part k={k} id="sciatic-nerve">
+        <Nerve c={SCIATIC} w={[15, 16, 16, 15, 15, 14, 14, 13, 13]} />
+      </Part>
+      <Part k={k} id="gluteus-minimus">
+        <M g={DM.gmin} />
+      </Part>
+      <Part k={k} id="gluteus-medius">
+        <g mask={`url(#${hole})`}>
+          <M g={BM.gmed} />
+        </g>
+        <path className="rimc" d={GMED_HOLE} />
+        <path className="rim" d={GMED_HOLE} />
+      </Part>
+      <Part k={k} id="gluteal-tendons">
+        <path className="ten" d={sp([[211, 163], [222, 160], [234, 160], [246, 164], [251, 176], [246, 182], [236, 176], [224, 172], [214, 172]])} />
+        <path className="ten-fib" d={line([[216, 166], [234, 165], [247, 172]]) + line([[218, 170], [236, 170], [246, 178]])} />
+      </Part>
+      <Part k={k} id="piriformis">
+        <M g={DM.pir} />
+      </Part>
+      <Part k={k} id="ischial-tuberosity">
+        <path className="bone" d={sp([[110, 222], [120, 210], [136, 212], [146, 230], [145, 252], [136, 266], [121, 264], [111, 250]])} />
+        <path className="bone-ln" d={line([[122, 216], [130, 236], [138, 258]])} />
+      </Part>
+      <Part k={k} id="semitendinosus">
+        <M g={DM.st} />
+      </Part>
+      <Part k={k} id="biceps-femoris">
+        <M g={DM.bf} />
+      </Part>
+      <Part k={k} id="proximal-hamstring-tendon">
+        <path className="ten" d={sp([[117, 244], [124, 236], [132, 240], [136, 256], [134, 272], [128, 284], [119, 281], [116, 264]])} />
+        <path className="ten" d={sp([[134, 226], [141, 232], [142, 248], [139, 262], [135, 258], [133, 240]])} />
+        <path className="ten-fib" d={line([[122, 244], [124, 262], [123, 278]]) + line([[129, 244], [131, 262], [130, 278]])} />
+      </Part>
+      <Ctxt k={k}>
+        <path className="ghost" d={BM.gmax.body} />
+      </Ctxt>
+    </Frame>
+  );
+}
+
+/* ───────────── side view: right hip from the outside (front of the body at the viewer's right) ───────────── */
+const HCS: XY = [178, 196];
+const SD = {
+  body: sp([[112, -10], [104, 60], [90, 130], [80, 190], [86, 250], [108, 292], [118, 380], [124, 480], [262, 480], [264, 400], [262, 320], [254, 240], [248, 180], [246, 128], [252, 60], [258, -10]]),
+  pelvis: sp([
+    [231, 127, 1], [224, 108], [212, 90], [196, 80], [172, 72], [144, 76], [118, 88], [106, 104], [100, 124], [98, 146], [104, 162], [114, 180],
+    [122, 198], [125, 207, 1], [126, 218], [131, 234], [139, 251], [150, 262], [165, 263], [182, 257], [204, 249], [220, 243], [228, 236], [230, 226],
+    [226, 218], [218, 213], [212, 206], [206, 190], [212, 174], [220, 163], [222, 150], [227, 138],
+  ]) + ell(194, 233, 14, 7, -12),
+  lines: line([[132, 82], [122, 118], [114, 152]]) + line([[204, 84], [168, 110], [140, 140], [124, 172]]) + line([[214, 166], [180, 166], [150, 182]]),
+  femur: sp([
+    [148, 200], [158, 189], [176, 185], [192, 189], [202, 199], [204, 216], [198, 236], [192, 250], [190, 300], [194, 380], [200, 480], [166, 480],
+    [160, 380], [158, 300], [156, 252], [150, 238], [146, 220],
+  ]),
+};
+const SM2 = {
+  gmed: muscle({
+    r: [
+      [[124, 90], [146, 78], [170, 74], [196, 80], [214, 94], [224, 112]],
+      [[138, 136], [155, 127], [172, 122], [190, 124], [206, 132], [217, 146]],
+      [[158, 192], [165, 189], [172, 187], [179, 187], [186, 189], [193, 192]],
+    ],
+    t1: 0.9,
+    n: 12,
+  }),
+  gmax: muscle({
+    r: [
+      [[114, 90], [102, 116], [95, 146], [94, 178], [99, 210], [109, 240], [123, 268]],
+      [[148, 138], [142, 164], [138, 190], [138, 216], [141, 242], [147, 266], [155, 288]],
+      [[180, 204], [182, 226], [181, 248], [179, 268], [177, 288], [175, 306], [172, 322]],
+    ],
+    t1: [0.86, 0.89, 0.92, 0.95, 0.99, 1, 1],
+    n: 20,
+    seams: [0.17, 0.34, 0.5, 0.67, 0.84],
+  }),
+  tfl: muscle({
+    r: [
+      [[211, 102], [222, 113], [233, 127]],
+      [[206, 190], [219, 193], [232, 198]],
+      [[194, 268], [204, 271], [214, 276]],
+    ],
+    n: 8,
+  }),
+  vl: muscle({
+    r: [
+      [[150, 232], [146, 300], [148, 380], [152, 480]],
+      [[226, 262], [234, 340], [234, 420], [230, 520]],
+    ],
+    n: 12,
+  }),
+  rf: muscle({
+    r: [
+      [[221, 160], [228, 163]],
+      [[223, 222], [238, 225]],
+      [[230, 320], [248, 322]],
+      [[234, 480], [248, 480]],
+    ],
+    t0: 0.14,
+    n: 5,
+  }),
+  sart: muscle({
+    r: [
+      [[228, 127], [235, 131]],
+      [[236, 168], [248, 172]],
+      [[246, 222], [256, 230]],
+      [[254, 262], [260, 270]],
+    ],
+    t0: 0.06,
+    n: 4,
+  }),
+  bf: muscle({
+    r: [
+      [[124, 262], [138, 262]],
+      [[128, 320], [152, 320]],
+      [[133, 400], [158, 400]],
+      [[140, 480], [162, 480]],
+    ],
+    n: 6,
+  }),
+};
+const ITB_S: P[] = [[183, 194], [184, 260], [185, 330], [185, 400], [186, 480]];
+const WIN_S = ell(172, 222, 26, 37, -4);
+
+function HipSide({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
+  const win = `${k.uid}-sw`;
+  const labels: Lab[] = [
+    { id: 'gluteus-medius', t: '中殿筋', at: [160, 104], x: 88, y: 70, a: 'end' },
+    { id: 'gluteus-maximus', t: '大殿筋', at: [116, 196], x: 70, y: 150, a: 'end' },
+    { id: 'gluteal-tendons', t: '中・小殿筋の腱', at: [176, 204], x: 88, y: 196, a: 'end' },
+    { id: 'greater-trochanter', t: '大転子', at: [186, 238], x: 70, y: 228, a: 'end' },
+    { id: 'trochanteric-bursa', t: '大転子滑液包', at: [156, 236], x: 88, y: 262, a: 'end' },
+    { id: 'iliotibial-band', t: '腸脛靱帯', at: [180, 340], x: 88, y: 330, a: 'end' },
+    { id: 'biceps-femoris', t: '大腿二頭筋', at: [143, 400], x: 88, y: 396, a: 'end' },
+    { id: 'asis', t: '上前腸骨棘', at: [231, 127], x: 266, y: 112 },
+    { id: 'tensor-fasciae-latae', t: '大腿筋膜張筋', at: [220, 200], x: 266, y: 172 },
+    { id: 'rectus-femoris', t: '大腿直筋', at: [240, 330], x: 270, y: 320 },
+    { id: 'vastus-lateralis', t: '外側広筋', at: [218, 390], x: 270, y: 396 },
+  ];
+  const spots: Spot[] = [{ id: 'hip-outer', at: [172, 214] }];
+  return (
+    <Frame
+      k={k}
+      p={p}
+      w={W}
+      h={H}
+      title="右の股関節を外側から見た図（右が体の前）。大転子の上の腸脛靱帯を窓のように切り取っています"
+      cap={['右の股関節・外側から', '前 →']}
+      labels={labels}
+      spots={spots}
+      fade={{ top: 20, bottom: 46 }}
+      defs={
+        <clipPath id={win}>
+          <path d={WIN_S} />
+        </clipPath>
+      }
+    >
+      <Ctxt k={k}>
+        <path className="body" d={SD.body} />
+        <path className="bone" d={SD.pelvis} fillRule="evenodd" />
+        <path className="bone-ln" d={SD.lines} />
+        <path className="bone" d={SD.femur} />
+      </Ctxt>
+      <Part k={k} id="asis">
+        <path className="bone" d={ell(231, 127, 4.4, 3.6, 30)} />
+      </Part>
+      <Part k={k} id="vastus-lateralis">
+        <M g={SM2.vl} />
+      </Part>
+      <Part k={k} id="rectus-femoris">
+        <M g={SM2.rf} />
+      </Part>
+      <Part k={k} id="biceps-femoris">
+        <M g={SM2.bf} />
+      </Part>
+      <Part k={k} id="gluteus-medius">
+        <M g={SM2.gmed} />
+      </Part>
+      <Part k={k} id="iliotibial-band">
+        <Ten c={ITB_S} w={[46, 44, 38, 32, 28]} cls="fascia" lines={5} />
+      </Part>
+      <Part k={k} id="gluteus-maximus">
+        <M g={SM2.gmax} />
+      </Part>
+      <Part k={k} id="tensor-fasciae-latae">
+        <M g={SM2.tfl} />
+      </Part>
+      {/* cut-away window over the greater trochanter */}
+      <g clipPath={`url(#${win})`}>
+        <Ctxt k={k}>
+          <path className="body" d={WIN_S} />
+        </Ctxt>
+        <Part k={k} id="vastus-lateralis">
+          <M g={SM2.vl} />
+        </Part>
+        <Part k={k} id="greater-trochanter">
+          <path className="bone" d={sp([[146, 206], [156, 193], [175, 189], [193, 193], [203, 204], [206, 222], [201, 242], [188, 252], [166, 252], [151, 242], [145, 224]])} />
+          <path className="bone-sh" d={sp([[150, 236], [166, 246], [188, 247], [201, 238], [198, 248], [186, 254], [164, 254], [150, 244]])} />
+          <path className="bone-ln" d={line([[156, 244], [176, 249], [196, 242]])} />
+        </Part>
+        <Part k={k} id="gluteus-medius">
+          <M g={SM2.gmed} />
+        </Part>
+        <Part k={k} id="gluteal-tendons">
+          <path className="ten" d={sp([[154, 188, 1], [192, 188, 1], [190, 200], [186, 214], [180, 224], [170, 226], [163, 216], [157, 202]])} />
+          <path className="ten" d={sp([[194, 189, 1], [203, 192, 1], [207, 204], [205, 220], [199, 228], [195, 214], [193, 200]])} />
+          <path className="ten-fib" d={line([[160, 192], [166, 208], [171, 222]]) + line([[170, 191], [173, 206], [175, 222]]) + line([[182, 191], [181, 206], [179, 220]]) + line([[198, 193], [201, 208], [201, 222]])} />
+        </Part>
+        <Part k={k} id="trochanteric-bursa">
+          <path className="bursa" d={ell(158, 232, 10, 17, 8)} />
+        </Part>
+      </g>
+      <Part k={k} id="iliotibial-band">
+        <path className="rimc" d={WIN_S} style={{ stroke: 'var(--tendon)' }} />
+        <path className="rim-t" d={WIN_S} />
+      </Part>
+    </Frame>
+  );
+}
+
+/* ───────────── component & registration ───────────── */
+
+function HipDiagram(p: RegionDiagramProps) {
+  const k = useCtx(p);
+  const view = p.view ?? 'front';
+  switch (view) {
+    case 'back':
+      return <HipBack p={p} k={k} />;
+    case 'side':
+      return <HipSide p={p} k={k} />;
+    case 'deep':
+      return <HipDeep p={p} k={k} />;
+    default:
+      return <HipFront p={p} k={k} />;
+  }
+}
+
+const diagram: RegionDiagram = {
+  region: 'hip',
+  views: [
+    { id: 'front', label: '前から' },
+    { id: 'back', label: '後ろから' },
+    { id: 'side', label: '横から' },
+    { id: 'deep', label: '後ろ・深層' },
+  ],
+  parts: {
+    front: [
+      'hip-joint', 'hip-labrum', 'gluteus-medius', 'adductor-magnus', 'iliopsoas', 'adductor-longus', 'gracilis', 'vastus-lateralis',
+      'rectus-femoris', 'iliotibial-band', 'tensor-fasciae-latae', 'sartorius', 'rectus-abdominis', 'pubic-symphysis', 'asis',
+    ],
+    back: [
+      'adductor-magnus', 'gracilis', 'semimembranosus', 'vastus-lateralis', 'iliotibial-band', 'biceps-femoris', 'semitendinosus',
+      'gluteus-medius', 'gluteus-maximus',
+    ],
+    side: [
+      'asis', 'vastus-lateralis', 'rectus-femoris', 'biceps-femoris', 'gluteus-medius', 'iliotibial-band', 'gluteus-maximus',
+      'tensor-fasciae-latae', 'greater-trochanter', 'gluteal-tendons', 'trochanteric-bursa',
+    ],
+    deep: [
+      'greater-trochanter', 'adductor-magnus', 'gracilis', 'semimembranosus', 'vastus-lateralis', 'iliotibial-band', 'trochanteric-bursa',
+      'sciatic-nerve', 'gluteus-minimus', 'gluteus-medius', 'gluteal-tendons', 'piriformis', 'ischial-tuberosity', 'semitendinosus',
+      'biceps-femoris', 'proximal-hamstring-tendon',
+    ],
+  },
+  spots: {
+    front: ['hip-front', 'groin-inner', 'hip-outer'],
+    back: ['buttock-deep', 'sit-bone', 'hip-outer'],
+    side: ['hip-outer'],
+    deep: ['buttock-deep', 'sit-bone', 'hip-outer'],
+  },
+  Component: HipDiagram,
+};
+export default diagram;

@@ -175,8 +175,8 @@ Hip / leg:
 | standing hip abduction | `hip_R: { abd: 35 }` |
 | figure-4 start (supine, right shin across the body) | `hip_R: { flex: 70, abd: 30, rot: 45 }, knee_R: { flex: 100 }` + bend the left leg (`hip_L: { flex: 60 }, knee_L: { flex: 90 }`) and fine-tune with `?j=` |
 | calf raise with the toes kept flat | `ankle: { dorsi: -34 }, toes: { ext: 34 }` + anchor on `toes:toes_mid` |
-| heel drop off a step | `ankle: { dorsi: 22 }, toes: { ext: -22 }` on `STAND_STEP` |
-| clamshell "open" (side-lying, hips 48° / knees 88°) | `hip_R: { flex: 42.5, abd: 23, rot: 27 }` — a 35° turn about the hip–ankle axis (feet stay together) |
+| heel drop off a step | `ankle: { dorsi: 28 }, toes: { ext: -28 }` on `STAND_STEP` |
+| clamshell "open" (side-lying, hips 48° / knees 88°) | `hip_R: { flex: 42.8, abd: 18.3, rot: 23.2 }` — a 35° turn about the hip–heel axis from `SIDE_LYING`'s resting top leg (`hip_R.abd −8`): heels stay together, the knee rises ~17 cm |
 
 **Because `rot` is applied after `flex` and `abd`, one arm/leg orientation can need a surprising `rot`**
 (e.g. with the arm raised by **flexion** to 170° the elbow crease faces backward, so bending the elbow folds the
@@ -228,7 +228,10 @@ Values outside are clamped (and logged once to the console):
   `upRot = clamp(0.22·(e − 30°), 0, 30°)` and `protr = 0.3 · upRot`. Upward rotation pivots about the
   scapular-plane normal through the middle of the scapular spine; the clavicle re-aims so the AC joint stays
   connected (→ natural clavicle elevation). Your explicit scapula DOFs are **added** on top.
-- **Patella** follows the trochlea: rotates about the femoral condyle centre by 0.85 × knee flexion (tilt 0.7×).
+- **Patella** glides from the trochlea onto the condyles: its centre moves on an arc around the condyles and tilts
+  ~0.6 × knee flexion. The tilt per knee angle (`PAT_TILT` in rig.ts) was solved so the **patellar tendon keeps
+  its rest length** (apex → tibial tuberosity) at every knee angle — so `patella:*` landmarks stay on the femur and
+  a quadriceps / patellar-tendon strand never stretches unrealistically. Patella landmarks ride the patella frame.
 
 ---
 
@@ -242,7 +245,7 @@ description, default camera, grounding and default props). Look at them: `/dev/e
 | `STAND` | 立位 | lowest skin point → y=0 | — | iso |
 | `SUPINE` | 仰向け（頭は −Z 方向） | lowest skin point → y=0 | — | iso |
 | `PRONE` | うつ伏せ（頭は +Z 方向） | lowest skin point → y=0 | — | iso |
-| `SIDE_LYING` | 横向き（左側が下・右側が上、頭は +X 方向） | lowest skin point → y=0 | — | front |
+| `SIDE_LYING` | 横向き（左側が下・右側が上、頭は +X 方向）; hips 40° / knees 60°, the top leg rests on the bottom one (`hip_R.abd −8`) | lowest skin point → y=0 | — | front |
 | `QUADRUPED` | 四つ這い（手と膝をつく、頭は +Z 方向） | lowest skin point → y=0 | — | iso |
 | `HALF_KNEEL` | 片膝立ち（右膝が床、左足が前） | lowest skin point → y=0 | — | right |
 | `LONG_SIT` | 長座（床に座り脚を伸ばす） | lowest skin point → y=0 | — | right |
@@ -255,7 +258,9 @@ description, default camera, grounding and default props). Look at them: `/dev/e
 
 Notes: `SUPINE` head is toward −Z; `PRONE`, `QUADRUPED`, `PLANK` head toward +Z; `SIDE_LYING` / `SIDE_PLANK`
 head toward +X with the front facing +Z (so the default front camera sees the figure from the front).
-`ANATOMICAL` = all zeros (the L0 reference). Contacts were solved numerically: in QUADRUPED hands and knees
+`ANATOMICAL` = all zeros (the L0 reference). Contacts were solved numerically: in SUPINE the back of the head,
+upper back, sacrum and heels touch (hip −2°, neck −8°); in PRONE the chest and pelvis touch with the thighs and the
+tops of the feet ~2 cm above (the face is just off the floor); in QUADRUPED hands and knees
 touch, in PLANK forearms and toes, in HALF_KNEEL the right knee + toes and the left foot.
 
 ---
@@ -662,11 +667,15 @@ the base, e.g. bent knees), `camera`, `focus`, `anchor`, `ground`, `props` (same
 
 - Order: **origin → via points → insertion** (2–7 points). The curve is a centripetal Catmull-Rom through
   all points, so via points are passed through exactly.
-- Put via points where the real muscle **wraps** around bone or changes direction: over the humeral head
-  (supraspinatus, attach that via point to the **humerus** so it rolls with it), behind the medial malleolus
+- Put via points where the real muscle **wraps** around bone or changes direction: under the acromion
+  (supraspinatus — the via point belongs to the **scapula**, the "roof" the tendon slides under), behind the medial malleolus
   (tibialis posterior, attach to the **tibia**), under the cuboid (fibularis longus, attach to the **foot**),
   around the greater trochanter, in front of the hip joint (iliopsoas over the pubic ramus, on the **pelvis**).
 - Attach each via point to the bone it wraps around — then the path is right in every pose.
+- **Caution with via points on the moving bone right next to the joint centre** (e.g. on top of the humeral
+  head): the point swings with the bone and, at large angles, ends up *behind* the previous point, so the path
+  kinks and the length barely changes. Prefer the fixed "pulley" bone (acromion → scapula, malleolus → tibia,
+  trochlea → femur). Always check the three demo poses in `?debug=1` (belly change ±10–35 %).
 - Keep the tube **outside** the bone: offset the path by about the strand radius from the bone surface.
 - Two-joint muscles must cross both joints: e.g. gastrocnemius starts on the **femur** condyles and runs via
   points on the **tibia** to the **foot** (calcaneus).
@@ -840,14 +849,15 @@ Flat `normal` is a bone-frame direction: `lateral | medial | anterior | posterio
 - `sides: 'R' | 'L' | 'both'` — which side's muscles are highlighted. Use `'both'` for symmetric exercises
   (bridge, squat, calf raise), `'R'` for unilateral ones (the moving side).
 - `highlights` — used when the Exercise data (`primary` / `secondary` in src/data) is empty. When the data
-  exists the viewer highlights `Exercise.primary` (primary) and `Exercise.secondary` (secondary).
+  exists the viewer highlights `Exercise.primary` (primary) and `Exercise.secondary` (secondary); if **none** of
+  those muscles is rigged yet, it falls back to the clip's `highlights`, so always set them.
 
 ### Clip checklist of good practice
 
 1. Start from a base pose; set the common configuration in `clip.pose`.
 2. Keys: starting position (label = first instruction), end of the concentric part (hold), return.
 3. Pin what should not move (`anchor`), ground the body, add props.
-4. Choose a camera that shows the movement plane (side view for bridges / squats, front-top for clamshell,
+4. Choose a camera that shows the movement plane (side view for bridges / squats, front (slightly above) for clamshell,
    back-oblique for calves).
 5. Check `t = 0`, every key time and `t = 0.5` with `?t=`; check contacts with `?debug=1`.
 
@@ -875,7 +885,18 @@ Dev server (your own port): `VITE_CACHE_DIR=node_modules/.vite-<PORT> npx vite -
 | `?theme=dark` | dark tokens |
 | `?coverage=1` | table of rigged / missing ids and the owning file |
 
-`window.__tribody = { ready, setTime(t), engine }` is available for scripts.
+`window.__tribody = { ready, setTime(t), engine, engines, remounts, done }` is available for scripts
+(`engine.renders` counts rendered frames, `engine.isPlaying`, `engine.t`).
+
+Robustness pages (engine maintainers; run them after engine changes):
+
+| URL | checks |
+|---|---|
+| `?multi=1` | four viewers on one page (muscle, exercise, highlights, and one far below the fold that must stay paused: its `renders` stays at ~2) |
+| `?remount=16` | mounts / unmounts the viewer 16 times (no console warnings, one canvas and one live engine at the end) |
+| `?nogl=1&muscle=soleus&card=1` | WebGL unavailable → 「この端末・ブラウザでは3D表示を利用できません。」 |
+| `?lose=1&muscle=soleus&card=1` | context lost → 「3D表示が一時的に停止しました。」 + 「再表示する」 (tap it: the viewer comes back) |
+| screenshot with reduced motion (`reducedMotion: 'reduce'` in Playwright) | no autoplay, play button shown, no pulsing |
 
 Screenshots (phone): `node scripts/shot.mjs "http://127.0.0.1:<PORT>/dev/engine.html?muscle=soleus&t=0.2&card=1" shots/<you>/soleus-action.png --w 390 --h 844 --wait 2500`
 — then look at the PNG. Typecheck: `npx tsc --noEmit -p tsconfig.json` (your file must be clean).
@@ -923,8 +944,14 @@ Screenshots (phone): `node scripts/shot.mjs "http://127.0.0.1:<PORT>/dev/engine.
 | `data-access.ts` | lazy, guarded access to `src/data` (content can never crash the viewer) |
 | `AnatomyViewer.tsx`, `viewer.css` | React wrapper + Japanese player UI |
 
+Per-frame code (FK, grounding, strands, skin loft, labels, colours) is allocation-free: reuse module-level
+temporaries, use `colorOf(css)` (cached `Color`) instead of `Color.set(string)`, and never create closures or
+arrays in `update()` paths. Zoom limits follow the home framing (wide poses on tall phones need a far camera).
+
 Rendering: transparent canvas over the card, NeutralToneMapping, sRGB, DPR ≤ 2, camera-relative key light +
 hemisphere. Skin = depth pre-pass + fresnel colour pass (one translucent layer, no overlap blotches), drawn
 after opaque bones/muscles. Loop renders only when something changes (playback, damping, pulse); paused when
 off-screen (IntersectionObserver) or the tab is hidden; disposes everything on unmount; WebGL unavailable /
 context lost show a Japanese message (with 「再表示する」). `prefers-reduced-motion` → no autoplay, no pulse.
+If building a view throws (e.g. a malformed rig or clip), the viewer logs `[tribody 3d] could not show this view`
+and falls back to the standing figure with 「3Dモデルを表示できませんでした」 — check the console when a page shows that.

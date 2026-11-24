@@ -5,7 +5,7 @@ import type { MuscleId, StructureId } from '../data/registry';
 import { MUSCLES, STRUCTURES } from '../data/registry';
 import type { Highlight3DRole } from './contract';
 import { type CompiledPoint, evalPoint, pointSeg, tryCompile } from './landmarks';
-import { haloMaterial, type Palette, solid, strandMaterial } from './materials';
+import { colorOf, haloMaterial, type Palette, solid, strandMaterial } from './materials';
 import type { RigState, Side } from './rig';
 import { MUSCLE_RIGS, STRUCTURE_RIGS } from './rig-data';
 import type { StructurePart } from './rig-data/types';
@@ -51,7 +51,6 @@ interface Visual {
 const _v = new Vector3();
 const _q = new Quaternion();
 const _col = new Color();
-const _col2 = new Color();
 
 export interface ScopeEntry {
   role: Highlight3DRole;
@@ -305,25 +304,25 @@ export class AnatomyLayer {
     const P = this.pal;
     switch (role) {
       case 'injured':
-        out.set(P.injured);
+        out.copy(colorOf(P.injured));
         break;
       case 'involved':
-        out.set(P.involved);
+        out.copy(colorOf(P.involved));
         break;
       case 'secondary':
-        out.set(P.muscle).lerp(_col2.set(P.muscleLight), 0.5);
+        out.copy(colorOf(P.muscle)).lerp(colorOf(P.muscleLight), 0.5);
         break;
       case 'ghost':
-        out.set(P.ghost);
+        out.copy(colorOf(P.ghost));
         break;
       default:
-        out.set(P.muscle);
+        out.copy(colorOf(P.muscle));
         // a touch more saturated for primary
-        out.lerp(_col2.set('#c8382f'), P.dark ? 0.1 : 0.22);
+        out.lerp(colorOf('#c8382f'), P.dark ? 0.1 : 0.22);
     }
     if (role === 'ghost') return out;
-    if (ratio > 1) out.lerp(_col2.set(P.muscleLight), Math.min(1, (ratio - 1) / 0.22) * 0.8);
-    else out.lerp(_col2.set(P.muscleDeep), Math.min(1, (1 - ratio) / 0.2) * 0.75);
+    if (ratio > 1) out.lerp(colorOf(P.muscleLight), Math.min(1, (ratio - 1) / 0.22) * 0.8);
+    else out.lerp(colorOf(P.muscleDeep), Math.min(1, (1 - ratio) / 0.2) * 0.75);
     return out;
   }
 
@@ -340,22 +339,22 @@ export class AnatomyLayer {
         }
         const m = v.material;
         if (role === 'injured') {
-          m.emissive.set(this.pal.injured);
+          m.emissive.copy(colorOf(this.pal.injured));
           m.emissiveIntensity = 0.18 + 0.4 * this.pulse;
         } else if (role === 'primary' || role === 'selected') {
-          m.emissive.set(this.pal.muscle);
+          m.emissive.copy(colorOf(this.pal.muscle));
           m.emissiveIntensity = role === 'selected' ? 0.32 : 0.1;
         } else if (role === 'involved') {
-          m.emissive.set(this.pal.involved);
+          m.emissive.copy(colorOf(this.pal.involved));
           m.emissiveIntensity = 0.12;
         } else m.emissiveIntensity = 0;
       } else {
         const type = v.partType!;
         const base = this.structureColor(type);
-        if (role === 'injured') _col.set(base).lerp(_col2.set(this.pal.injured), type === 'spot' ? 1 : 0.78);
-        else if (role === 'involved') _col.set(base).lerp(_col2.set(this.pal.involved), 0.72);
-        else if (type === 'spot') _col.set(this.roleColor(role, base));
-        else _col.set(base);
+        if (role === 'injured') _col.copy(colorOf(base)).lerp(colorOf(this.pal.injured), type === 'spot' ? 1 : 0.78);
+        else if (role === 'involved') _col.copy(colorOf(base)).lerp(colorOf(this.pal.involved), 0.72);
+        else if (type === 'spot') _col.copy(colorOf(this.roleColor(role, base)));
+        else _col.copy(colorOf(base));
         v.belly.copy(_col);
         v.tendon.copy(_col);
         for (const s of v.strands) s.update(state, v.belly, v.tendon, role === 'primary' || role === 'selected' ? 1.12 : 1);
@@ -363,7 +362,7 @@ export class AnatomyLayer {
         if (m && 'color' in m && !(m as MeshStandardMaterial).vertexColors) (m as MeshStandardMaterial).color.copy(_col);
         if (m) {
           if (role === 'injured') {
-            m.emissive.set(this.pal.injured);
+            m.emissive.copy(colorOf(this.pal.injured));
             m.emissiveIntensity = 0.15 + 0.45 * this.pulse;
           } else if (role === 'primary' || role === 'selected') {
             m.emissive.copy(_col);
@@ -384,7 +383,7 @@ export class AnatomyLayer {
         }
         for (const bp of v.bones) {
           const em = role === 'injured' ? 0.12 + 0.35 * this.pulse : role === 'involved' ? 0.08 : 0.05;
-          this.bones.tint(bp.part, bp.side, _col2.set(this.roleColor(role, this.pal.muscle)), em);
+          this.bones.tint(bp.part, bp.side, colorOf(this.roleColor(role, this.pal.muscle)), em);
         }
       }
       if (v.haloMat) v.haloMat.uniforms.uIntensity.value = role === 'injured' ? 0.3 + 0.45 * this.pulse : 0.45;

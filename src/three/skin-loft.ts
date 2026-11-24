@@ -173,6 +173,12 @@ function buildChain(def: ChainDef, side: Side | null): Chain {
   return { rings: R, around: A, segA, segB, wB, localA, localB, geom, pos, nor };
 }
 
+/** Vertex (i = ring, clamped; j = around, wrapped) of a lofted grid into `out`. */
+function gridPoint(pos: Float32Array, R: number, A: number, i: number, j: number, out: Vector3) {
+  const v = (Math.min(R - 1, Math.max(0, i)) * A + ((j + SEGS_AROUND) % SEGS_AROUND)) * 3;
+  return out.set(pos[v], pos[v + 1], pos[v + 2]);
+}
+
 export class SkinLoft {
   readonly geometries: BufferGeometry[] = [];
   private chains: Chain[] = [];
@@ -211,10 +217,6 @@ export class SkinLoft {
   /** Grid normals from neighbouring vertices (outward). */
   private normals(ch: Chain) {
     const { pos, nor, rings: R, around: A } = ch;
-    const get = (i: number, j: number, out: Vector3) => {
-      const v = (Math.min(R - 1, Math.max(0, i)) * A + ((j + SEGS_AROUND) % SEGS_AROUND)) * 3;
-      return out.set(pos[v], pos[v + 1], pos[v + 2]);
-    };
     const u = _u;
     const d = _d;
     const n = _n;
@@ -222,17 +224,17 @@ export class SkinLoft {
     for (let i = 0; i < R; i++) {
       // ring centre for orientation
       c.set(0, 0, 0);
-      for (let j = 0; j < SEGS_AROUND; j++) c.add(get(i, j, tA));
+      for (let j = 0; j < SEGS_AROUND; j++) c.add(gridPoint(pos, R, A, i, j, tA));
       c.divideScalar(SEGS_AROUND);
       for (let j = 0; j < A; j++) {
-        get(i, j + 1, tA);
-        get(i, j - 1, tB);
+        gridPoint(pos, R, A, i, j + 1, tA);
+        gridPoint(pos, R, A, i, j - 1, tB);
         u.subVectors(tA, tB);
-        get(i + 1, j, tA);
-        get(i - 1, j, tB);
+        gridPoint(pos, R, A, i + 1, j, tA);
+        gridPoint(pos, R, A, i - 1, j, tB);
         d.subVectors(tA, tB);
         n.crossVectors(u, d);
-        get(i, j, tA);
+        gridPoint(pos, R, A, i, j, tA);
         if (n.dot(tB.subVectors(tA, c)) < 0) n.negate();
         if (n.lengthSq() < 1e-14) n.subVectors(tA, c);
         n.normalize();

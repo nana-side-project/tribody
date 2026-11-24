@@ -19,6 +19,7 @@ import {
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { dataReady, getExerciseSafe as getExercise, getMuscleSafe as getMuscle, loadData } from './data-access';
 import type { ExerciseId, MuscleId, RegionId, StructureId } from '../data/registry';
+import { STRUCTURES } from '../data/registry';
 import { AnatomyLayer, isMuscleId, labelName, type PartId } from './anatomy';
 import { CAMERA_PRESETS, framePoints, PRESET_DIRS, REGION_CAMERA, regionMinSize, regionPoints } from './camera';
 import {
@@ -99,6 +100,11 @@ export interface EngineEvents {
 export class WebGLUnavailableError extends Error {}
 
 const ROLE_ORDER: Highlight3DRole[] = ['injured', 'selected', 'primary', 'involved', 'secondary'];
+const STRUCTURE_REGION = new Map<string, RegionId>(STRUCTURES.map((x) => [x.id, x.region as RegionId]));
+const _right = new Vector3();
+const _up = new Vector3();
+const _back = new Vector3();
+const _proj = new Vector3();
 
 function blobTexture(inner: number, outer: number) {
   const c = document.createElement('canvas');
@@ -178,9 +184,8 @@ export class Engine {
   ) {
     let renderer: WebGLRenderer;
     try {
-      const probe = document.createElement('canvas');
-      const ctx = probe.getContext('webgl2') ?? probe.getContext('webgl');
-      if (!ctx) throw new Error('no webgl');
+      // No separate probe canvas: a probe would hold an extra WebGL context per mount (browsers cap the number of
+      // live contexts and drop the oldest). WebGLRenderer throws when no context can be created.
       renderer = new WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     } catch {
       throw new WebGLUnavailableError('WebGL unavailable');
@@ -295,7 +300,25 @@ export class Engine {
 
   // ───────────────────────────── configuration
 
+  /** Apply a view. A broken rig / clip (data files are hand-written by several agents) must never crash the page:
+   *  on an exception the viewer falls back to the plain standing figure with a short note. */
   configure(spec: ViewSpec) {
+    try {
+      this.configureInner(spec);
+    } catch (e) {
+      console.error('[tribody 3d] could not show this view — falling back to the base pose', e);
+      try {
+        this.configureInner({ labels: false, autoPlay: false, focus: spec.focus });
+        this.spec = spec;
+        this.note = '3Dモデルを表示できませんでした';
+        this.emitUi();
+      } catch {
+        /* nothing more we can do */
+      }
+    }
+  }
+
+  private configureInner(spec: ViewSpec) {
     this.spec = spec;
     this.configured = true;
     let clipSrc: Clip;
@@ -305,6 +328,7 @@ export class Engine {
     this.legend = false;
     let cameraSpec: CameraSpec | undefined;
     let focus: RegionId | undefined = spec.focus;
+    let exerciseFallback: Partial<Record<PartId, Highlight3DRole>> | null = null;
     if (spec.muscle) {
       this.mode = 'muscle';
       const rig = MUSCLE_RIGS[spec.muscle];
@@ -326,6 +350,8 @@ export class Engine {
       if (ex && (ex.primary.length || ex.secondary.length)) {
         for (const m of ex.secondary) scope[m] = 'secondary';
         for (const m of ex.primary) scope[m] = 'primary';
+        // if none of the data's target muscles is rigged yet, the clip's own highlights are shown instead
+        if (c?.highlights) exerciseFallback = { ...c.highlights };
       } else if (c?.highlights) scope = { ...c.highlights };
       if (!c) {
         this.note = 'このエクササイズの3Dアニメーションは準備中です';
@@ -341,6 +367,8 @@ export class Engine {
       const firstRig = ids.map((id) => (isMuscleId(id) ? MUSCLE_RIGS[id] : STRUCTURE_RIGS[id as StructureId])).find(Boolean);
       cameraSpec = firstRig?.camera;
       focus ??= firstRig?.focus;
+      // nothing rigged yet: still frame the right body region (structure registry region / muscle data)
+      if (!firstRig && ids.length) focus ??= isMuscleId(ids[0]) ? getMuscle(ids[0])?.regions?.[0] : STRUCTURE_REGION.get(ids[0]);
     } else {
       this.mode = 'pose';
       clipSrc = staticClip(spec.pose ?? 'STAND');
@@ -354,10 +382,12 @@ export class Engine {
     this.clip = cc;
     focus ??= cc.focus;
     this.labelSide = cc.side;
-    this.anatomy.setScope(scope, this.mode === 'highlights' || this.mode === 'muscle' ? [cc.side] : cc.sides, {
-      markers,
-      ghosts: !!spec.all,
-    });
+    const scopeSides = this.mode === 'highlights' || this.mode === 'muscle' ? [cc.side] : cc.sides;
+    this.anatomy.setScope(scope, scopeSides, { markers, ghosts: !!spec.all });
+    if (exerciseFallback && !this.anatomy.hasVisuals) {
+      scope = { ...exerciseFallback, ...(spec.highlights ?? {}) };
+      this.anatomy.setScope(scope, scopeSides, { markers, ghosts: !!spec.all });
+    }
     if (this.mode === 'highlights' && Object.keys(scope).length && !this.anatomy.hasVisuals) this.note = '3Dモデルは準備中です';
     if (this.mode === 'exercise' && !this.note && Object.keys(scope).length && !this.anatomy.hasVisuals) this.note = '筋肉の3Dモデルは準備中です';
 
@@ -398,8 +428,7 @@ export class Engine {
     this.lastFocus = focus;
     this.lastCam = cameraSpec ?? (this.mode === 'muscle' ? cc.camera : undefined);
     this.home = this.computeFraming(cc, this.lastCam, focus);
-    this.camera.position.copy(this.home.position);
-    this.controls.target.copy(this.home.target);
+    this.applyHome();
     this.camera.lookAt(this.home.target);
     this.controls.update();
     // floor disc follows the reference bounds
@@ -487,6 +516,18 @@ export class Engine {
       insetTop: bar && cc.animated ? 40 : 6,
       insetBottom: bar ? (cc.animated ? 62 : 8) : 6,
     });
+  }
+
+  /** Move the camera to the home framing; zoom limits follow it (a wide pose on a tall phone needs a far camera). */
+  private applyHome() {
+    if (!this.home) return;
+    this.camera.position.copy(this.home.position);
+    this.controls.target.copy(this.home.target);
+    const d = this.home.position.distanceTo(this.home.target);
+    this.controls.maxDistance = Math.max(7, d * 1.6);
+    this.controls.minDistance = Math.min(0.22, d * 0.5);
+    this.camera.far = Math.max(60, d * 8);
+    this.camera.updateProjectionMatrix();
   }
 
   private clampTarget() {
@@ -628,8 +669,13 @@ export class Engine {
     this.needsPose = false;
   }
 
+  private shadowBounds = { min: new Vector3(), max: new Vector3() };
+  private setLabelAnchor = (key: string, _id: PartId, _role: unknown, p: Vector3) => this.labels.setAnchor(key, p);
+  /** Number of frames rendered (dev / tests: verifies pausing off-screen). */
+  renders = 0;
+
   private updateShadow() {
-    const b = skinBounds(this.state, { min: new Vector3(), max: new Vector3() });
+    const b = skinBounds(this.state, this.shadowBounds);
     const cx = (b.min.x + b.max.x) / 2;
     const cz = (b.min.z + b.max.z) / 2;
     const sx = Math.max(0.25, (b.max.x - b.min.x) * 1.25);
@@ -646,18 +692,19 @@ export class Engine {
     // camera-relative lights (always lit from the viewer's upper-left)
     const cam = this.camera;
     const tgt = this.controls.target;
-    const right = new Vector3().setFromMatrixColumn(cam.matrixWorld, 0);
-    const up = new Vector3().setFromMatrixColumn(cam.matrixWorld, 1);
-    const back = new Vector3().subVectors(cam.position, tgt).normalize();
+    const right = _right.setFromMatrixColumn(cam.matrixWorld, 0);
+    const up = _up.setFromMatrixColumn(cam.matrixWorld, 1);
+    const back = _back.subVectors(cam.position, tgt).normalize();
     this.key.position.copy(tgt).addScaledVector(back, 3).addScaledVector(right, -1.8).addScaledVector(up, 2.6);
     this.key.target.position.copy(tgt);
     this.fill.position.copy(tgt).addScaledVector(back, 1.5).addScaledVector(right, 2.5).addScaledVector(up, -0.5);
     this.fill.target.position.copy(tgt);
     this.renderer.render(this.scene, cam);
+    this.renders++;
     // labels
     if (this.labels.visible) {
-      this.anatomy.labelAnchors(this.state, (key, _id, _role, p) => this.labels.setAnchor(key, p));
-      const c = tgt.clone().project(cam);
+      this.anatomy.labelAnchors(this.state, this.setLabelAnchor);
+      const c = _proj.copy(tgt).project(cam);
       this.labels.layout(cam, this.width, this.height, ((c.x + 1) / 2) * this.width);
     }
     if (this.spec.debug) this.renderDebug();
@@ -795,8 +842,7 @@ export class Engine {
     this.camera.updateProjectionMatrix();
     if (this.clip && !this.userMoved) {
       this.home = this.computeFraming(this.clip, this.lastCam, this.lastFocus);
-      this.camera.position.copy(this.home.position);
-      this.controls.target.copy(this.home.target);
+      this.applyHome();
     }
     this.needsRender = true;
     this.kick();
@@ -833,6 +879,10 @@ export class Engine {
     }, 60);
   };
 
+  get isDisposed() {
+    return this.disposed;
+  }
+
   dispose() {
     this.disposed = true;
     if (this.raf) cancelAnimationFrame(this.raf);
@@ -856,7 +906,8 @@ export class Engine {
       mat.dispose();
     }
     this.renderer.dispose();
-    this.renderer.forceContextLoss();
+    // release the GL context right away (browsers cap live contexts); a lost context is already released
+    if (!this.lost) this.renderer.forceContextLoss();
     this.renderer.domElement.remove();
   }
 }

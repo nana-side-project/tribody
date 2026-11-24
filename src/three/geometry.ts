@@ -41,7 +41,17 @@ export function capsule(a: Vector3, b: Vector3, ra: number, rb = ra, radial = 14
 
 // ── curves
 
-/** Centripetal Catmull-Rom point for segment p1→p2 (alpha 0.5). Writes into out. */
+/** One coordinate of the centripetal Catmull-Rom (Barry–Goldman pyramid). */
+function crComp(a: number, b: number, c: number, d: number, t: number, t0: number, t1: number, t2: number, t3: number) {
+  const a1 = ((t1 - t) / (t1 - t0)) * a + ((t - t0) / (t1 - t0)) * b;
+  const a2 = ((t2 - t) / (t2 - t1)) * b + ((t - t1) / (t2 - t1)) * c;
+  const a3 = ((t3 - t) / (t3 - t2)) * c + ((t - t2) / (t3 - t2)) * d;
+  const b1 = ((t2 - t) / (t2 - t0)) * a1 + ((t - t0) / (t2 - t0)) * a2;
+  const b2 = ((t3 - t) / (t3 - t1)) * a2 + ((t - t1) / (t3 - t1)) * a3;
+  return ((t2 - t) / (t2 - t1)) * b1 + ((t - t1) / (t2 - t1)) * b2;
+}
+
+/** Centripetal Catmull-Rom point for segment p1→p2 (alpha 0.5). Writes into out. No allocations. */
 export function crPoint(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, u: number, out: Vector3): Vector3 {
   const d01 = Math.max(1e-4, Math.sqrt(p0.distanceTo(p1)));
   const d12 = Math.max(1e-4, Math.sqrt(p1.distanceTo(p2)));
@@ -51,15 +61,11 @@ export function crPoint(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, u: n
   const t2 = t1 + d12;
   const t3 = t2 + d23;
   const t = t1 + (t2 - t1) * u;
-  const comp = (a: number, b: number, c: number, d: number) => {
-    const a1 = ((t1 - t) / (t1 - t0)) * a + ((t - t0) / (t1 - t0)) * b;
-    const a2 = ((t2 - t) / (t2 - t1)) * b + ((t - t1) / (t2 - t1)) * c;
-    const a3 = ((t3 - t) / (t3 - t2)) * c + ((t - t2) / (t3 - t2)) * d;
-    const b1 = ((t2 - t) / (t2 - t0)) * a1 + ((t - t0) / (t2 - t0)) * a2;
-    const b2 = ((t3 - t) / (t3 - t1)) * a2 + ((t - t1) / (t3 - t1)) * a3;
-    return ((t2 - t) / (t2 - t1)) * b1 + ((t - t1) / (t2 - t1)) * b2;
-  };
-  return out.set(comp(p0.x, p1.x, p2.x, p3.x), comp(p0.y, p1.y, p2.y, p3.y), comp(p0.z, p1.z, p2.z, p3.z));
+  return out.set(
+    crComp(p0.x, p1.x, p2.x, p3.x, t, t0, t1, t2, t3),
+    crComp(p0.y, p1.y, p2.y, p3.y, t, t0, t1, t2, t3),
+    crComp(p0.z, p1.z, p2.z, p3.z, t, t0, t1, t2, t3),
+  );
 }
 
 /**
@@ -79,6 +85,13 @@ export class CurveSampler {
     this.dense = Array.from({ length: nd }, () => new Vector3());
     this.lens = new Float32Array(nd);
   }
+  /** Control point i with phantom end points (open) or wrap-around (closed). */
+  private get(ctrl: Vector3[], nCtrl: number, closed: boolean, i: number): Vector3 {
+    if (closed) return ctrl[((i % nCtrl) + nCtrl) % nCtrl];
+    if (i < 0) return this.ghostA.copy(ctrl[0]).multiplyScalar(2).sub(ctrl[1]);
+    if (i >= nCtrl) return this.ghostB.copy(ctrl[nCtrl - 1]).multiplyScalar(2).sub(ctrl[nCtrl - 2]);
+    return ctrl[i];
+  }
   /** Returns the curve length. `out` must have length ≥ n. */
   sample(ctrl: Vector3[], nCtrl: number, out: Vector3[], n: number, closed = false): number {
     const per = this.perSeg;
@@ -88,17 +101,11 @@ export class CurveSampler {
       return 0;
     }
     const segs = closed ? nCtrl : nCtrl - 1;
-    const get = (i: number): Vector3 => {
-      if (closed) return ctrl[((i % nCtrl) + nCtrl) % nCtrl];
-      if (i < 0) return this.ghostA.copy(ctrl[0]).multiplyScalar(2).sub(ctrl[1]);
-      if (i >= nCtrl) return this.ghostB.copy(ctrl[nCtrl - 1]).multiplyScalar(2).sub(ctrl[nCtrl - 2]);
-      return ctrl[i];
-    };
     for (let s = 0; s < segs; s++) {
-      const p0 = get(s - 1);
-      const p1 = get(s);
-      const p2 = get(s + 1);
-      const p3 = get(s + 2);
+      const p0 = this.get(ctrl, nCtrl, closed, s - 1);
+      const p1 = this.get(ctrl, nCtrl, closed, s);
+      const p2 = this.get(ctrl, nCtrl, closed, s + 1);
+      const p3 = this.get(ctrl, nCtrl, closed, s + 2);
       const steps = per;
       for (let k = s === 0 ? 0 : 1; k <= steps; k++) {
         if (nd >= this.dense.length) break;

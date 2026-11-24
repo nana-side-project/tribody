@@ -24,13 +24,26 @@ interface Item extends LabelSpec {
 }
 
 const SVGNS = 'http://www.w3.org/2000/svg';
+const bySy = (a: { sy: number }, b: { sy: number }) => a.sy - b.sy;
 const _p = new Vector3();
 
 export class LabelLayer {
   private root: HTMLDivElement;
   private svg: SVGSVGElement;
   private items: Item[] = [];
-  visible = true;
+  private byKey = new Map<string, Item>();
+  // reused per frame (layout runs on every render)
+  private vis: Item[] = [];
+  private col: Item[] = [];
+  private _visible = true;
+  /** Hidden labels must not be laid out — and must not linger at their last / default (0,0) position. */
+  get visible() {
+    return this._visible;
+  }
+  set visible(v: boolean) {
+    this._visible = v;
+    this.root.style.display = v && this.items.length ? '' : 'none';
+  }
 
   constructor(container: HTMLElement) {
     this.root = document.createElement('div');
@@ -69,6 +82,9 @@ export class LabelLayer {
     }
     for (const it of keep.values()) this.removeItem(it);
     this.items = next;
+    this.byKey = new Map(next.map((i) => [i.key, i]));
+    // new items start hidden until the first layout() positions them
+    this.root.style.display = 'none';
   }
 
   private fill(it: Item) {
@@ -88,7 +104,7 @@ export class LabelLayer {
   }
 
   setAnchor(key: string, p: Vector3) {
-    const it = this.items.find((i) => i.key === key);
+    const it = this.byKey.get(key);
     if (it) {
       it.world.copy(p);
       it.has = true;
@@ -101,7 +117,8 @@ export class LabelLayer {
     if (!this.visible || !this.items.length) return;
     this.svg.setAttribute('width', String(width));
     this.svg.setAttribute('height', String(height));
-    const vis: Item[] = [];
+    const vis = this.vis;
+    vis.length = 0;
     for (const it of this.items) {
       if (!it.has) {
         it.el.style.display = 'none';
@@ -136,7 +153,10 @@ export class LabelLayer {
     const gap = 4;
     const offset = 26;
     for (const side of [-1, 1] as const) {
-      const col = vis.filter((v) => v.side === side).sort((a, b) => a.sy - b.sy);
+      const col = this.col;
+      col.length = 0;
+      for (const v of vis) if (v.side === side) col.push(v);
+      col.sort(bySy);
       for (const it of col) {
         let x = side < 0 ? it.sx - offset - it.w : it.sx + offset;
         x = Math.max(pad, Math.min(width - pad - it.w, x));
@@ -173,6 +193,7 @@ export class LabelLayer {
   clear() {
     for (const it of this.items) this.removeItem(it);
     this.items = [];
+    this.byKey.clear();
   }
 
   dispose() {

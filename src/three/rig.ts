@@ -290,8 +290,25 @@ const AXIS_END: Partial<Record<BaseSeg, Vec3>> = {
   forearm: REST_ORIGIN.hand,
   femur: REST_ORIGIN.tibia,
 };
-/** Femoral condyle centre for the patella track. */
-const CONDYLE_CENTRE: Vec3 = [0.09, 0.51, -0.005];
+/**
+ * Patella track (femur sagittal plane). The patella centre moves on an arc around PAT_C whose radius shrinks
+ * from the rest value (patella on the trochlea) to PAT_REND (on the anterior/distal condyles), and tilts with
+ * it. The tilt for each knee angle was solved numerically so the patellar tendon (apex → tibial tuberosity)
+ * keeps its rest length (it is inextensible) — the patella never floats away from the femur or the tendon.
+ */
+const PAT_C = { y: 0.512, z: -0.004 };
+const PAT_REND = 0.046;
+/** [knee flexion°, patella tilt°] */
+const PAT_TILT: [number, number][] = [
+  [0, 0], [10, 7.84], [20, 15.09], [30, 21.86], [40, 28.18], [50, 34.12], [60, 39.69], [70, 44.95], [80, 49.96],
+  [90, 54.78], [100, 59.5], [110, 64.23], [120, 69.11], [130, 74.36], [140, 80.14], [150, 86.5], [160, 93.7],
+];
+function patellaTilt(knee: number): number {
+  const k = Math.max(0, Math.min(160, knee)) / 10;
+  const i = Math.min(15, Math.floor(k));
+  const f = k - i;
+  return PAT_TILT[i][1] + (PAT_TILT[i + 1][1] - PAT_TILT[i][1]) * f;
+}
 
 /** World rest position of a lateral-positive point for a given side (null = midline/bilateral-R?). */
 export function restWorld(p: Vec3, side: Side | null, out = new Vector3()): Vector3 {
@@ -340,8 +357,8 @@ const AZ = new Vector3(0, 0, 1);
 interface SideConst {
   off: Record<string, Vector3>;
   axis: Record<string, Vector3>;
-  condyle: Vector3;
-  patellaRel: Vector3;
+  /** patella centre x relative to the femur origin (rest) */
+  patX: number;
   scapNormal: Vector3;
   scapPivot: Vector3;
   acDir: Vector3;
@@ -381,15 +398,17 @@ const SIDE_CONST: Record<Side, SideConst> = { R: null!, L: null! };
       // proximal-pointing long axis (≈ +Y)
       axis[k] = W(REST_ORIGIN[k]).sub(W(AXIS_END[k]!)).normalize();
     }
-    const condyle = W(CONDYLE_CENTRE).sub(W(REST_ORIGIN.femur));
-    const patellaRel = W(REST_ORIGIN.patella).sub(W(CONDYLE_CENTRE));
+    const patX = W(REST_ORIGIN.patella).x - W(REST_ORIGIN.femur).x;
     const sgn = s === 'R' ? 1 : -1;
     const scapNormal = new Vector3(-sgn * Math.sin(0.61), 0, -Math.cos(0.61)).normalize();
     const scapPivot = W([0.12, 1.41, -0.088]).sub(W(REST_ORIGIN.clavicle)); // spine of scapula, mid
     const acDir = off.scapula.clone().normalize();
-    SIDE_CONST[s] = { off, axis, condyle, patellaRel, scapNormal, scapPivot, acDir };
+    SIDE_CONST[s] = { off, axis, patX, scapNormal, scapPivot, acDir };
   }
 })();
+
+const PAT_A0 = Math.atan2(REST_ORIGIN.patella[1] - PAT_C.y, REST_ORIGIN.patella[2] - PAT_C.z);
+const PAT_R0 = Math.hypot(REST_ORIGIN.patella[1] - PAT_C.y, REST_ORIGIN.patella[2] - PAT_C.z);
 
 const _q = new Quaternion();
 const _qa = new Quaternion();
@@ -509,12 +528,15 @@ export function solveFK(vecIn: PoseVec, state: RigState): RigState {
     place(state, tib, fem, K.off.tibia);
     qAxis(_q, AX, knee);
     state.quat[tib].copy(state.quat[fem]).multiply(_q);
-    // patella rides the trochlea: rotates about the condyle centre with knee flexion
+    // patella rides the trochlea → condyles (tendon length kept constant, see PAT_TILT)
     const pat = seg('patella');
-    const kf = Math.max(0, knee);
-    _v.copy(K.patellaRel).applyQuaternion(qAxis(_qc, AX, 0.85 * kf)).add(K.condyle);
+    const tilt = patellaTilt(knee);
+    const pa = PAT_A0 - tilt * D2R;
+    const u = Math.min(1, tilt / 75);
+    const pr = PAT_R0 + (PAT_REND - PAT_R0) * u * u * (3 - 2 * u);
+    _v.set(K.patX, PAT_C.y + pr * Math.sin(pa) - REST_ORIGIN.femur[1], PAT_C.z + pr * Math.cos(pa) - REST_ORIGIN.femur[2]);
     state.pos[pat].copy(_v).applyQuaternion(state.quat[fem]).add(state.pos[fem]);
-    state.quat[pat].copy(state.quat[fem]).multiply(qAxis(_q, AX, 0.7 * kf));
+    state.quat[pat].copy(state.quat[fem]).multiply(qAxis(_q, AX, tilt));
     const foot = seg('foot');
     place(state, foot, tib, K.off.foot);
     qAxis(_q, AX, -sl('ankle', 'dorsi')).multiply(qAxis(_qa, AZ, sg * sl('ankle', 'inv')));
@@ -614,39 +636,49 @@ function ellipsoidHalf(q: Quaternion, r: Vector3, out: Vector3) {
   return out;
 }
 
+const _box = new Float64Array(6);
+/** World AABB of one skin primitive into _box (minX, minY, minZ, maxX, maxY, maxZ). No allocations. */
+function primBox(state: RigState, p: SkinPrim) {
+  if (p.kind === 'capsule') {
+    state.toWorld(p.segIdx, p.a, _wa);
+    state.toWorld(p.segIdx, p.b, _wb);
+    _box[0] = Math.min(_wa.x - p.ra, _wb.x - p.rb);
+    _box[1] = Math.min(_wa.y - p.ra, _wb.y - p.rb);
+    _box[2] = Math.min(_wa.z - p.ra, _wb.z - p.rb);
+    _box[3] = Math.max(_wa.x + p.ra, _wb.x + p.rb);
+    _box[4] = Math.max(_wa.y + p.ra, _wb.y + p.rb);
+    _box[5] = Math.max(_wa.z + p.ra, _wb.z + p.rb);
+  } else {
+    state.toWorld(p.segIdx, p.c, _wa);
+    _wq.copy(state.quat[p.segIdx]).multiply(p.q);
+    ellipsoidHalf(_wq, p.r, _wb);
+    _box[0] = _wa.x - _wb.x;
+    _box[1] = _wa.y - _wb.y;
+    _box[2] = _wa.z - _wb.z;
+    _box[3] = _wa.x + _wb.x;
+    _box[4] = _wa.y + _wb.y;
+    _box[5] = _wa.z + _wb.z;
+  }
+}
+
 /** Visit every skin primitive's world AABB: cb(minX,minY,minZ,maxX,maxY,maxZ). */
 export function forEachSkinBox(
   state: RigState,
   cb: (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, segIdx: number) => void,
 ) {
   for (const p of SKIN_PRIMS) {
-    if (p.kind === 'capsule') {
-      state.toWorld(p.segIdx, p.a, _wa);
-      state.toWorld(p.segIdx, p.b, _wb);
-      cb(
-        Math.min(_wa.x - p.ra, _wb.x - p.rb),
-        Math.min(_wa.y - p.ra, _wb.y - p.rb),
-        Math.min(_wa.z - p.ra, _wb.z - p.rb),
-        Math.max(_wa.x + p.ra, _wb.x + p.rb),
-        Math.max(_wa.y + p.ra, _wb.y + p.rb),
-        Math.max(_wa.z + p.ra, _wb.z + p.rb),
-        p.segIdx,
-      );
-    } else {
-      state.toWorld(p.segIdx, p.c, _wa);
-      _wq.copy(state.quat[p.segIdx]).multiply(p.q);
-      ellipsoidHalf(_wq, p.r, _wb);
-      cb(_wa.x - _wb.x, _wa.y - _wb.y, _wa.z - _wb.z, _wa.x + _wb.x, _wa.y + _wb.y, _wa.z + _wb.z, p.segIdx);
-    }
+    primBox(state, p);
+    cb(_box[0], _box[1], _box[2], _box[3], _box[4], _box[5], p.segIdx);
   }
 }
 
-/** Lowest skin point (world y). */
+/** Lowest skin point (world y). Allocation-free (runs every frame for grounding). */
 export function lowestSkinY(state: RigState): number {
   let m = Infinity;
-  forEachSkinBox(state, (_x0, y0) => {
-    if (y0 < m) m = y0;
-  });
+  for (const p of SKIN_PRIMS) {
+    primBox(state, p);
+    if (_box[1] < m) m = _box[1];
+  }
   return m;
 }
 
@@ -657,14 +689,15 @@ export interface Bounds {
 export function skinBounds(state: RigState, out: Bounds = { min: new Vector3(), max: new Vector3() }): Bounds {
   out.min.set(Infinity, Infinity, Infinity);
   out.max.set(-Infinity, -Infinity, -Infinity);
-  forEachSkinBox(state, (x0, y0, z0, x1, y1, z1) => {
-    out.min.x = Math.min(out.min.x, x0);
-    out.min.y = Math.min(out.min.y, y0);
-    out.min.z = Math.min(out.min.z, z0);
-    out.max.x = Math.max(out.max.x, x1);
-    out.max.y = Math.max(out.max.y, y1);
-    out.max.z = Math.max(out.max.z, z1);
-  });
+  for (const p of SKIN_PRIMS) {
+    primBox(state, p);
+    if (_box[0] < out.min.x) out.min.x = _box[0];
+    if (_box[1] < out.min.y) out.min.y = _box[1];
+    if (_box[2] < out.min.z) out.min.z = _box[2];
+    if (_box[3] > out.max.x) out.max.x = _box[3];
+    if (_box[4] > out.max.y) out.max.y = _box[4];
+    if (_box[5] > out.max.z) out.max.z = _box[5];
+  }
   return out;
 }
 
@@ -730,7 +763,15 @@ export const BASE_POSES: Record<BasePoseName, BasePoseDef> = {
   SUPINE: {
     pose: {
       root: { pos: [0, 0.2, 0], rot: [-90, 0, 0] },
-      joints: { shoulder: { abd: 10 }, elbow: { flex: 5 }, forearm: { sup: -40 }, ankle: { dorsi: -25 }, hip: { rot: 8 } },
+      // solved so the back of the head, the upper back, the sacrum and the heels all rest on the floor
+      joints: {
+        shoulder: { abd: 10 },
+        elbow: { flex: 5 },
+        forearm: { sup: -40 },
+        ankle: { dorsi: -20 },
+        hip: { flex: -2, rot: 8 },
+        neck: { flex: -8 },
+      },
     },
     camera: 'iso',
     ja: '仰向け（頭は −Z 方向）',
@@ -738,13 +779,17 @@ export const BASE_POSES: Record<BasePoseName, BasePoseDef> = {
   PRONE: {
     pose: {
       root: { pos: [0, 0.2, 0], rot: [90, 0, 0] },
+      // solved so the chest and pelvis rest on the floor, thighs and the tops of the feet (nearly) too;
+      // the face is just off the floor (it used to be the only contact, which left the body hovering)
       joints: {
         shoulder: { abd: 12 },
         elbow: { flex: 5 },
         forearm: { sup: -60 },
-        ankle: { dorsi: -45 },
-        toes: { ext: 0 },
-        neck: { flex: 8 },
+        hip: { flex: 3.5 },
+        knee: { flex: 2 },
+        ankle: { dorsi: -60 },
+        toes: { ext: -30 },
+        neck: { flex: -6 },
       },
     },
     camera: 'iso',
@@ -755,6 +800,8 @@ export const BASE_POSES: Record<BasePoseName, BasePoseDef> = {
       root: { pos: [0, 0.2, 0], rot: [0, 0, -85] },
       joints: {
         hip: { flex: 40 },
+        // the top leg rests on the bottom one (knees stacked) instead of hovering hip-width above it
+        hip_R: { abd: -8 },
         knee: { flex: 60 },
         ankle: { dorsi: -15 },
         neck: { lat: -30 },

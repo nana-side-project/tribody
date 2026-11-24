@@ -277,6 +277,18 @@ export function solid(color: string, opts: { roughness?: number; emissive?: stri
   });
 }
 
+const COLOR_CACHE = new Map<string, Color>();
+/** Parsed colour for a CSS colour string, cached (read-only — copy it, never mutate it). Lets per-frame code
+ *  avoid `Color.set(string)`, which parses (and allocates) on every call. */
+export function colorOf(css: string): Color {
+  let c = COLOR_CACHE.get(css);
+  if (!c) {
+    c = new Color(css);
+    COLOR_CACHE.set(css, c);
+  }
+  return c;
+}
+
 export function disposeMaterial(m: Material | Material[]) {
   if (Array.isArray(m)) m.forEach((x) => x.dispose());
   else m.dispose();

@@ -2,8 +2,10 @@
 //   ?muscle=<id> | ?exercise=<id> | ?hl=id:role,id:role | ?pose=<BASE_POSE>
 //   ?t=0..1 (freeze) ?cam=front|back|left|right|top|iso|isoBack|isoLeft ?focus=<region>
 //   ?j=shoulder_R.flex:170,elbow_R.flex:90 (joint overrides)  ?labels=0 ?skin=0.25 ?all=1 ?debug=1 [&lm=<bone>] ?coverage=1 ?card=1 (320px card) ?controls=0 ?theme=dark
-// window.__tribody = { ready, setTime(t), engine } for screenshot scripts.
-import { StrictMode, useState } from 'react';
+// Robustness tests: ?multi=1 (several viewers on one page, one below the fold) · ?remount=<n> (mount/unmount n times)
+//   ?nogl=1 (simulate WebGL unavailable) · ?lose=1 (simulate a lost WebGL context after the first frame)
+// window.__tribody = { ready, setTime(t), engine, engines, remounts, done } for screenshot scripts.
+import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { EXERCISES, MUSCLES, REGIONS, STRUCTURES } from '../src/data/registry';
 import type { ExerciseId, MuscleId, RegionId, StructureId } from '../src/data/registry';
@@ -16,7 +18,15 @@ import { MUSCLE_RIGS, STRUCTURE_RIGS } from '../src/three/rig-data';
 
 declare global {
   interface Window {
-    __tribody?: { ready: boolean; setTime: (t: number) => void; engine: Engine | null };
+    __tribody?: {
+      ready: boolean;
+      setTime: (t: number) => void;
+      engine: Engine | null;
+      /** every live engine (multi / remount tests) */
+      engines: Set<Engine>;
+      remounts: number;
+      done: boolean;
+    };
   }
 }
 
@@ -24,7 +34,17 @@ const q = new URLSearchParams(location.search);
 const num = (k: string) => (q.has(k) ? Number(q.get(k)) : undefined);
 if (q.get('theme')) document.documentElement.dataset.theme = q.get('theme')!;
 
-window.__tribody = { ready: false, setTime: () => {}, engine: null };
+window.__tribody = { ready: false, setTime: () => {}, engine: null, engines: new Set(), remounts: 0, done: false };
+
+let loseFired = false;
+if (q.get('nogl') === '1') {
+  // simulate a browser without WebGL
+  const orig = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+    if (/webgl/i.test(type)) return null;
+    return (orig as (...a: unknown[]) => unknown).call(this, type, ...rest);
+  } as typeof orig;
+}
 
 /** ?j=shoulder_R.flex:170,elbow_R.flex:90 → joint overrides (pose / highlights mode) */
 function parseJoints(s: string | null) {
@@ -143,8 +163,15 @@ function Harness() {
         lm: q.get('lm') || undefined,
         joints: parseJoints(q.get('j')),
         onEngine: (e) => {
+          const prev = window.__tribody!.engine;
+          if (prev && !e) window.__tribody!.engines.delete(prev);
+          if (e) window.__tribody!.engines.add(e);
           window.__tribody!.engine = e;
           window.__tribody!.setTime = (t: number) => e?.setTime(t);
+          if (e && q.get('lose') === '1' && !loseFired) {
+            loseFired = true; // once, so 「再表示する」 can be tested
+            setTimeout(() => window.__tribody!.engine?.renderer.getContext().getExtension('WEBGL_lose_context')?.loseContext(), 400);
+          }
           if (e) {
             // ready after two frames (geometry built + first render)
             requestAnimationFrame(() =>
@@ -173,4 +200,75 @@ function Harness() {
   );
 }
 
-createRoot(document.getElementById('root')!).render(<StrictMode>{q.get('coverage') === '1' ? <Coverage /> : <Harness />}</StrictMode>);
+/** ?multi=1 — several viewers on one page (the last one is below the fold, so it must stay paused). */
+function Multi() {
+  const card: React.CSSProperties = { background: 'var(--surface)', borderRadius: 16, overflow: 'hidden', marginBottom: 12 };
+  const track = (e: Engine | null, key: string) => {
+    const w = window as unknown as { __multi?: Record<string, Engine | null> };
+    (w.__multi ??= {})[key] = e;
+    if (e) window.__tribody!.engines.add(e);
+    window.__tribody!.ready = Object.keys(w.__multi).length >= 4;
+  };
+  return (
+    <div style={{ padding: 12 }}>
+      <div style={card}>
+        <AnatomyViewer muscle="gluteus-medius" height={260} dev={{ onEngine: (e) => track(e, 'a') }} />
+      </div>
+      <div style={card}>
+        <AnatomyViewer exercise="ex-band-er" height={260} dev={{ onEngine: (e) => track(e, 'b') }} />
+      </div>
+      <div style={card}>
+        <AnatomyViewer highlights={{ 'achilles-tendon': 'injured', gastrocnemius: 'involved' }} height={260} dev={{ onEngine: (e) => track(e, 'c') }} />
+      </div>
+      <div style={{ height: 1600 }} />
+      <div style={card}>
+        <AnatomyViewer muscle="soleus" height={260} dev={{ onEngine: (e) => track(e, 'offscreen') }} />
+      </div>
+    </div>
+  );
+}
+
+/** ?remount=<n> — mount / unmount the viewer n times (watch the console for leaks / context warnings). */
+function Remount({ n }: { n: number }) {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (i >= n * 2) {
+      window.__tribody!.done = true;
+      return;
+    }
+    const id = setTimeout(() => setI((x) => x + 1), 180);
+    return () => clearTimeout(id);
+  }, [i, n]);
+  const on = i % 2 === 0 || i >= n * 2;
+  useEffect(() => {
+    if (on) window.__tribody!.remounts++;
+  }, [on]);
+  const muscles: MuscleId[] = ['gluteus-medius', 'supraspinatus', 'gastrocnemius', 'soleus'];
+  return (
+    <div style={{ padding: 12 }}>
+      <p style={{ fontSize: 12 }}>
+        remount {Math.ceil(i / 2)} / {n} · live engines {window.__tribody!.engines.size}
+      </p>
+      {on ? (
+        <AnatomyViewer
+          muscle={muscles[(i / 2) % muscles.length | 0]}
+          height={300}
+          dev={{
+            onEngine: (e) => {
+              if (e) window.__tribody!.engines.add(e);
+              else window.__tribody!.engines.forEach((x) => x.isDisposed && window.__tribody!.engines.delete(x));
+              window.__tribody!.engine = e;
+              window.__tribody!.ready = !!e;
+            },
+          }}
+        />
+      ) : (
+        <div style={{ height: 300 }} />
+      )}
+    </div>
+  );
+}
+
+const page =
+  q.get('coverage') === '1' ? <Coverage /> : q.get('multi') === '1' ? <Multi /> : q.has('remount') ? <Remount n={Number(q.get('remount')) || 10} /> : <Harness />;
+createRoot(document.getElementById('root')!).render(<StrictMode>{page}</StrictMode>);
