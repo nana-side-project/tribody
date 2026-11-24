@@ -40,7 +40,7 @@ import type { CameraSpec, Clip } from './clips/types';
 import type { Highlight3DRole } from './contract';
 import { Figure } from './figure';
 import { DebugLabels, LabelLayer, type LabelSpec, type MaskCord } from './labels';
-import { type CompiledPoint, compileRef, evalPoint, LANDMARKS, pointSeg } from './landmarks';
+import { type CompiledPoint, compileRef, evalPoint, LANDMARKS, pointSeg, tryCompile } from './landmarks';
 import { type Palette, readPalette } from './materials';
 import { PropLayer } from './props';
 import {
@@ -91,6 +91,8 @@ export interface EngineUiState {
   legend: boolean;
   speed: number;
   mode: 'muscle' | 'exercise' | 'highlights' | 'pose';
+  /** the clip's phase labels in order, each once (the player lists them as static text for screen readers) */
+  phases: string[];
 }
 
 export interface EngineEvents {
@@ -300,6 +302,9 @@ export class Engine {
   private lastLabelProj = new Matrix4();
   /** muscle demo framing: insertion → distal joint pairs */
   private ctxPts: { ins: CompiledPoint; dist: CompiledPoint }[] = [];
+  /** muscle demo framing: the rig's extra points (`MuscleRig.frame`) and minimum box size (`MuscleRig.minSize`) */
+  private demoPts: CompiledPoint[] = [];
+  private demoMinSize: number | undefined;
   private mode: EngineUiState['mode'] = 'pose';
   private note: string | null = null;
   private legend = false;
@@ -559,14 +564,14 @@ export class Engine {
     if ((spec.joints || spec.root) && this.mode !== 'exercise' && this.mode !== 'muscle')
       clipSrc = { ...clipSrc, pose: { joints: { ...clipSrc.pose?.joints, ...spec.joints }, root: spec.root ?? clipSrc.pose?.root } };
     this.scene3d = scene;
-    // see-through bone pieces of the scene (cleared on every view)
-    this.figure.clearGhosts();
-    for (const [part, op] of Object.entries(scene?.ghost ?? {}) as [string, number][])
-      if (typeof op === 'number') this.figure.ghost(part, isMidlinePart(part) ? null : 'R', op);
     this.injuredIds = new Set([...Object.keys(scope).filter((id) => scope[id as PartId] === 'injured'), ...zones.map((z) => z.on)]);
 
     const cc = compileClip(clipSrc);
     this.clip = cc;
+    // see-through bone pieces of the scene (cleared on every view): sided pieces on the view's side
+    this.figure.clearGhosts();
+    for (const [part, op] of Object.entries(scene?.ghost ?? {}) as [string, number][])
+      if (typeof op === 'number') this.figure.ghost(part, isMidlinePart(part) ? null : cc.side, op);
     // An authored clip / muscle rig frames itself (its own focus, or the whole movement): the page's `focus` prop is
     // only a fallback there (the UI passes the first region for every exercise / muscle).
     if (this.mode === 'exercise' && spec.exercise && CLIPS[spec.exercise]) focus = cc.focus;
@@ -589,6 +594,9 @@ export class Engine {
       structures: scene?.structures,
     });
     this.ctxPts = this.mode === 'muscle' && spec.muscle ? this.muscleContext(spec.muscle, cc.side) : [];
+    const demoRig = this.mode === 'muscle' && spec.muscle ? MUSCLE_RIGS[spec.muscle] : undefined;
+    this.demoPts = (demoRig?.frame ?? []).map((r, i) => tryCompile(r, cc.side, `${spec.muscle} frame point ${i}`)).filter((c): c is CompiledPoint => !!c);
+    this.demoMinSize = demoRig?.minSize;
     if (this.mode === 'highlights' && Object.keys(scope).length && !this.anatomy.hasVisuals) this.note = '3Dモデルは準備中です';
     if (this.mode === 'exercise' && !this.note && Object.keys(scope).length && !this.anatomy.hasVisuals) this.note = '筋肉の3Dモデルは準備中です';
 
@@ -627,7 +635,8 @@ export class Engine {
     // labels: one per highlighted part, on the side actually highlighted (both sides → the side nearer the camera)
     // (the label order takes the part a pulsing zone lies on)
     const pulsePart = pulse === undefined ? undefined : (zones.find((z) => z.key === pulse)?.on ?? pulse);
-    this.setupLabels(scope, sidesOf, st0, new Set<string>(scene?.minor ?? []), zoneLabels, pulsePart);
+    const minor = scene?.minor ?? (this.mode === 'exercise' && spec.exercise ? CLIPS[spec.exercise]?.minor : undefined);
+    this.setupLabels(scope, sidesOf, st0, new Set<string>(minor ?? []), zoneLabels, pulsePart);
     this.labels.visible = spec.labels;
     this.planLabels();
     // floor disc follows the reference bounds
@@ -715,7 +724,9 @@ export class Engine {
             bl.push(t0 > 0.02 || t1 > 0.02 ? [t0, 1 - t1] : null);
           }
         } else {
-          for (const part of STRUCTURE_RIGS[id as StructureId]?.parts ?? []) {
+          const only = this.scene3d?.structures?.[id as StructureId]?.parts;
+          for (const [pi, part] of (STRUCTURE_RIGS[id as StructureId]?.parts ?? []).entries()) {
+            if (only && !only.includes(pi)) continue;
             if ('path' in part) {
               const cps = part.path.map((r) => quietCompile(r, side));
               if (!cps.every(Boolean)) continue;
@@ -771,6 +782,8 @@ export class Engine {
     const items: (LabelSpec & { order: number })[] = [];
     // the pulsing part first (undefined: the first injured part, as in the anatomy layer)
     const pulseId = pulse === undefined ? (Object.keys(scope) as PartId[]).find((id) => scope[id] === 'injured') : pulse;
+    // drawn on both sides: only the labelled side pulses (the other one is the same red, steady)
+    if (pulseId && sidesOf(pulseId).length > 1) this.anatomy.restrictPulse(pulseId, sideOf.get(pulseId) ?? sidesOf(pulseId)[0]);
     // a selected part (region page chip): the muted key muscles' labels wait in 「+N」 (the chip row names them all)
     const selected = Object.values(scope).includes('selected');
     for (const [id, role0] of Object.entries(scope) as [PartId, Highlight3DRole][]) {
@@ -870,6 +883,7 @@ export class Engine {
       this.anatomy.pose(st);
       this.anatomy.collectPoints(pts);
       for (const c of this.ctxPts) pts.push(evalPoint(c.ins, st, a).clone().lerp(evalPoint(c.dist, st, b), distalFraction(aspect)));
+      for (const c of this.demoPts) pts.push(evalPoint(c, st, new Vector3()));
     }
     this.needsPose = true;
     const q = new Vector3();
@@ -887,7 +901,7 @@ export class Engine {
     if (fits) return null;
     return framePoints(pts, dir, this.camera, aspect, {
       margin: aspect < 0.8 ? 1.16 : 1.1,
-      minSize: focus ? regionMinSize(focus) * 0.85 : 0.42,
+      minSize: this.demoMinSize ?? (focus ? regionMinSize(focus) * 0.85 : 0.42),
       heightPx: this.height,
       insetTop: iTop,
       insetBottom: iBot,
@@ -937,7 +951,8 @@ export class Engine {
         this.anatomy.pose(st);
         this.anatomy.collectPoints(pts);
         for (const c of this.ctxPts) pts.push(evalPoint(c.ins, st, a).clone().lerp(evalPoint(c.dist, st, b), distalFraction(aspect)));
-        minSize = focus ? regionMinSize(focus) * 0.85 : 0.42;
+        for (const c of this.demoPts) pts.push(evalPoint(c, st, new Vector3()));
+        minSize = this.demoMinSize ?? (focus ? regionMinSize(focus) * 0.85 : 0.42);
       } else if (focus) {
         regionPoints(focus, st, cc.side, pts);
         minSize = regionMinSize(focus);
@@ -1127,6 +1142,7 @@ export class Engine {
       legend: this.legend,
       speed: this.speed,
       mode: this.mode,
+      phases: this.clip?.animated ? [...new Set(this.clip.labels.map((l) => l.label))] : [],
     });
   }
 

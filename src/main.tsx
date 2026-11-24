@@ -5,6 +5,9 @@ import './styles/tokens.css';
 import './styles/base.css';
 import './styles/components.css';
 
+// The entry ran: the boot shell in index.html must not report a load failure any more.
+(window as Window & { __tribodyBooted?: boolean }).__tribodyBooted = true;
+
 // Apply the saved theme before the first paint (no flash).
 applyTheme(themeStore.get());
 
@@ -54,9 +57,10 @@ function StartupError() {
   );
 }
 
-// Offline support: only on real https deployments, never inside an iframe/preview.
+// Offline support: only the static build (the single-file build has no sw.js next to it) on real https deployments,
+// never inside an iframe/preview.
 try {
-  if (location.protocol === 'https:' && window.top === window.self && 'serviceWorker' in navigator) {
+  if (import.meta.env.MODE !== 'single' && import.meta.env.PROD && location.protocol === 'https:' && window.top === window.self && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {
         /* offline support is optional */

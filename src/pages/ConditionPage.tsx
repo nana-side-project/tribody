@@ -1,48 +1,60 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   getCondition,
+  getStructure,
   type Condition,
   type ConditionId,
-  type InvolvementRole,
+  type GuideId,
+  type Involvement,
+  type PainSpotId,
   type PhaseId,
   type RegionId,
+  type Side,
 } from '../data';
-import type { Highlight3DRole } from '../three';
-import type { Highlights } from '../svg/types';
 import { regionDiagrams } from '../svg/regions';
+import { BottomSheet } from '../components/BottomSheet';
 import { DisciplineBadges, EvidenceBadge, RoleBadge } from '../components/badges';
 import { ExerciseCard } from '../components/cards';
 import {
   DISCIPLINE_ICON,
   IconAlert,
+  IconBook,
   IconBulb,
   IconChevron,
   IconFlag,
   IconHand,
+  IconLayers,
   IconPlus,
   IconTarget,
 } from '../components/icons';
 import { Page } from '../components/Layout';
-import { RegionFigure, drawnParts } from '../components/RegionFigure';
+import { RegionFigure, drawnParts, viewForPart, viewForSpot } from '../components/RegionFigure';
 import { Bullets, Disclaimer, EmptyState, NameText, PainRuleCallout, Section, Tabs } from '../components/ui';
 import { Viewer3DToggle } from '../components/Viewer3D';
 import {
   DISCIPLINE_JA,
   DISCIPLINE_ORDER,
   PHASE_JA,
+  SIDE_JA,
+  STRUCTURE_KIND_JA,
   conditionName,
+  guideTitle,
   isKnownCondition,
   isKnownMuscle,
+  isKnownSpot,
   isPrimaryRole,
   partName,
   registryConditionRegion,
   regionName,
+  spotLabel,
 } from '../lib/labels';
+import { isFramed } from '../lib/framed';
+import { conditionHighlights2d, conditionHighlights3d } from '../lib/viewerHighlights';
 import { menuActions } from '../lib/useMenu';
 import { useRememberedView } from '../lib/useRememberedView';
 import { scrollBehavior } from '../lib/useMedia';
-import { toastSaved } from '../lib/toast';
+import { toast, toastSaved } from '../lib/toast';
 import NotFoundPage from './NotFoundPage';
 
 export default function ConditionPage() {
@@ -118,6 +130,9 @@ interface RedWording {
   short: string;
   /** zoom button of the 2D figure */
   zoom: string;
+  /** badge of the red rows in the list (instead of the role: 「つりやすい」, never 「刺激されている」 where nothing is
+   *  damaged); undefined = the role itself */
+  badge?: string;
 }
 const DAMAGED: RedWording = {
   title: 'どこが傷んでいる？',
@@ -138,6 +153,7 @@ const OVERSENSITIVE: RedWording = {
   sub3d: '痛みやすい場所と関係する筋肉を3Dで確認',
   short: '痛みやすい場所',
   zoom: '痛みやすい部分を拡大',
+  badge: '痛みやすい',
 };
 /** Conditions whose anatomyNote gives the red another meaning (it must read the same as the note). */
 const RED_WORDING: Partial<Record<ConditionId, RedWording>> = {
@@ -149,11 +165,32 @@ const RED_WORDING: Partial<Record<ConditionId, RedWording>> = {
     sub3d: 'つりやすい筋肉と関係する筋肉を3Dで確認',
     short: 'つりやすい筋肉',
     zoom: 'つりやすい筋肉を拡大',
+    badge: 'つりやすい',
   },
 };
 
+const ROLE_WORD = { injured: '傷んでいる', irritated: '刺激されている', compressed: '圧迫されている' } as const;
+
+/**
+ * Tissue damage: name the red by the roles it really has. A kneecap, a bone landmark or a nerve that is only irritated
+ * or compressed (patellofemoral pain, ITBS, MTSS, deep gluteal syndrome, Morton's) is never called 「傷んでいる」.
+ */
+function damagedWording(c: Condition): RedWording {
+  const roles = new Set((c.involved ?? []).map((i) => i.role));
+  const words = (Object.keys(ROLE_WORD) as (keyof typeof ROLE_WORD)[]).filter((r) => roles.has(r)).map((r) => ROLE_WORD[r]);
+  if (!words.length) return DAMAGED;
+  const injured = roles.has('injured');
+  return {
+    ...DAMAGED,
+    legend: words.join('・'),
+    short: words.length > 2 ? '傷んでいる・刺激/圧迫' : words.join('・'),
+    sub3d: injured ? DAMAGED.sub3d : '痛みの中心の組織と関係する筋肉を3Dで確認',
+    zoom: injured ? DAMAGED.zoom : '痛みの中心を拡大',
+  };
+}
+
 function redWording(c: Condition): RedWording {
-  return RED_WORDING[c.id] ?? (c.anatomyNote ? OVERSENSITIVE : DAMAGED);
+  return RED_WORDING[c.id] ?? (c.anatomyNote ? OVERSENSITIVE : damagedWording(c));
 }
 
 const TOC: { id: string; label: string }[] = [
@@ -204,20 +241,9 @@ function pickRegion(c: Condition, refs: string[]): RegionId {
 function ConditionView({ c }: { c: Condition }) {
   const involved = c.involved ?? [];
   const refs = involved.map((i) => i.ref as string);
-  const highlights2d = useMemo(() => {
-    const h: Highlights = {};
-    for (const i of involved) h[i.ref] = isPrimaryRole(i.role) ? 'injured' : 'involved';
-    return h;
-  }, [involved]);
-  const highlights3d = useMemo(() => {
-    // the tissue that is 'injured' itself first, then irritated / compressed ones, then the involved context: the
-    // engine takes the first injured part for its camera and framing
-    const rank = (r: InvolvementRole) => (r === 'injured' ? 0 : isPrimaryRole(r) ? 1 : 2);
-    const h: Partial<Record<string, Highlight3DRole>> = {};
-    for (const i of [...involved].sort((a, b) => rank(a.role) - rank(b.role)))
-      h[i.ref] = isPrimaryRole(i.role) ? 'injured' : 'involved';
-    return h;
-  }, [involved]);
+  // shared with the 3D harness (dev/engine.tsx ?condition=): src/lib/viewerHighlights.ts
+  const highlights2d = useMemo(() => conditionHighlights2d(c), [c]);
+  const highlights3d = useMemo(() => conditionHighlights3d(c), [c]);
   const override = CONDITION_VIEW[c.id];
   const figRegion = useMemo(() => override?.region ?? pickRegion(c, refs), [c]); // eslint-disable-line react-hooks/exhaustive-deps
   const figView = override && override.region === figRegion ? override.view : undefined;
@@ -227,11 +253,23 @@ function ConditionView({ c }: { c: Condition }) {
   const secondary = involved.filter((i) => !isPrimaryRole(i.role));
   const primaryRefs = primary.map((i) => i.ref as string);
   // non-specific pain (low back, neck) and cramps: the content's anatomyNote says nothing is damaged, so the red is
-  // named the way the note names it, never 「傷んでいる」
+  // named the way the note names it, never 「傷んでいる」; otherwise by the roles it really has
   const red = redWording(c);
 
   // The selected step lives in the URL (?phase=), so it survives opening an exercise and coming back.
   const [params, setParams] = useSearchParams();
+  // Opened from a tapped spot (home sheet / region page): ?spot=<id>&side=<left|right>. The figure opens on the view
+  // that has that spot (if it shows the painful tissue), names the side, and the log link records that spot and side.
+  const spotParam = params.get('spot');
+  const spot = spotParam && isKnownSpot(spotParam) ? (spotParam as PainSpotId) : null;
+  const sideParam = params.get('side');
+  const side: Side | null = sideParam === 'left' || sideParam === 'right' ? sideParam : null;
+  const spotView = useMemo(() => (spot ? viewForSpot(figRegion, spot, refs, primaryRefs, figView) : undefined), [figRegion, spot]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 「図で見る」 from a structure's sheet: remount the figure on the view that draws it
+  const [figForce, setFigForce] = useState<{ view: string; n: number } | null>(null);
+  const [structureSheet, setStructureSheet] = useState<Involvement | null>(null);
+  const logSpot = spot ?? c.painSpots[0];
+  const logUrl = `/menu?tab=log${logSpot ? `&spot=${logSpot}` : ''}${side ? `&side=${side}` : ''}`;
   const phases = c.phases ?? [];
   const cur = phases.find((p) => p.id === params.get('phase')) ?? phases[0];
   const setPhase = (id: PhaseId) =>
@@ -254,7 +292,7 @@ function ConditionView({ c }: { c: Condition }) {
   return (
     <Page title={c.nameJa} back={`/region/${c.region}`}>
       <header className="page-head">
-        <Link to={`/region/${c.region}`} className="kicker hit">
+        <Link to={`/region/${c.region}`} className="kicker kicker--link hit">
           {regionName(c.region)}
         </Link>
         <h1>
@@ -299,17 +337,30 @@ function ConditionView({ c }: { c: Condition }) {
         title={red.title}
         desc={red.desc}
       >
+        {spot && (
+          <p className="figure-ctx">
+            <IconTarget />
+            <span>
+              選んだ場所：{spotLabel(spot)}
+              {side && `（${SIDE_JA[side]}）`}
+            </span>
+          </p>
+        )}
         <RegionFigure
+          key={figForce?.n ?? 0}
           region={figRegion}
           highlights={highlights2d}
           dimOthers
           preferParts={refs}
           preferPrimary={primaryRefs}
-          initialView={figMemo.initialView ?? figView}
+          initialView={figForce?.view ?? figMemo.initialView ?? spotView ?? figView}
           onViewChange={figMemo.onViewChange}
           zoomable
           zoomLabel={red.zoom}
         />
+        {side === 'left' && (
+          <p className="figure__caption">図は右側を描いています。左側も左右対称の同じつくりです。</p>
+        )}
         <div className="legend" style={{ marginTop: 10, paddingLeft: 4 }}>
           <span className="legend__item">
             <span className="dot dot--injured dot--ring" />
@@ -331,13 +382,15 @@ function ConditionView({ c }: { c: Condition }) {
           <div className="card card--flush" style={{ marginTop: 14 }}>
             {[...primary, ...secondary].map((i) => {
               const isMuscle = i.kind === 'muscle' && isKnownMuscle(i.ref);
+              // tendons, fascia, bursae, bones, nerves: a sheet with what the structure is (no page of their own)
+              const isStructure = !isMuscle && i.kind === 'structure' && !!getStructure(i.ref);
               const inner = (
                 <>
                   <span className={`dot involve__dot ${isPrimaryRole(i.role) ? 'dot--injured dot--ring' : 'dot--involved'}`} />
                   <div className="involve__main">
                     <p className="involve__name">
                       {partName(i.ref)}
-                      <RoleBadge role={i.role} />
+                      <RoleBadge role={i.role} label={isPrimaryRole(i.role) ? red.badge : undefined} />
                     </p>
                     <p className="involve__note">{i.note}</p>
                     {!drawn.has(i.ref) && (
@@ -345,13 +398,17 @@ function ConditionView({ c }: { c: Condition }) {
                       <p className="involve__hint">{isMuscle ? '上の図の範囲外です（筋肉のページで確認できます）' : '上の図の範囲外です（3Dで確認できます）'}</p>
                     )}
                   </div>
-                  {isMuscle && <IconChevron className="chev" />}
+                  {(isMuscle || isStructure) && <IconChevron className="chev" />}
                 </>
               );
               return isMuscle ? (
                 <Link key={i.ref} to={`/muscle/${i.ref}`} className="involve">
                   {inner}
                 </Link>
+              ) : isStructure ? (
+                <button key={i.ref} type="button" className="involve" aria-haspopup="dialog" onClick={() => setStructureSheet(i)}>
+                  {inner}
+                </button>
               ) : (
                 <div key={i.ref} className="involve">
                   {inner}
@@ -530,6 +587,10 @@ function ConditionView({ c }: { c: Condition }) {
                   <Bullets items={cur.guidance} />
                 </>
               )}
+              {cur.id === 'build' && <GuideLink id="strength-basics" sub="回数・重さ・頻度の決め方、腱の運動は1日おき" />}
+              {cur.id === 'return' && c.disciplines.includes('run') && (
+                <GuideLink id="return-to-run" sub="歩きとジョグを交互に行う段階表と、進め方の目安" />
+              )}
               {cur.exercises?.length > 0 && (
                 <>
                   <p className="phase__label">エクササイズ（この順番で）</p>
@@ -570,6 +631,7 @@ function ConditionView({ c }: { c: Condition }) {
                     {DISCIPLINE_JA[t.discipline]}
                   </p>
                   <Bullets items={t.tips} />
+                  {t.discipline === 'bike' && <GuideLink id="bike-fit" sub="サドルの高さ・前後、クリート、ハンドル位置の合わせ方" />}
                 </div>
               );
             })}
@@ -602,15 +664,7 @@ function ConditionView({ c }: { c: Condition }) {
         <Section kicker="References" title="参考文献">
           <ol className="refs">
             {c.references.map((r, i) => (
-              <li key={i}>
-                {r.url ? (
-                  <a href={r.url} target="_blank" rel="noopener noreferrer" className="link">
-                    {r.label}
-                  </a>
-                ) : (
-                  r.label
-                )}
-              </li>
+              <li key={i}>{r.url ? <RefLink label={r.label} url={r.url} /> : r.label}</li>
             ))}
           </ol>
         </Section>
@@ -620,7 +674,7 @@ function ConditionView({ c }: { c: Condition }) {
         <IconBulb />
         <p className="small">
           痛みを記録すると、良くなっているかを客観的に確認できます。{' '}
-          <Link to={`/menu?tab=log${c.painSpots[0] ? `&spot=${c.painSpots[0]}` : ''}`} className="link">
+          <Link to={logUrl} className="link">
             痛みを記録する
           </Link>
         </p>
@@ -630,6 +684,128 @@ function ConditionView({ c }: { c: Condition }) {
         この情報は一般的な教育目的です。診断ではありません。
         <Link to="/about">免責事項</Link>
       </p>
+
+      <BottomSheet
+        open={!!structureSheet}
+        onClose={() => setStructureSheet(null)}
+        label={structureSheet ? partName(structureSheet.ref) : ''}
+        header={structureSheet && <StructureSheetHeader i={structureSheet} />}
+      >
+        {structureSheet && (
+          <StructureSheetBody
+            i={structureSheet}
+            badge={isPrimaryRole(structureSheet.role) ? red.badge : undefined}
+            view={viewForPart(figRegion, structureSheet.ref)}
+            onShow={(view) => {
+              setStructureSheet(null);
+              setFigForce((f) => ({ view, n: (f?.n ?? 0) + 1 }));
+              // after the sheet has closed and given the page its scroll back
+              setTimeout(() => document.getElementById('anatomy')?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' }), 360);
+            }}
+          />
+        )}
+      </BottomSheet>
     </Page>
+  );
+}
+
+function StructureSheetHeader({ i }: { i: Involvement }) {
+  const st = getStructure(i.ref);
+  return (
+    <>
+      <span className="kicker">{st ? (STRUCTURE_KIND_JA[st.kind] ?? st.kind) : '組織'}</span>
+      <h2 style={{ marginTop: 2 }}>{partName(i.ref)}</h2>
+      {st?.kana && <p className="tiny" style={{ marginTop: 0 }}>{st.kana}</p>}
+    </>
+  );
+}
+
+function StructureSheetBody({
+  i,
+  badge,
+  view,
+  onShow,
+}: {
+  i: Involvement;
+  badge?: string;
+  view: string | undefined;
+  onShow: (view: string) => void;
+}) {
+  const st = getStructure(i.ref);
+  return (
+    <div>
+      <p style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        <RoleBadge role={i.role} label={badge} />
+      </p>
+      {st?.description && <p style={{ marginTop: 12, fontSize: 15 }}>{st.description}</p>}
+      {i.note && (
+        <div className="callout callout--note" style={{ marginTop: 12 }}>
+          <IconBulb />
+          <p className="small">
+            <strong>この障害では：</strong>
+            {i.note}
+          </p>
+        </div>
+      )}
+      {view ? (
+        <button type="button" className="btn btn--secondary btn--block" style={{ marginTop: 16 }} onClick={() => onShow(view)}>
+          <IconLayers />
+          図でこの部分を見る
+        </button>
+      ) : (
+        <p className="tiny" style={{ marginTop: 16 }}>
+          上の図の範囲外です。「3Dで見る」で位置を確認できます。
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** A guide that explains how to do what the plan asks (walk-run restart, bike position, strength dosing). */
+function GuideLink({ id, sub }: { id: GuideId; sub: string }) {
+  return (
+    <Link to={`/guide/${id}`} className="guide-link">
+      <IconBook />
+      <span className="grow">
+        <span className="guide-link__title">{guideTitle(id)}</span>
+        <span className="guide-link__sub">{sub}</span>
+      </span>
+      <IconChevron className="chev" />
+    </Link>
+  );
+}
+
+/**
+ * A reference link. In a sandboxed preview (the single file inside an iframe) a new window cannot open, so the URL is
+ * shown as selectable text with a copy button instead of a link that silently does nothing.
+ */
+function RefLink({ label, url }: { label: string; url: string }) {
+  if (!isFramed()) {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" className="link">
+        {label}
+      </a>
+    );
+  }
+  const copy = () => {
+    try {
+      void navigator.clipboard
+        .writeText(url)
+        .then(() => toastSaved('URLをコピーしました'))
+        .catch(() => toast('コピーできませんでした。URLを長押しして選択してください'));
+    } catch {
+      toast('コピーできませんでした。URLを長押しして選択してください');
+    }
+  };
+  return (
+    <>
+      {label}
+      <span className="ref-url">
+        <span className="ref-url__text">{url}</span>
+        <button type="button" className="btn btn--ghost btn--sm" onClick={copy}>
+          URLをコピー
+        </button>
+      </span>
+    </>
   );
 }

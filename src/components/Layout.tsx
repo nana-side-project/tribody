@@ -6,11 +6,12 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { AppMark } from './Logo';
 import { IconBack, IconBody, IconBook, IconCheck, IconChecklist, IconDumbbell, IconInfo, IconMuscle } from './icons';
 
-const TABS: { to: string; label: string; Icon: ComponentType<SVGProps<SVGSVGElement>>; match: string[] }[] = [
+/** `short`: shown on very narrow screens (< 340 px), where 「エクササイズ」「マイメニュー」 would run together. */
+const TABS: { to: string; label: string; short?: string; Icon: ComponentType<SVGProps<SVGSVGElement>>; match: string[] }[] = [
   { to: '/', label: 'からだ', Icon: IconBody, match: ['/', '/region', '/condition'] },
   { to: '/muscles', label: '筋肉', Icon: IconMuscle, match: ['/muscles', '/muscle'] },
-  { to: '/exercises', label: 'エクササイズ', Icon: IconDumbbell, match: ['/exercises', '/exercise'] },
-  { to: '/menu', label: 'マイメニュー', Icon: IconChecklist, match: ['/menu'] },
+  { to: '/exercises', label: 'エクササイズ', short: '運動', Icon: IconDumbbell, match: ['/exercises', '/exercise'] },
+  { to: '/menu', label: 'マイメニュー', short: 'メニュー', Icon: IconChecklist, match: ['/menu'] },
   { to: '/guides', label: 'ガイド', Icon: IconBook, match: ['/guides', '/guide', '/about'] },
 ];
 
@@ -26,14 +27,33 @@ function TabBar() {
   return (
     <nav className="tabbar" aria-label="メインメニュー">
       <div className="tabbar__inner">
-        {TABS.map(({ to, label, Icon }) => {
+        {TABS.map(({ to, label, short, Icon }) => {
           const on = active === to;
           return (
-            <Link key={to} to={to} className={`tab${on ? ' is-active' : ''}`} aria-current={on ? 'page' : undefined}>
+            <Link
+              key={to}
+              to={to}
+              className={`tab${on ? ' is-active' : ''}`}
+              aria-current={on ? 'page' : undefined}
+              aria-label={label}
+            >
               <span className="tab__icon">
                 <Icon />
               </span>
-              <span>{label}</span>
+              {short ? (
+                <>
+                  <span className="tab__full" aria-hidden="true">
+                    {label}
+                  </span>
+                  <span className="tab__short" aria-hidden="true">
+                    {short}
+                  </span>
+                </>
+              ) : (
+                <span className="tab__label" aria-hidden="true">
+                  {label}
+                </span>
+              )}
             </Link>
           );
         })}
@@ -47,7 +67,10 @@ function ScrollManager() {
   const loc = useLocation();
   const navType = useNavigationType();
   const positions = useRef(new Map<string, number>());
-  const keyRef = useRef(loc.key);
+  // A URL typed into the address bar (or any entry without history state) gets the key "default", the same as the
+  // first page: keyed by path too, so it never restores the first page's position on another page.
+  const entry = `${loc.key}|${loc.pathname}${loc.search}`;
+  const keyRef = useRef(entry);
 
   useEffect(() => {
     try {
@@ -61,12 +84,12 @@ function ScrollManager() {
   }, []);
 
   useLayoutEffect(() => {
-    if (keyRef.current === loc.key) return;
-    if (navType === 'POP') window.scrollTo(0, positions.current.get(loc.key) ?? 0);
+    if (keyRef.current === entry) return;
+    if (navType === 'POP') window.scrollTo(0, positions.current.get(entry) ?? 0);
     else if (navType === 'PUSH') window.scrollTo(0, 0);
-    else positions.current.set(loc.key, window.scrollY); // REPLACE (filters/tabs): keep place, remember it
-    keyRef.current = loc.key;
-  }, [loc.key, navType]);
+    else positions.current.set(entry, window.scrollY); // REPLACE (filters/tabs): keep place, remember it
+    keyRef.current = entry;
+  }, [entry, navType]);
 
   return null;
 }

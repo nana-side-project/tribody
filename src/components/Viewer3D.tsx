@@ -1,5 +1,5 @@
 // 3D viewer wrappers. Viewer3DToggle mounts the (heavy) three.js viewer only after a tap, to save battery/data.
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AnatomyViewer, type AnatomyViewerProps } from '../three';
 import { usePrefersReducedMotion } from '../lib/useMedia';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -35,14 +35,53 @@ function usePrefetchOnIdle() {
   }, []);
 }
 
-function ViewerFallback({ height }: { height: number | string }) {
-  return (
-    <div className="placeholder" style={{ minHeight: height, borderRadius: 0 }}>
-      <div>
-        <IconCube />
-        <strong>3Dモデルを表示できませんでした</strong>
-        <span className="small">端末やブラウザが3D表示に対応していない可能性があります。</span>
+let webgl: boolean | undefined;
+/** Can this browser draw WebGL at all? (checked once; the 3D engine itself reports a context lost later) */
+export function hasWebGL(): boolean {
+  if (webgl !== undefined) return webgl;
+  try {
+    const c = document.createElement('canvas');
+    webgl = !!(c.getContext('webgl2') || c.getContext('webgl'));
+  } catch {
+    webgl = false;
+  }
+  return webgl;
+}
+
+/** The 3D code (or its stylesheet) did not arrive: offline, a flaky connection, a deploy that replaced the files. */
+const isLoadError = (e: Error) =>
+  /dynamically imported module|importing a module script failed|error loading dynamically|failed to fetch|unable to preload css|chunkloaderror|loading chunk|load failed/i.test(
+    `${e.name} ${e.message}`,
+  );
+
+/**
+ * Why the 3D view is missing, said plainly: a load failure is not the device's fault and can be retried (a reload:
+ * the failed module stays cached by the browser for this page); a device without WebGL gets a compact note that
+ * points to the 2D figure and the steps instead of a big empty box.
+ */
+function ViewerFallback({ kind, height, onShown }: { kind: 'network' | 'nogl' | 'other'; height: number | string; onShown?: () => void }) {
+  useEffect(() => onShown?.(), [onShown]);
+  if (kind === 'network') {
+    return (
+      <div className="placeholder viewer-fail" style={{ minHeight: Math.min(Number(height) || 200, 200), borderRadius: 0 }} role="status">
+        <div>
+          <IconCube />
+          <strong>通信エラーで3Dを読み込めませんでした</strong>
+          <span className="small">通信状態を確認して、もう一度読み込んでください。</span>
+          <button type="button" className="btn btn--secondary btn--sm" style={{ marginTop: 10 }} onClick={() => location.reload()}>
+            再読み込み
+          </button>
+        </div>
       </div>
+    );
+  }
+  return (
+    <div className="viewer-fail viewer-fail--compact" role="status">
+      <IconCube />
+      <p>
+        <strong>{kind === 'nogl' ? 'この端末・ブラウザでは3D表示を利用できません' : '3Dモデルを表示できませんでした'}</strong>
+        <span className="small">図と手順の説明で確認できます。</span>
+      </p>
     </div>
   );
 }
@@ -62,13 +101,17 @@ function useAfterFirstPaint(): boolean {
   return ready;
 }
 
-export function SafeViewer(props: AnatomyViewerProps) {
+export function SafeViewer({ onUnavailable, ...props }: AnatomyViewerProps & { onUnavailable?: () => void }) {
   const reduced = usePrefersReducedMotion();
   const ready = useAfterFirstPaint();
   const height = props.height ?? 320;
   if (!ready) return <div className={props.className} style={{ height }} aria-hidden="true" />;
+  if (!hasWebGL()) return <ViewerFallback kind="nogl" height={height} onShown={onUnavailable} />;
   return (
-    <ErrorBoundary fallback={<ViewerFallback height={height} />} resetKey={JSON.stringify([props.muscle, props.exercise, props.focus])}>
+    <ErrorBoundary
+      fallback={(err) => <ViewerFallback kind={isLoadError(err) ? 'network' : 'other'} height={height} onShown={onUnavailable} />}
+      resetKey={JSON.stringify([props.muscle, props.exercise, props.focus])}
+    >
       <AnatomyViewer autoPlay={!reduced} {...props} height={height} />
     </ErrorBoundary>
   );
@@ -89,6 +132,9 @@ export function Viewer3DToggle({
   footer?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  // the viewer could not be shown: its legend (「● 傷んでいる ● 関係」) would describe nothing
+  const [unavailable, setUnavailable] = useState(false);
+  const markUnavailable = useCallback(() => setUnavailable(true), []);
   usePrefetchOnIdle();
   if (!open) {
     return (
@@ -110,10 +156,10 @@ export function Viewer3DToggle({
   }
   return (
     <div className="viewer-frame">
-      <SafeViewer height={340} {...props} />
-      {footer}
+      <SafeViewer height={340} {...props} onUnavailable={markUnavailable} />
+      {!unavailable && footer}
       <div className="viewer-frame__bar">
-        <div>{legend}</div>
+        <div>{!unavailable && legend}</div>
         <button type="button" className="btn btn--ghost btn--sm" onClick={() => setOpen(false)}>
           <IconClose />
           閉じる

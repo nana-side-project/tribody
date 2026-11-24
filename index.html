@@ -11,9 +11,58 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>TriBody 解剖ガイド</title>
+    <!-- Boot shell: drawn before (and without) the app's JS/CSS. React replaces #root's content on its first render. -->
+    <style>
+      html,body{margin:0;background:#f6f3ef;color:#1e1b18}
+      @media (prefers-color-scheme: dark){html:not([data-theme="light"]),html:not([data-theme="light"]) body{background:#151312;color:#f2ede7}}
+      html[data-theme="dark"],html[data-theme="dark"] body{background:#151312;color:#f2ede7}
+      .boot{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px 16px;box-sizing:border-box;text-align:center;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI",system-ui,sans-serif;font-size:15px;line-height:1.7}
+      .boot__mark{width:56px;height:56px}
+      .boot__name{margin:0;font-weight:800;font-size:18px}
+      .boot__msg{margin:0;opacity:.75;font-size:14px}
+      .boot__btn{min-height:44px;padding:0 20px;border:0;border-radius:12px;background:#b5524c;color:#fff;font:inherit;font-weight:700}
+      .boot [hidden]{display:none}
+    </style>
+    <script>
+      // saved theme before the first paint (the app's useTheme keeps it in sync later)
+      try {
+        var t = JSON.parse(localStorage.getItem('tribody.theme') || 'null');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+      // the app's code or styles did not arrive (offline first visit, a blocked file): say so instead of a blank page
+      (function () {
+        var shown = false;
+        function fail() {
+          if (shown || window.__tribodyBooted) return;
+          var m = document.getElementById('boot-msg');
+          var b = document.getElementById('boot-retry');
+          if (!m || !b) return;
+          shown = true;
+          m.textContent = 'アプリを読み込めませんでした。通信状態を確認して、もう一度読み込んでください。';
+          b.hidden = false;
+        }
+        window.addEventListener(
+          'error',
+          function (e) {
+            var el = e && e.target;
+            if (el && (el.tagName === 'SCRIPT' || (el.tagName === 'LINK' && /stylesheet|modulepreload/.test(el.rel)))) fail();
+          },
+          true,
+        );
+        setTimeout(fail, 20000);
+      })();
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot" role="status">
+        <svg class="boot__mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#b5524c"/><g transform="rotate(-38 32 32)"><path d="M32 11 L32 17 M32 47 L32 53" stroke="#e9dcc0" stroke-width="3.2" stroke-linecap="round"/><path d="M32 16 C 43 22, 43 42, 32 48 C 21 42, 21 22, 32 16 Z" fill="#fbf4ee"/><circle cx="32" cy="10" r="4" fill="#d9772b" stroke="#fbf4ee" stroke-width="1.8"/><circle cx="32" cy="54" r="4" fill="#3f6fd1" stroke="#fbf4ee" stroke-width="1.8"/></g></svg>
+        <p class="boot__name">TriBody</p>
+        <p class="boot__msg" id="boot-msg">読み込み中…</p>
+        <button type="button" class="boot__btn" id="boot-retry" hidden onclick="location.reload()">再読み込み</button>
+      </div>
+    </div>
+    <noscript><style>.boot{display:none}</style><p style="margin:48px 16px;text-align:center;font-family:system-ui,sans-serif">TriBody を使うには JavaScript を有効にしてください。</p></noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

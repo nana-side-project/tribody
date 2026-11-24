@@ -38,8 +38,9 @@ export function LikelihoodBadge({ l }: { l: keyof typeof LIKELIHOOD_JA }) {
   return <span className={`badge ${cls}`}>{LIKELIHOOD_JA[l]}</span>;
 }
 
-export function RoleBadge({ role }: { role: InvolvementRole }) {
-  return <span className={`badge ${isPrimaryRole(role) ? 'badge--injured' : 'badge--involved'}`}>{ROLE_JA[role]}</span>;
+/** `label` replaces the role word where the red does not mean damage (「つりやすい」 / 「痛みやすい」). */
+export function RoleBadge({ role, label }: { role: InvolvementRole; label?: string }) {
+  return <span className={`badge ${isPrimaryRole(role) ? 'badge--injured' : 'badge--involved'}`}>{label ?? ROLE_JA[role]}</span>;
 }
 
 export function TypeBadge({ type }: { type: ExerciseType }) {

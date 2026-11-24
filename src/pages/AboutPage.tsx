@@ -7,6 +7,8 @@ import { Page } from '../components/Layout';
 import { Bullets, Section, Segmented } from '../components/ui';
 import { PHASE_JA } from '../lib/labels';
 import { isPersistent } from '../lib/storage';
+import { isFramed } from '../lib/framed';
+import { toast } from '../lib/toast';
 import { useTheme, type ThemePref } from '../lib/useTheme';
 
 export default function AboutPage() {
@@ -18,7 +20,7 @@ export default function AboutPage() {
       <header className="page-head" style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
         <AppMark className="app-icon-large" />
         <div>
-          <span className="kicker">About</span>
+          <span aria-hidden="true" lang="en" className="kicker">About</span>
           <h1 style={{ fontSize: 22 }}>TriBody トライボディ</h1>
           <p className="small muted">トライアスリートのための痛みと解剖ガイド</p>
         </div>
@@ -72,7 +74,14 @@ export default function AboutPage() {
           </p>
           <p className="redflags__lead" style={{ fontSize: 13.5, color: 'var(--text)' }}>
             {'胸の痛み・息苦しさ、突然の強い頭痛、意識がおかしい、激しいけが、急なしびれや麻痺、排尿・排便の異常、お尻まわりの感覚の低下などがある場合は、ためらわずに救急（'}
-            <a href="tel:119" className="link">
+            <a
+              href="tel:119"
+              className="link"
+              onClick={() => {
+                // a sandboxed preview cannot place a call and gives no sign of it
+                if (isFramed()) toast('この表示環境では発信できません。電話で119にかけてください', 6000);
+              }}
+            >
               119
             </a>
             ）または医療機関に連絡してください。

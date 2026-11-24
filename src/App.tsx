@@ -3,6 +3,7 @@ import { HashRouter, Route, Routes } from 'react-router-dom';
 import { AppLayout } from './components/Layout';
 import HomePage from './pages/HomePage';
 import { useTheme } from './lib/useTheme';
+import { prefetchRoute, registerRoutes, routeSegment } from './lib/routePrefetch';
 
 type PageModule = { default: ComponentType };
 
@@ -56,6 +57,7 @@ const BY_SEGMENT: Record<string, { preload: () => Promise<unknown> }> = {
 function pageFor(seg: string) {
   return Object.prototype.hasOwnProperty.call(BY_SEGMENT, seg) ? BY_SEGMENT[seg] : undefined;
 }
+registerRoutes(BY_SEGMENT);
 
 /**
  * The page the app opens on (a shared link, a reload, an installed app reopened on a page): main.tsx fetches its
@@ -75,49 +77,72 @@ export function preloadInitialRoute(): Promise<unknown> {
 
 /** Idle-time prefetch order: where people usually go next from home and the tabs. */
 const IDLE_ORDER = [ConditionPage, RegionPage, ExercisePage, MusclePage, ExercisesPage, MusclesPage, MenuPage, GuidesPage, GuidePage, AboutPage, NotFoundPage];
+/**
+ * Idle prefetch waits for this long without input. Evaluating a page chunk blocks the main thread (the condition page
+ * pulls in every region diagram: ~0.4–0.5 s on a mid-range phone), so it must not run when a tap is likely: never
+ * before the user's first input (the first tap on the body map would wait for it) and only after a quiet spell.
+ */
+const QUIET_MS = 3000;
 
 function useRoutePrefetch() {
   useEffect(() => {
-    // a press on a link starts loading its page ~100 ms before the click navigates
-    const onDown = (e: PointerEvent) => {
-      const a = (e.target as Element | null)?.closest?.('a[href^="#/"]');
-      const seg = a?.getAttribute('href')?.slice(2).split(/[/?#]/)[0] ?? '';
-      void pageFor(seg)
-        ?.preload()
-        .catch(() => {});
+    let lastInput = 0;
+    let interacted = false;
+    // a press on a link (or a button that navigates, data-prefetch="<segment>") starts loading its page ~100 ms
+    // before the click navigates
+    const onDown = (e: Event) => {
+      lastInput = performance.now();
+      if (!interacted) {
+        interacted = true;
+        arm();
+      }
+      if (e.type !== 'pointerdown') return;
+      const el = (e.target as Element | null)?.closest?.('a[href^="#/"], [data-prefetch]');
+      if (!el) return;
+      prefetchRoute(el.getAttribute('data-prefetch') ?? routeSegment(el.getAttribute('href') ?? ''));
     };
-    document.addEventListener('pointerdown', onDown, { capture: true, passive: true });
+    const INPUTS = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
+    for (const t of INPUTS) document.addEventListener(t, onDown, { capture: true, passive: true });
 
-    // then everything else, one page per idle period (not on data-saver connections)
+    // then everything else, one page per idle period after a quiet spell (not on data-saver connections)
     const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
     const w = window as Window & {
       requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number;
       cancelIdleCallback?: (id: number) => void;
     };
-    let id = 0;
+    let idle = 0;
+    let timer = 0;
     let stopped = false;
     const queue = conn?.saveData ? [] : [...IDLE_ORDER];
     const next = () => {
+      idle = 0;
       if (stopped) return;
+      // input arrived while waiting for idle time: wait for the next quiet spell
+      if (performance.now() - lastInput < QUIET_MS) return arm();
       const page = queue.shift();
       if (!page) return;
       void page
         .preload()
         .catch(() => {})
-        .finally(schedule);
+        .finally(arm);
     };
-    const schedule = () => {
-      if (stopped || !queue.length) return;
-      id = w.requestIdleCallback ? w.requestIdleCallback(next, { timeout: 4000 }) : window.setTimeout(next, 1200);
-    };
-    // let the first page settle (and its own 3D / image work start) before fetching others
-    const start = window.setTimeout(schedule, 1500);
+    function arm() {
+      if (stopped || !queue.length || timer || idle) return;
+      const wait = Math.max(0, QUIET_MS - (performance.now() - lastInput));
+      timer = window.setTimeout(() => {
+        timer = 0;
+        if (performance.now() - lastInput < QUIET_MS) return arm();
+        idle = w.requestIdleCallback ? w.requestIdleCallback(next, { timeout: 4000 }) : window.setTimeout(next, 200);
+      }, wait);
+    }
     return () => {
       stopped = true;
-      document.removeEventListener('pointerdown', onDown, { capture: true });
-      clearTimeout(start);
-      if (w.cancelIdleCallback) w.cancelIdleCallback(id);
-      else clearTimeout(id);
+      for (const t of INPUTS) document.removeEventListener(t, onDown, { capture: true });
+      clearTimeout(timer);
+      if (idle) {
+        if (w.cancelIdleCallback) w.cancelIdleCallback(idle);
+        else clearTimeout(idle);
+      }
     };
   }, []);
 }

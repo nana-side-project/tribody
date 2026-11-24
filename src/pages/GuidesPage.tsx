@@ -9,7 +9,7 @@ export default function GuidesPage() {
   return (
     <Page title="ガイド">
       <header className="page-head">
-        <span className="kicker">Guides</span>
+        <span aria-hidden="true" lang="en" className="kicker">Guides</span>
         <h1>ガイド</h1>
         <p className="lead">痛みとの付き合い方、練習量の増やし方、受診の目安など。回復と予防の土台になる考え方をまとめました。</p>
       </header>

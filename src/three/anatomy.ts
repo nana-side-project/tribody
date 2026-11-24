@@ -80,6 +80,9 @@ interface Visual {
   markers: { mesh: Mesh; strand: StrandMesh; end: 0 | 1 }[];
   /** the structure also marks a focal point (spot): its bone tint stays lighter so the spot reads as the lesion */
   hasSpot: boolean;
+  /** drawn translucent by the scene (`fade`): an involved structure then keeps a stronger amber (emissive), else at
+   *  ~0.3 opacity over skin and bone the amber reads as beige / tan and its 「関係」 role is lost (ITB syndrome) */
+  faded: boolean;
   /** see-through copies of the strands (nerves; injured parts on condition pages) */
   xray: StrandMesh[];
   xrayColor: Color;
@@ -147,6 +150,9 @@ export interface StructureOverride {
   bones?: readonly BonePartId[];
   /** label anchor instead of the rig's `labelAt` */
   labelAt?: AttachRef;
+  /** draw only these parts of the rig (indices into its `parts`): one side of a sheet whose rig draws both (the
+   *  thoracolumbar fascia on the low-back page, so the deep muscles show on the other half, as in the 2D figure) */
+  parts?: readonly number[];
 }
 
 /** emissive level of a steady (non-pulsing) injured part: about the pulse's mean, so it reads as the same red */
@@ -243,12 +249,26 @@ export class AnatomyLayer {
   get hasVisuals() {
     return this.visuals.some((v) => v.role !== 'ghost');
   }
-  get hasInjured() {
-    return this.visuals.some((v) => v.role === 'injured') || this.zones.length > 0;
-  }
   /** something glows with the (animated) injured pulse */
   get hasPulse() {
     return this.visuals.some((v) => v.pulse) || this.zones.some((z) => z.pulse);
+  }
+
+  /** The view's one pulse belongs to the side whose label is shown: a pulsing part (or a zone on it) drawn on both
+   *  sides (a scene's `both`) keeps its glow + halo only on `side`; the other side is the same red, steady. */
+  restrictPulse(id: string, side: Side) {
+    for (const v of this.visuals) {
+      if (v.id !== id || !v.pulse || v.side === side) continue;
+      v.pulse = false;
+      for (const s of v.strands) if (s.halo) s.halo.visible = false;
+      for (const b of v.blobs) if (b.halo) b.halo.visible = false;
+    }
+    for (const z of this.zones) {
+      if ((z.spec.on !== id && z.spec.key !== id) || !z.pulse || z.side === side) continue;
+      z.pulse = false;
+      if (z.seg?.halo) z.seg.halo.visible = false;
+      if (z.blobHalo) z.blobHalo.visible = false;
+    }
   }
 
   /** Lesion zone on an already built part (each side it is drawn on). */
@@ -394,6 +414,7 @@ export class AnatomyLayer {
       labelCp: null,
       markers: [],
       hasSpot: false,
+      faded: false,
       xray: [],
       xrayColor: new Color(),
     };
@@ -482,6 +503,7 @@ export class AnatomyLayer {
     const rig = STRUCTURE_RIGS[id];
     if (!rig || !rig.parts?.length) return null;
     const v = this.newVisual(id, side, role, 'structure', null!, pulse);
+    v.faded = opacity < 1;
     v.tendon = new Color();
     const labelAt = over?.labelAt ?? rig.labelAt;
     v.labelCp = labelAt ? tryCompile(labelAt, side, `${id} labelAt`) : null;
@@ -510,6 +532,7 @@ export class AnatomyLayer {
     const needHalo = role === 'injured' ? v.pulse : firstType === 'spot' && showSpots;
     if (needHalo) v.haloMat = haloMaterial(role === 'injured' ? this.pal.injured : this.roleColor(role, baseColor));
     for (const [i, part] of rig.parts.entries()) {
+      if (over?.parts && !over.parts.includes(i)) continue;
       if ('path' in part) {
         const cps = part.path.map((r, k) => tryCompile(r, side, `${id} part ${i} point ${k}`));
         if (cps.some((c) => !c) || cps.length < 2) continue;
@@ -691,7 +714,7 @@ export class AnatomyLayer {
         const type = v.partType!;
         const base = this.structureColor(type);
         if (role === 'injured') _col.copy(colorOf(base)).lerp(colorOf(this.pal.injured), type === 'spot' ? 1 : 0.78);
-        else if (role === 'involved') _col.copy(colorOf(base)).lerp(colorOf(this.pal.involved), 0.72);
+        else if (role === 'involved') _col.copy(colorOf(base)).lerp(colorOf(this.pal.involved), v.faded ? 0.95 : 0.72);
         else if (type === 'spot') _col.copy(colorOf(this.roleColor(role, base)));
         else _col.copy(colorOf(base));
         v.belly.copy(_col);
@@ -704,6 +727,9 @@ export class AnatomyLayer {
           if (role === 'primary' || role === 'selected') {
             m.emissive.copy(_col);
             m.emissiveIntensity = 0.12;
+          } else if (role === 'involved' && v.faded) {
+            m.emissive.copy(colorOf(this.pal.involved));
+            m.emissiveIntensity = 0.35;
           } else m.emissiveIntensity = 0;
         }
         for (const b of v.blobs) {

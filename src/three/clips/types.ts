@@ -102,4 +102,7 @@ export interface Clip {
    *  fallback `highlights`), merged on top in exercise mode — e.g. `{ 'sciatic-nerve': 'primary' }` on a nerve glide.
    *  Structures (nerves, tendons…) are allowed. */
   extraHighlights?: Partial<Record<MuscleId | StructureId, Highlight3DRole>>;
+  /** Parts whose labels start collapsed in 「+N」 (like a teaching scene's `minor`): only secondary / involved ones can
+   *  collapse. Use it only where the labels still crowd the figure (a whole-figure view of a small lower leg). */
+  minor?: (MuscleId | StructureId)[];
 }

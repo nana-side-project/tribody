@@ -4,7 +4,7 @@
 // Scale ≈ 14 units / cm, the sole of the foot at y≈394; the leg is shown up to ≈28 cm above the floor.
 import type { ReactNode } from 'react';
 import type { RegionDiagram, RegionDiagramProps } from '../types';
-import { Ctxt, Frame, M, Nerve, Part, Ten, ell, line, muscle, sp, useCtx, type Ctx, type Lab, type P, type Spot } from './hip';
+import { Ctxt, Frame, M, Nerve, Part, Ten, att, ell, line, muscle, sp, tubePart, useCtx, type Ctx, type Lab, type Num, type OIMap, type P, type Spot } from './hip';
 import { LfStyle, lfp } from './calf';
 
 const W = 360;
@@ -75,6 +75,18 @@ function Prom({ pts, cut = 3 }: { pts: P[]; cut?: number }) {
     </>
   );
 }
+
+/**
+ * Focal Achilles lesion (see lesionsOf in ./hip): the mid-portion 2–6 cm above the insertion, or the insertion where the
+ * tendon meets the heel bone. `mid` / `ins` = the stretch [u0, u1] of the tendon's centre line in this view.
+ */
+function achZone(k: Ctx, c: readonly P[], w: Num, mid: [number, number], ins: [number, number]): ReactNode {
+  if (k.les.has('achilles-mid')) return <path className="ten" d={tubePart(c, w, mid[0], mid[1], 0.3)} />;
+  if (k.les.has('achilles-insertion')) return <path className="ten" d={tubePart(c, w, ins[0], ins[1], 0.6)} />;
+  return undefined;
+}
+const ACH_MID_T = 'アキレス腱の\n中央部';
+const ACH_INS_T = 'アキレス腱の\n付着部';
 
 /* ───────────── lateral view: right ankle from the outside (toes to the viewer's right) ───────────── */
 
@@ -182,12 +194,35 @@ const ACH_LW = [9, 9, 9, 9, 9.5, 10, 12, 14];
 const PB_TEN_L: P[] = [[147, 252], [145, 278], [146, 300], [151, 320], [162, 334], [180, 340], [204, 344], [228, 348], [248, 350], [258, 347]];
 const PL_TEN_L: P[] = [[142, 252], [139, 280], [140, 304], [146, 324], [158, 340], [176, 352], [198, 360], [218, 364], [234, 364]];
 
+/**
+ * 起始 / 停止 markers (muscle page). The leg muscles start above this crop; what the ankle views show are insertions:
+ * the heel bone (soleus / gastrocnemius through the Achilles tendon), the 5th metatarsal (fibularis brevis), the
+ * navicular (tibialis posterior), the medial cuneiform (tibialis anterior); abductor hallucis starts on the heel bone.
+ */
+const OI_LAT: OIMap = {
+  soleus: { i: [[107, 341]] },
+  'fibularis-brevis': { i: [[256, 347]] },
+};
+
 function AnkleLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const fade = `${k.uid}-hf`;
   const labels: Lab[] = [
     { id: 'soleus', t: 'ヒラメ筋', at: [118, 70], x: 80, y: 56, a: 'end' },
-    { id: 'achilles-tendon', t: 'アキレス腱', at: [96, 180], x: 80, y: 170, a: 'end' },
-    { id: 'flexor-hallucis-longus', t: '長母趾屈筋', at: [124, 228], x: 80, y: 228, a: 'end' },
+    // focal Achilles lesion: the tendon's label names and points at the red stretch (FHL moves up for the mid-portion)
+    ...((k.les.has('achilles-mid')
+      ? [
+          { id: 'flexor-hallucis-longus', t: '長母趾屈筋', at: [122, 226], x: 80, y: 170, a: 'end' },
+          { id: 'achilles-tendon', t: ACH_MID_T, at: [101, 264], x: 85, y: 222, a: 'end' },
+        ]
+      : k.les.has('achilles-insertion')
+        ? [
+            { id: 'flexor-hallucis-longus', t: '長母趾屈筋', at: [124, 228], x: 80, y: 228, a: 'end' },
+            { id: 'achilles-tendon', t: ACH_INS_T, at: [106, 334], x: 85, y: 334, a: 'end' },
+          ]
+        : [
+            { id: 'achilles-tendon', t: 'アキレス腱', at: [96, 180], x: 80, y: 170, a: 'end' },
+            { id: 'flexor-hallucis-longus', t: '長母趾屈筋', at: [124, 228], x: 80, y: 228, a: 'end' },
+          ]) as Lab[]),
     { id: 'retrocalcaneal-bursa', t: '踵骨後部\n滑液包', at: [113, 304], x: 80, y: 290, a: 'end' },
     { id: 'fibularis-longus', t: '長腓骨筋', at: [152, 40], x: 230, y: 26 },
     { id: 'fibularis-brevis', t: '短腓骨筋', at: [164, 120], x: 230, y: 68 },
@@ -216,6 +251,7 @@ function AnkleLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       cap={['右足首・外側から', 'つま先 →']}
       labels={labels}
       spots={spots}
+      oi={OI_LAT}
       fade={{ top: 30 }}
       defs={
         <>
@@ -285,7 +321,7 @@ function AnkleLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <Part k={k} id="soleus">
           <M g={LM.sol} />
         </Part>
-        <Part k={k} id="achilles-tendon">
+        <Part k={k} id="achilles-tendon" zone={achZone(k, ACH_L, ACH_LW, [0.57, 0.775], [0.835, 1])}>
           <Ten c={ACH_L} w={ACH_LW} lines={2} />
         </Part>
       </Faded>
@@ -411,6 +447,15 @@ const MM = {
 const ACH_M: P[] = [[276, -30], [272, 40], [267, 120], [263, 190], [260, 250], [257, 290], [254, 318], [252.5, 344]];
 const TPT_M: P[] = [[208, 160], [209, 220], [211, 256], [208, 280], [200, 300], [188, 316], [170, 324], [148, 326], [128, 325], [116, 324]];
 
+/** 起始 / 停止 markers (muscle page): see OI_LAT. */
+const OI_MED: OIMap = {
+  soleus: { i: [[252.5, 341]] },
+  gastrocnemius: { i: [[252.5, 341]] },
+  'tibialis-posterior': { i: [[119, 323]] },
+  'tibialis-anterior': { i: att(MM.ta, 'i') },
+  'abductor-hallucis': { o: att(MM.abh, 'o') },
+};
+
 function AnkleMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const fade = `${k.uid}-hf`;
   const labels: Lab[] = [
@@ -423,8 +468,21 @@ function AnkleMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'gastrocnemius', t: '腓腹筋', at: [262, 22], x: 298, y: 46 },
     { id: 'soleus', t: 'ヒラメ筋', at: [240, 96], x: 298, y: 96 },
     { t: '長趾屈筋', at: [216, 150], x: 286, y: 146 },
-    { id: 'achilles-tendon', t: 'アキレス腱', at: [262, 196], x: 280, y: 192 },
-    { id: 'flexor-hallucis-longus', t: '長母趾屈筋', at: [240, 222], x: 278, y: 236 },
+    // focal Achilles lesion: the tendon's label names and points at the red stretch (FHL moves up for the mid-portion)
+    ...((k.les.has('achilles-mid')
+      ? [
+          { id: 'flexor-hallucis-longus', t: '長母趾屈筋', at: [240, 222], x: 280, y: 192 },
+          { id: 'achilles-tendon', t: ACH_MID_T, at: [259, 266], x: 274, y: 236 },
+        ]
+      : k.les.has('achilles-insertion')
+        ? [
+            { id: 'flexor-hallucis-longus', t: '長母趾屈筋', at: [240, 222], x: 278, y: 236 },
+            { id: 'achilles-tendon', t: ACH_INS_T, at: [255, 334], x: 278, y: 330 },
+          ]
+        : [
+            { id: 'achilles-tendon', t: 'アキレス腱', at: [262, 196], x: 280, y: 192 },
+            { id: 'flexor-hallucis-longus', t: '長母趾屈筋', at: [240, 222], x: 278, y: 236 },
+          ]) as Lab[]),
     { id: 'retrocalcaneal-bursa', t: '踵骨後部\n滑液包', at: [247, 306], x: 274, y: 280 },
     { id: 'abductor-hallucis', t: '母趾外転筋', at: [86, 366], x: 46, y: 418, a: 'middle' },
     { id: 'tibialis-posterior-tendon', t: '後脛骨筋腱', at: [160, 325], x: 136, y: 418, a: 'middle' },
@@ -445,6 +503,7 @@ function AnkleMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       cap={['← つま先', '右足首・内側から']}
       labels={labels}
       spots={spots}
+      oi={OI_MED}
       fade={{ top: 22 }}
       defs={
         <>
@@ -515,7 +574,7 @@ function AnkleMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <Part k={k} id="soleus">
           <M g={MM.sol} />
         </Part>
-        <Part k={k} id="achilles-tendon">
+        <Part k={k} id="achilles-tendon" zone={achZone(k, ACH_M, ACH_LW, [0.57, 0.775], [0.835, 1])}>
           <Ten c={ACH_M} w={ACH_LW} lines={2} />
         </Part>
         <Part k={k} id="gastrocnemius">
@@ -620,6 +679,12 @@ const KM = {
 const ACH_K: P[] = [[181, -30], [181, 60], [180, 140], [180, 210], [180, 262], [180, 300], [180, 330], [180, 358]];
 const ACH_KW = [34, 29, 24, 20.5, 19.5, 24, 34, 40];
 
+/** 起始 / 停止 markers (muscle page): see OI_LAT. */
+const OI_BACKV: OIMap = {
+  soleus: { i: [[180, 356]] },
+  gastrocnemius: { i: [[180, 356]] },
+};
+
 function AnkleBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const labels: Lab[] = [
     { id: 'gastrocnemius', t: '腓腹筋', at: [152, 34], x: 112, y: 50, a: 'end' },
@@ -631,7 +696,12 @@ function AnkleBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'fibularis-longus', t: '長腓骨筋', at: [228, 56], x: 250, y: 44 },
     { id: 'fibularis-brevis', t: '短腓骨筋', at: [222, 150], x: 250, y: 118 },
     { id: 'flexor-hallucis-longus', t: '長母趾屈筋', at: [213, 200], x: 250, y: 176 },
-    { id: 'achilles-tendon', t: 'アキレス腱', at: [186, 226], x: 250, y: 226 },
+    // focal Achilles lesion: the tendon's label names and points at the red stretch
+    k.les.has('achilles-mid')
+      ? { id: 'achilles-tendon', t: ACH_MID_T, at: [188, 282], x: 250, y: 222 }
+      : k.les.has('achilles-insertion')
+        ? { id: 'achilles-tendon', t: ACH_INS_T, at: [192, 346], x: 250, y: 352 }
+        : { id: 'achilles-tendon', t: 'アキレス腱', at: [186, 226], x: 250, y: 226 },
     { id: 'peroneal-tendons', t: '腓骨筋腱', at: [221, 282], x: 250, y: 270 },
     { id: 'lateral-malleolus', t: '外果', at: [214, 314], x: 250, y: 320 },
   ];
@@ -651,6 +721,7 @@ function AnkleBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       cap={['← 内側', '右足首・後ろから']}
       labels={labels}
       spots={spots}
+      oi={OI_BACKV}
       fade={{ top: 30 }}
       defs={<LfStyle />}
     >
@@ -694,7 +765,7 @@ function AnkleBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       <Part k={k} id="soleus">
         <M g={KM.sol} />
       </Part>
-      <Part k={k} id="achilles-tendon">
+      <Part k={k} id="achilles-tendon" zone={achZone(k, ACH_K, ACH_KW, [0.54, 0.72], [0.84, 1])}>
         <Ten c={ACH_K} w={ACH_KW} lines={4} />
       </Part>
       <Part k={k} id="retrocalcaneal-bursa">

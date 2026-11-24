@@ -266,7 +266,7 @@ export const painSpots: PainSpot[] = [
     id: 'shoulder-back',
     region: 'shoulder',
     label: '肩の後ろ',
-    hint: 'リカバリーで腕を前へ回す、腕を体の前で反対側へ回すと詰まる・痛む',
+    hint: 'リカバリーで腕を前へ回す、腕を体の前で反対側へ回すと詰まる・痛む。首を動かすと響く場合は首からの痛みのことも',
     conditions: [
       { id: 'swimmers-shoulder', likelihood: 'possible' },
       { id: 'scapular-dyskinesis', likelihood: 'possible' },
@@ -340,11 +340,11 @@ export const painSpots: PainSpot[] = [
     id: 'buttock-deep',
     region: 'hip',
     label: 'お尻の奥',
-    hint: '長く座る・サドルに座り続けると痛む、お尻から太ももの裏へ響く、腰の動きで変わることもある',
+    hint: '長く座る・サドルで痛む、太ももの裏へ響く。腰の動きで変わる・脚にしびれが広がる場合は、腰からの痛みを先に考えます',
     conditions: [
-      { id: 'deep-gluteal-syndrome', likelihood: 'common' },
+      { id: 'low-back-pain', likelihood: 'common' },
+      { id: 'deep-gluteal-syndrome', likelihood: 'possible' },
       { id: 'proximal-hamstring-tendinopathy', likelihood: 'possible' },
-      { id: 'low-back-pain', likelihood: 'possible' },
     ],
   },
   {
@@ -1118,9 +1118,9 @@ export const guides: Guide[] = [
         ],
       },
       {
-        heading: 'エネルギー不足（RED-S）に注意',
+        heading: 'エネルギー不足（REDs）に注意',
         body: [
-          '練習量に見合った食事がとれていない状態（エネルギー不足）が続くと、骨・ホルモン・免疫の働きが落ちます。これをRED-S（相対的エネルギー不足）と呼びます。',
+          '練習量に見合った食事がとれていない状態（エネルギー不足）が続くと、骨・ホルモン・免疫の働きが落ちます。これをREDs（スポーツにおける相対的エネルギー不足）と呼びます。',
           '減量中や食事を抜きがちな人、長時間の練習が多い人は、男女を問わず起こりえます。',
           '月経が止まる・不規則になる、疲れが取れない、体重が減り続ける、疲労骨折をくり返す場合は、スポーツドクターやスポーツ栄養士に相談してください。',
           '長い練習の前後と最中には、炭水化物を中心にしっかり補給します。',
@@ -1726,7 +1726,7 @@ export const muscles: Muscle[] = [
     insertion: '腹直筋鞘を通って白線（お腹の中央の腱）、恥骨稜と恥骨櫛（結合腱として）',
     actions: [
       'お腹を内側へ引き込み、腹圧を高める（コルセットのように体幹を囲む）',
-      '胸腰筋膜を張って、腰まわりを安定させる',
+      '胸腰筋膜（腰の背中側を覆う厚い膜）を張って、腰まわりを安定させる',
       '強く息を吐く、咳をするときに働く',
     ],
     innervation: '下位肋間神経（T7–T11）、肋下神経（T12）、腸骨下腹神経・腸骨鼠径神経（L1）',
@@ -1840,7 +1840,7 @@ export const muscles: Muscle[] = [
     actions: [
       '片側が働くと、体を同じ側へ傾ける（側屈）',
       '片側が働くと、骨盤の同じ側を引き上げる（脚を浮かせる側の骨盤を持ち上げる）',
-      '第12肋骨を固定して、深く息を吸うのを助ける',
+      '第12肋骨（いちばん下の肋骨）を固定して、深く息を吸うのを助ける',
       '両側が働くと、腰を反らし、腰椎を安定させる',
     ],
     innervation: '肋下神経（T12）、腰神経叢の枝（L1–L4の前枝）',

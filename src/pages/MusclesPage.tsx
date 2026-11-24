@@ -48,10 +48,13 @@ export default function MusclesPage() {
       also: filtered.filter((m) => m.regions[0] !== reg.id && m.regions.includes(reg.id as RegionId)),
     })).filter((g) => g.list.length || g.also.length);
     if (!searching) return gs;
-    // searching: the group with the best match first (filtered is ranked, so its first muscle is the best one)
+    // searching: the group with the best match first (filtered is ranked, so its first muscle is the best one). A
+    // muscle listed in a group as 「ほかの部位の筋肉」 counts too, just after one of its own (アキレス: the 足首・アキレス腱
+    // group, which shows the calf muscles, comes before 股関節・お尻)
     const rank = (g: (typeof gs)[number]) => {
       const i = filtered.findIndex((m) => g.list.includes(m));
-      return i < 0 ? filtered.length + filtered.findIndex((m) => g.also.includes(m)) : i;
+      const j = filtered.findIndex((m) => g.also.includes(m));
+      return Math.min(i < 0 ? Infinity : i, j < 0 ? Infinity : j + 0.5);
     };
     return [...gs].sort((a, b) => rank(a) - rank(b));
   }, [filtered, region, searching]);
@@ -65,7 +68,7 @@ export default function MusclesPage() {
   return (
     <Page title="筋肉図鑑">
       <header className="page-head">
-        <span className="kicker">Muscles</span>
+        <span aria-hidden="true" lang="en" className="kicker">Muscles</span>
         <h1>筋肉図鑑</h1>
         <p className="lead">起始（どこから始まり）・停止（どこに付着し）・作用（どう動かすか）を、3Dの収縮・伸張アニメーションで確認できます。</p>
       </header>

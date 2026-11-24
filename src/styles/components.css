@@ -94,12 +94,44 @@
   justify-content: center;
   gap: 2px;
   min-height: 48px;
+  min-width: 0;
   color: var(--text-2);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.02em;
   line-height: 1.2;
   white-space: nowrap;
+}
+.tab__short {
+  display: none;
+}
+/* 320 px phones: 64 px per tab is too narrow for 「エクササイズ」「マイメニュー」 at 11 px (they read as one word) */
+@media (max-width: 339px) {
+  .tab__full {
+    display: none;
+  }
+  .tab__short {
+    display: inline;
+  }
+}
+/* phone in landscape (in the browser; the installed app is portrait-only): every px of height counts — icon-only tab
+   bar, and the 3D player (its play / scrub bar at the bottom) fits between the top bar and the tab bar */
+@media (orientation: landscape) and (max-height: 500px) {
+  :root {
+    --tabbar-h: 46px;
+  }
+  .tab {
+    min-height: 44px;
+  }
+  .tab__label,
+  .tab__full,
+  .tab__short {
+    display: none;
+  }
+  .viewer-hero .tb3d {
+    max-height: calc(100vh - var(--topbar-h) - var(--tabbar-h) - var(--safe-top) - var(--safe-bottom) - 16px);
+    max-height: calc(100dvh - var(--topbar-h) - var(--tabbar-h) - var(--safe-top) - var(--safe-bottom) - 16px);
+  }
 }
 .tab__icon {
   display: grid;
@@ -2205,6 +2237,13 @@ a.involve:active {
   transform-origin: 0 0;
   transition: transform 0.25s var(--ease);
 }
+/* zoomed: context labels the canvas edge would cut are hidden (RegionFigure marks them; !important: the diagrams'
+   own label styles, e.g. the faded .is-dim, come later in the document) */
+.figure__zoom [data-cut] {
+  opacity: 0 !important;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
 @media (prefers-reduced-motion: reduce) {
   .figure__zoom {
     transition: none;
@@ -2416,6 +2455,40 @@ a.involve:active {
   --tb-bodymap-max-h: max(400px, calc(100vh - var(--tabbar-h) - var(--safe-bottom) - 340px));
   --tb-bodymap-max-h: max(400px, calc(100dvh - var(--tabbar-h) - var(--safe-bottom) - 340px));
 }
+/* home intro: on short screens (360×640, landscape) the kicker goes and the lead moves under the map, so the whole
+   figure fits above the tab bar on first paint (or, in landscape, at least starts in view) */
+.home-map-card {
+  margin-top: 16px;
+  padding: 12px;
+}
+.home-lead--below {
+  display: none;
+}
+@media (max-height: 700px) {
+  .page-head--home {
+    padding-top: 8px;
+  }
+  .page-head--home .kicker,
+  .page-head--home .home-lead {
+    display: none;
+  }
+  .page-head--home h1 {
+    margin-top: 0;
+    font-size: 21px;
+  }
+  .home-map-card {
+    margin-top: 8px;
+    padding: 8px 12px 12px;
+  }
+  .home-map-card .bodymap-frame {
+    padding-top: 4px;
+  }
+  .home-lead--below {
+    display: block;
+    margin-top: 12px;
+    font-size: 13.5px;
+  }
+}
 /* the line under the home map: hint + 一覧から選ぶ, each on one line from 360 px up */
 .map-foot {
   display: flex;
@@ -2462,4 +2535,291 @@ a.involve:active {
   font-size: 12.5px;
   font-weight: 800;
   color: var(--accent-ink);
+}
+
+/* condition page: the spot the user tapped (from home / region), above the figure */
+.figure-ctx {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.figure-ctx svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--accent-ink);
+}
+/* structures in 「どこが傷んでいる？」 open a sheet (muscles link to their page) */
+button.involve {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  align-items: flex-start;
+}
+button.involve:active {
+  background: var(--surface-2);
+}
+/* a guide that explains what a plan step asks for (recovery plan tabs, bike tips) */
+.guide-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+.guide-link > svg:first-child {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--accent-ink);
+}
+.guide-link__title {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.guide-link__sub {
+  display: block;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+.guide-link:active {
+  background: var(--border);
+}
+/* references in a sandboxed preview: the URL as selectable text + copy */
+.ref-url {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 2px;
+}
+.ref-url__text {
+  font-size: 12px;
+  color: var(--text-2);
+  user-select: all;
+  -webkit-user-select: all;
+  overflow-wrap: anywhere;
+}
+
+/* マイメニュー: today's progress (daily exercises) and this week's (週n回 exercises) */
+.menu-progress {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px 12px;
+}
+.menu-progress__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.menu-progress__pct {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.progress--week > span {
+  background: var(--swim);
+}
+.menu-item__freq {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.menu-item__freq.is-met {
+  color: color-mix(in srgb, var(--ok) var(--mix-ink), var(--text));
+}
+/* exercises grouped by the recovery-plan step they came from */
+.menu-group {
+  border-top: 1px solid var(--border);
+}
+.menu-group__head {
+  padding: 10px 12px 6px 16px;
+  background: color-mix(in srgb, var(--surface-2) 55%, var(--surface));
+  border-bottom: 1px solid var(--border);
+}
+.menu-group__head--plain {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+  padding-bottom: 8px;
+}
+.menu-group__plan {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--text);
+}
+.menu-group__kicker {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-ink);
+  letter-spacing: 0.04em;
+}
+.menu-group__title {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.menu-group__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 4px 8px;
+}
+.menu-group__next {
+  flex: 1 1 200px;
+  min-width: 0;
+  font-size: 13px;
+}
+.menu-group__next > summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 700;
+  color: var(--accent-ink);
+  cursor: pointer;
+}
+.menu-group__next > ul {
+  margin: 0 0 8px;
+}
+.menu-group__log {
+  flex: none;
+  margin-top: 4px;
+}
+
+/* 痛みログ: the sides behind the map's tint, and hints from the trend */
+.side-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.side-list__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.side-list__score {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--c);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+.trend__hint {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  background: color-mix(in srgb, var(--bike) 12%, var(--surface));
+}
+.trend__hint--danger {
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+}
+.trend__hint svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--bike);
+}
+.trend__hint--danger svg {
+  color: var(--danger);
+}
+.spark__legend {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-2);
+}
+.spark__key {
+  display: inline-block;
+  width: 14px;
+  height: 0;
+  border-top: 2px solid var(--accent);
+  vertical-align: middle;
+}
+.spark__key--morning {
+  border-top: 2px dashed var(--swim);
+}
+/* 痛みログ: the readable summary / backup text in a sheet */
+.export-text {
+  min-height: 220px;
+  max-height: 46vh;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.menu-group__next > summary::-webkit-details-marker {
+  display: none;
+}
+.menu-group__next > summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-left: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.15s;
+}
+.menu-group__next[open] > summary::after {
+  transform: translateY(2px) rotate(-135deg);
+}
+/* 3D viewer could not be shown */
+.viewer-fail--compact {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 14px var(--gutter);
+  color: var(--text-2);
+}
+.viewer-fail--compact > svg {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  color: var(--text-3);
+}
+.viewer-fail--compact strong {
+  display: block;
+  color: var(--text);
+  font-size: 14px;
+}
+.viewer-frame .viewer-fail--compact {
+  padding: 14px 16px;
 }

@@ -49,9 +49,42 @@ export const painLogStore = createStore<PainEntry[]>('tribody.painlog.v1', sanit
 
 const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
+const sameEntry = (a: PainEntry, b: PainEntry) =>
+  a.date === b.date && a.spot === b.spot && a.side === b.side && a.score === b.score && a.context === b.context && a.note === b.note;
+
 export const painLogActions = {
   add(e: Omit<PainEntry, 'id' | 'createdAt'>) {
     painLogStore.set((list) => [...list, { ...e, id: newId(), createdAt: Date.now() }]);
+  },
+  /**
+   * Merge a backup (this app's JSON export: `{ entries: [...] }` or a bare array) into the log. Entries go through the
+   * same sanitizer as stored data; ones already in the log (same id, or same date/spot/side/score/context/note) are
+   * skipped. Returns how many were added and skipped; throws when the file is not a TriBody pain-log backup.
+   */
+  importBackup(raw: unknown): { added: number; skipped: number } {
+    const list = Array.isArray(raw) ? raw : raw && typeof raw === 'object' ? (raw as { entries?: unknown }).entries : undefined;
+    if (!Array.isArray(list)) throw new Error('not a pain-log backup');
+    // old exports have no id / createdAt: give them one so the sanitizer keeps them
+    const withIds = list.map((e, i) =>
+      e && typeof e === 'object' ? { createdAt: 0, ...(e as object), id: typeof (e as { id?: unknown }).id === 'string' ? (e as { id: string }).id : `imp${i}-${newId()}` } : e,
+    );
+    const incoming = sanitize(withIds);
+    if (list.length && !incoming.length) throw new Error('no valid entries');
+    let added = 0;
+    let skipped = 0;
+    painLogStore.set((cur) => {
+      const next = [...cur];
+      for (const e of incoming) {
+        if (next.some((x) => x.id === e.id || sameEntry(x, e))) {
+          skipped++;
+          continue;
+        }
+        next.push(e);
+        added++;
+      }
+      return added ? next : cur;
+    });
+    return { added, skipped };
   },
   remove(id: string) {
     painLogStore.set((list) => list.filter((e) => e.id !== id));
@@ -75,7 +108,22 @@ export function usePainLog() {
       }
       return out;
     };
-    return { entries: sorted, recentIntensity, ...painLogActions };
+    /**
+     * Max score (> 0) per spot AND side over the last `days` days, strongest first. The body map can only tint a spot
+     * on both sides (its intensity is per spot), so the log lists the sides next to it.
+     */
+    const recentBySide = (days = 14) => {
+      const from = addDays(todayISO(), -(days - 1));
+      const m = new Map<string, { spot: PainSpotId; side: PainSide; max: number; last: string }>();
+      for (const e of entries) {
+        if (e.date < from || e.score <= 0) continue;
+        const k = `${e.spot}|${e.side}`;
+        const cur = m.get(k);
+        m.set(k, { spot: e.spot, side: e.side, max: Math.max(cur?.max ?? 0, e.score), last: cur && cur.last > e.date ? cur.last : e.date });
+      }
+      return [...m.values()].sort((a, b) => b.max - a.max || (a.last < b.last ? 1 : -1));
+    };
+    return { entries: sorted, recentIntensity, recentBySide, ...painLogActions };
   }, [entries]);
 }
 

@@ -41,6 +41,12 @@ export interface MuscleRig {
   restPose?: Pose;
   camera?: CameraSpec;
   focus?: RegionId;
+  /** Demo framing: body points kept in view over the loop besides the muscle and the segment it moves (insertion →
+   *  next joint), e.g. the foot of the shin that swings in a prone hip-rotation demo. */
+  frame?: AttachRef[];
+  /** Demo framing: minimum size of the framed box (m). Default: 0.85 × the focus region's (hip 0.43 m), which leaves a
+   *  small deep muscle (piriformis) a speck in a 300 px card. */
+  minSize?: number;
   /** Optional overrides for the demo's placement. */
   anchor?: Anchor | null;
   ground?: boolean | number;

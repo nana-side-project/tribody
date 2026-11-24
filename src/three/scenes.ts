@@ -70,12 +70,16 @@ const THIGH_PULL_LEFT_LEG: Pose['joints'] = { hip_L: { flex: 25 }, knee_L: { fle
 export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
   // ── shoulder / neck
   'swimmers-shoulder': {
-    // arm raised to 60°: the supraspinatus runs from its fossa under the acromion to the greater tubercle
+    // arm raised to 65° (inside the painful arc): the supraspinatus tendon and the bursa are squeezed between the
+    // humeral head and the acromion. Close-up from the front-lateral, a little above (like the biceps-tendinopathy
+    // view): humeral head, acromion / clavicle and the red tendon + bursa in the space between them; the arm runs off
+    // to the lower left. (It used to be an overhead view from behind: skull, spine and ribs filled the card and the
+    // shoulder joint was hard to find.)
     base: 'STAND',
-    joints: { shoulder_R: { abd: 60 } },
-    camera: { dir: [-0.8, 0.55, -0.3] },
-    frame: ['scapula:acromion', 'humerus:head', 'scapula:supraspinous_fossa', 'humerus:greater_tubercle_sup', 'scapula:spine_medial', 'scapula:coracoid'],
-    minSize: 0.26,
+    joints: { shoulder_R: { abd: 65 } },
+    camera: { dir: [-0.75, 0.45, 0.75] },
+    frame: ['scapula:acromion', 'humerus:head', 'humerus:greater_tubercle_sup', 'scapula:supraspinous_fossa', 'scapula:coracoid', 'scapula:clavicle_mid'],
+    minSize: 0.17,
     fade: { trapezius: 0.2, 'latissimus-dorsi': 0.2, 'serratus-anterior': 0.2 },
     minor: ['latissimus-dorsi', 'thoracic-spine', 'serratus-anterior'],
   },
@@ -156,8 +160,8 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     frame: ['pelvis:ischial_tuberosity', 'pelvis:coccyx', 'femur:greater_trochanter', 'femur:linea_aspera_mid', 'pelvis:psis'],
     minSize: 0.3,
     fade: { 'gluteus-maximus': 0.22 },
-    // the text: the nerve is irritated only rarely — amber, so the tendon and its bony origin carry the red
-    roles: { 'sciatic-nerve': 'involved' },
+    // (the sciatic nerve is amber from the content itself — role 'overloaded': the text says it is irritated only
+    // rarely — so the 2D figure, the list and this view agree; the tendon and its bony origin carry the red)
   },
   'adductor-groin-pain': {
     base: 'STAND',
@@ -190,7 +194,9 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     camera: { dir: [-1, 0.12, 0.12] },
     frame: ['femur:lateral_epicondyle', 'tibia:gerdy_tubercle', 'femur:linea_aspera_dist', 'patella:center', 'tibia:fibular_head', 'femur:shaft_ant_mid'],
     minSize: 0.22,
-    fade: { 'iliotibial-band': 0.35 },
+    // see-through over the epicondyle, but still amber (a faded involved structure keeps an amber glow, anatomy.ts):
+    // the band rubbing over the bone is the other half of the message
+    fade: { 'iliotibial-band': 0.45 },
     minor: ['tensor-fasciae-latae', 'gluteus-medius', 'gluteus-maximus'],
   },
   'patellar-tendinopathy': { camera: 'rig' },
@@ -207,7 +213,17 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     joints: { hip_L: { flex: 20 }, knee_L: { flex: 25 } },
     camera: { dir: [0.9, 0.2, -0.6] },
     frame: ['femur:medial_condyle_post', 'tibia:medial_condyle', 'tibia:fibular_head', 'tibia:medial_malleolus', 'foot:calcaneus_post'],
-    minSize: 0.3,
+    minSize: 0.26,
+    // a strain tears a stretch of the muscle, not all of it (the content: 「筋肉全体が傷むわけではありません」). Two lesion
+    // zones, one per type: the lower end of the medial head where it turns into the aponeurosis (tennis leg; arc
+    // 0.36–0.52 of strand 0 = rest y ≈ 0.35 → 0.27, the end of its belly) carries the pulse; the soleus one (the
+    // gradual runner's type: lower half, deep, just above the Achilles; arc 0.45–0.66 of the medial strand = rest
+    // y ≈ 0.25 → 0.17) is steady red. The rest of both muscles in their own colour, see-through so the zones read
+    zones: [
+      { on: 'gastrocnemius', strand: 0, range: [0.36, 0.52], label: '腓腹筋 内側頭の下端' },
+      { on: 'soleus', strand: 2, range: [0.45, 0.66], label: 'ヒラメ筋 下半分の奥' },
+    ],
+    fade: { gastrocnemius: 0.45, soleus: 0.6 },
   },
   mtss: { camera: 'rig' },
   'tibial-stress-fracture': {
@@ -216,9 +232,8 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     camera: { dir: [0.75, 0.2, -0.6] },
     frame: ['tibia:medial_border_mid', 'tibia:medial_border_dist', 'tibia:medial_malleolus', 'tibia:posterior_prox', 'tibia:medial_condyle'],
     minSize: 0.3,
-    // one point of bone is the message (vs the diffuse strip of shin splints): the irritated periosteum strip in amber
-    // so the fracture spot is the only red
-    roles: { 'medial-tibial-border': 'involved' },
+    // one point of bone is the message (vs the diffuse strip of shin splints): the periosteum strip is amber (the
+    // content's role 'overloaded', the same in 2D and the list) so the fracture spot is the only red
     // the tibia rig's spot (posteromedial, distal third: where most of these crack) is the pulsing lesion and carries
     // the label; the rest of the bone a steady light red
     zones: [{ on: 'tibia', label: '脛骨のひび', partRole: 'injured' }],
@@ -286,6 +301,9 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     frame: ['foot:calcaneus_plantar', 'foot:calcaneus_plantar_medial', 'foot:met_head_1', 'foot:met_head_5', 'toes:toe_tips', 'foot:calcaneus_post'],
     minSize: 0.26,
     minor: ['gastrocnemius', 'soleus'],
+    // the pain sits where the fascia starts on the heel bone (medial calcaneal tubercle), not along the whole sheet to
+    // the toes: arc 0–0.28 of the central band (rest z −0.046 → ≈ −0.012) is the red zone, the rest its own cream
+    zones: [{ on: 'plantar-fascia', range: [0, 0.28], label: '足底腱膜の付け根（かかと）' }],
   },
   'metatarsal-stress-fracture': {
     // top of the foot, like the 2D 足の甲 view
@@ -323,7 +341,11 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
       'thorax:rib12_post',
     ],
     minSize: 0.4,
-    both: ['erector-spinae', 'multifidus', 'quadratus-lumborum', 'thoracolumbar-fascia'],
+    both: ['erector-spinae', 'multifidus', 'quadratus-lumborum'],
+    // the fascia on the LEFT half only (its rig draws both halves: parts 0–1 right, 2–3 left), like the 2D figure's
+    // 「左半身：表層 / 右半身：深層」: drawn on both sides the red sheet covered the multifidus, quadratus lumborum, lumbar
+    // spine and disc that the amber labels point at; now the near (right) half shows them uncovered
+    structures: { 'thoracolumbar-fascia': { parts: [2, 3], labelAt: { bone: 'lumbar_L', rest: [0.045, 1.08, -0.095] } } },
     minor: ['iliopsoas', 'gluteus-maximus'],
     // non-specific low back pain: sensitised, not damaged (content's anatomyNote): steady red, no pulse
     sensitive: true,
@@ -342,8 +364,28 @@ export const REGION_SCENES: Record<RegionId, Scene3D> = {
   },
   lowback: { base: 'STAND', camera: 'isoBack', frame: region('lowback') },
   hip: { base: 'STAND', camera: { dir: [-1, 0.28, -0.62] }, frame: region('hip'), minSize: 0.5 },
-  knee: { base: 'STAND', camera: 'iso', frame: region('knee') },
-  calf: { base: 'STAND', camera: 'isoBack', frame: region('calf'), minSize: 0.42 },
+  // the knee's key muscles have their bellies in the thigh: framed from the top of the calf up to the upper thigh, so
+  // their labels sit on the bellies instead of crowding the top edge at the tail ends of strands that run out of the
+  // card. The tensor fasciae latae (its belly at the hip, it reaches the knee through the ITB) starts in 「+N」
+  knee: {
+    base: 'STAND',
+    camera: 'iso',
+    frame: [
+      'femur:linea_aspera_dist',
+      'femur:lateral_epicondyle',
+      'femur:medial_epicondyle',
+      'patella:base',
+      'tibia:tibial_tuberosity',
+      'tibia:fibular_head',
+      'tibia:pes_anserinus',
+      'tibia:soleal_line',
+      'femur:shaft_ant_mid',
+      'femur:linea_aspera_prox',
+    ],
+    minor: ['tensor-fasciae-latae'],
+  },
+  // the right calf from behind (a little from the right), large enough that its six key muscles' labels spread out
+  calf: { base: 'STAND', camera: { dir: [-0.55, 0.25, -1] }, frame: region('calf'), minSize: 0.3 },
   ankle: { base: 'STAND', camera: 'iso', frame: region('ankle') },
   foot: {
     base: 'STAND',

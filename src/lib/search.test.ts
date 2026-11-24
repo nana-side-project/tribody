@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { getCondition } from '../data';
 import { exerciseScores, normalize, search } from './search';
 
 const top = (q: string, kind: 'condition' | 'muscle' | 'exercise', n = 3) =>
@@ -28,5 +29,38 @@ describe('search ranking', () => {
   it('requires every word of the query', () => {
     expect(search('アキレス 存在しない語')).toEqual([]);
     expect([...exerciseScores('').values()].every((s) => s > 0)).toBe(true);
+  });
+
+  it('reads everyday pain phrasing (膝が痛い, かかとの痛み, 膝痛, 坐骨神経痛)', () => {
+    expect(top('膝が痛い', 'condition', 3)).toContain('patellofemoral-pain');
+    expect(top('ひざがいたい', 'condition', 3)).toContain('patellofemoral-pain');
+    expect(top('膝痛', 'condition', 3)).toContain('patellofemoral-pain');
+    expect(top('かかとの痛み', 'condition', 2)).toContain('achilles-insertional');
+    expect(top('足裏が痛い', 'condition', 1)).toEqual(['plantar-heel-pain']);
+    expect(top('坐骨神経痛', 'condition', 1)).toEqual(['deep-gluteal-syndrome']);
+    // a lone pain word next to a body part adds nothing
+    expect(top('肩 痛い', 'condition', 4)).toContain('swimmers-shoulder');
+    expect(search('痛み').length).toBeGreaterThan(0);
+  });
+
+  it('understands もも裏 / 筋トレ / 腹筋', () => {
+    expect(top('もも裏', 'condition', 1)).toEqual(['proximal-hamstring-tendinopathy']);
+    expect(top('もも裏', 'muscle', 4)).toContain('biceps-femoris');
+    // 筋トレ / 補強: strength and isometric exercises, not stretches
+    const strength = search('筋トレ', ['exercise']).slice(0, 10);
+    expect(strength.length).toBeGreaterThan(5);
+    expect(strength.every((h) => /筋力|アイソメトリック/.test(h.sub))).toBe(true);
+    expect(top('腹筋', 'muscle', 3).sort()).toEqual(['obliques', 'rectus-abdominis', 'transversus-abdominis']);
+  });
+
+  it('does not match a short word inside an unrelated compound (首 ⊂ 足首, 腹筋 ⊂ 腓腹筋)', () => {
+    expect(search('首 ストレッチ', ['exercise']).some((h) => /ヒラメ筋|腓腹筋|足底/.test(h.title))).toBe(false);
+    expect(search('腹筋').some((h) => h.id === 'gastrocnemius' || h.id === 'ex-gastroc-stretch')).toBe(false);
+  });
+
+  it('ranks the rehab of a ligament injury for 靱帯 (not the ITBS rehab by its condition name)', () => {
+    const ex = search('靱帯', ['exercise']).slice(0, 3).map((h) => h.id);
+    const sprain = getCondition('ankle-sprain');
+    expect(ex.every((id) => sprain?.phases.some((p) => p.exercises.includes(id as never)))).toBe(true);
   });
 });

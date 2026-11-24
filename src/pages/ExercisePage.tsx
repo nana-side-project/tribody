@@ -19,7 +19,7 @@ export default function ExercisePage() {
     return (
       <Page title={exerciseName(id)} back="/exercises">
         <header className="page-head">
-          <span className="kicker">Exercise</span>
+          <span aria-hidden="true" lang="en" className="kicker">Exercise</span>
           <h1>
             <NameText text={exerciseName(id)} />
           </h1>
@@ -100,7 +100,7 @@ function PlanBanner({ e, ctx }: { e: Exercise; ctx: PlanContext }) {
           の回復プラン「{PHASE_JA[ctx.phase.id]}」のポイント
         </span>
       </p>
-      {points.length > 0 && <Bullets items={points.slice(0, 4)} />}
+      {points.length > 0 && <Bullets items={points} />}
     </div>
   );
 }
@@ -297,6 +297,20 @@ function MuscleChip({ id, primary }: { id: string; primary?: boolean }) {
 
 const WIDE_KEYS = ['テンポ', '頻度'];
 
+/** 「8〜12回（左右）」: the number and unit never break apart; only the bracketed note may go to the next line. */
+function DoseValue({ v }: { v: string }) {
+  const i = v.search(/[（(]/);
+  if (i <= 0) return <span className="nowrap">{v}</span>;
+  const note = v.slice(i);
+  return (
+    <>
+      <span className="nowrap">{v.slice(0, i)}</span>
+      <wbr />
+      {note.length <= 6 ? <span className="nowrap">{note}</span> : note}
+    </>
+  );
+}
+
 function DoseBox({ parts }: { parts: { k: string; v: string }[] }) {
   const isWide = (d: { k: string; v: string }) => WIDE_KEYS.includes(d.k) || d.v.length > 9;
   const cells = parts.filter((d) => !isWide(d));
@@ -308,7 +322,9 @@ function DoseBox({ parts }: { parts: { k: string; v: string }[] }) {
           {cells.map((d) => (
             <div key={d.k} className="dose__cell">
               <div className="dose__k">{d.k}</div>
-              <div className="dose__v">{d.v}</div>
+              <div className="dose__v">
+                <DoseValue v={d.v} />
+              </div>
             </div>
           ))}
         </div>

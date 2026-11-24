@@ -15,7 +15,7 @@ export default function GuidePage() {
   return (
     <Page title={guideTitle(id)} back="/guides">
       <header className="page-head">
-        <span className="kicker">Guide</span>
+        <span aria-hidden="true" lang="en" className="kicker">Guide</span>
         <h1>{guideTitle(id)}</h1>
         {g && (
           <p className="lead" style={{ color: 'var(--text)' }}>
@@ -37,7 +37,7 @@ export default function GuidePage() {
           {g.sections.map((s, i) => (
             <section key={i} className="section" style={{ marginTop: i === 0 ? 24 : 32 }}>
               <h2 className="guide-h">
-                <span className="kicker guide-h__num">{String(i + 1).padStart(2, '0')}</span>
+                <span aria-hidden="true" className="kicker guide-h__num">{String(i + 1).padStart(2, '0')}</span>
                 <span>{s.heading}</span>
               </h2>
               <SectionBody guideId={g.id} heading={s.heading} body={s.body} />

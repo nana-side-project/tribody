@@ -174,7 +174,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         shoulder: { flex: 80 },
       },
     },
-    camera: { dir: [-0.9, 0.22, -0.65] },
+    camera: { dir: [-1, 0.12, -0.15] },
     focus: 'lowback',
   },
 
@@ -245,7 +245,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         shoulder: { flex: 82 },
       },
     },
-    camera: { dir: [-0.9, 0.25, -0.75] },
+    camera: { dir: [-1, 0.15, -0.4] },
     focus: 'lowback',
   },
 
@@ -691,8 +691,11 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     restPose: { joints: { knee_R: { flex: 75 } } },
     actionPose: { joints: { knee_R: { flex: 0 } } },
     stretchPose: { joints: { knee_R: { flex: 140 }, ankle_R: { dorsi: 15 } } },
-    // from the right side, a little below the forearms: thigh + the swinging shank (seat edge → foot) in view
+    // from the right side, a little below the forearms: thigh + the swinging shank (seat edge → foot) in view. The demo
+    // framing fits muscle + shank between the phase pill and the player bar, which put the thigh (the top of that box)
+    // right under the pill once SIT_CHAIR got taller; the ASIS in the framed points keeps ~1.5 cm of hip above it
     camera: { position: [-1.55, 0.5, 0.64], target: [-0.12, 0.43, 0.42] },
+    frame: ['pelvis:asis'],
     focus: 'knee',
   },
 

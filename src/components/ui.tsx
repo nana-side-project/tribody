@@ -27,7 +27,7 @@ export function Section({
       <div className="section__head">
         <div className="section__head-row">
           <div>
-            {kicker && <span className="kicker">{kicker}</span>}
+            {kicker && <span aria-hidden="true" lang="en" className="kicker">{kicker}</span>}
             <h2 id={hid}>{title}</h2>
           </div>
           {more && (

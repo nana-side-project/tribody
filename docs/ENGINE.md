@@ -741,7 +741,9 @@ import type { MuscleRig } from './types';
 ```
 
 Fields: `strands`, `actionPose`, `stretchPose` (required); `base` (default `'STAND'`), `restPose` (on top of
-the base, e.g. bent knees), `camera`, `focus`, `anchor`, `ground`, `props` (same meaning as in clips).
+the base, e.g. bent knees), `camera`, `focus`, `anchor`, `ground`, `props` (same meaning as in clips), and for the demo
+framing `frame` (extra body points kept in view over the loop) and `minSize` (minimum framed box, m; default 0.85 × the
+focus region's) — see *Camera & framing* in §8.
 
 **Always define the RIGHT side.** The left side is mirrored automatically.
 
@@ -804,6 +806,9 @@ muscles 0.4–0.5 at the insertion.
   used to spin a straight standing leg: identical silhouettes, feet out of frame). Bend the next joint so a segment
   swings: hip rotators on `PRONE` with `restPose` knee 90 (the shin swings like a wiper — the piriformis demo; keep
   the hip near neutral, its rotation action reverses in deep flexion), shoulder rotators with the elbow at 90.
+  Look at the movement plane: a trunk extension vs a forward bend must be seen from the side — from behind and above
+  both bring the head toward the viewer and read as two forward bends (erector spinae `{ dir: [-1, 0.12, -0.15] }`,
+  multifidus `[-1, 0.15, -0.4]`; side bends (quadratus lumborum) from behind).
 - Strands that lie entirely on one rigid segment never change length (the cervical spine is one segment from C7/T1
   to C0/C1, the lumbar spine one from L5/S1 to T12/L1): give their points a `{ mix }` of the same rest point on the
   segment below and on their own segment, `t` ≈ the point's height fraction along the segment (longus colli upper
@@ -899,11 +904,11 @@ muscle lies outside the region's crop (its data names other regions, or `BELLY_E
 | `frame` | crop points. Without `frame`: the injured parts + the focus region's landmarks (`REGION_POINTS`). Involved context parts **never widen the frame**: they may run off the card (their label sits on a visible bit, or goes into 「+N」, see Labels) |
 | `frameInjured` | also frame the injured parts (default: `true` without `frame`, `false` with it) |
 | `minSize` | minimum size of the framed box (m) |
-| `fade` | `{ id: opacity }` — translucent parts (e.g. gluteus maximus over the sciatic nerve). Never applied to an injured part |
+| `fade` | `{ id: opacity }` — translucent parts (e.g. gluteus maximus over the sciatic nerve). Never applied to an injured part. A faded **involved** structure keeps its amber (the involved colour almost unmixed + an amber emissive 0.35): at ~0.3 opacity over skin and bone it used to read beige / tan and lost its 「関係」 meaning (the ITB of ITB syndrome, 0.45) |
 | `both` | parts drawn on both sides (central / bilateral problems: low back, neck) |
-| `roles` | role overrides for this scene (e.g. a nerve the text says is only rarely irritated → `involved`) |
+| `roles` | role overrides for this scene. Avoid: the condition page's 2D figure and its tissue list use the content's roles, so an override makes the same tissue red in 2D and amber in 3D on one page. Decide the role in the content instead (fix-3d removed the two overrides: the sciatic nerve of proximal hamstring tendinopathy and the medial tibial border of a tibial stress fracture are `overloaded` in the content now). No scene uses it |
 | `ghost` | see-through bone pieces `{ patella: 0.5 }` (`Figure.ghost`, opacity; sided parts on the scene's side, midline parts as one piece), cleared on every view. A ghosted injured bone stays red glass with a rim in the injured red, so the legend still holds. Used on `patellofemoral-pain`: the patella at 0.5 over the amber patellofemoral cartilage on its back (「お皿の裏」 in the text) — it only reads in a close crop (patella ≥ ~50 px on the card: knee frame, `minSize` 0.13); at 0.4 the glass reads salmon / orange rather than red, at 0.6 the cartilage fades. Tried and not used: acromion on swimmer's shoulder, humeral head on biceps tendinopathy (no visible gain: injured parts already have see-through copies, below) |
-| `structures` | per-view overrides of a structure rig (a rig cannot vary by condition): `{ [structureId]: { bones?, labelAt? } }` — `bones` = the bone pieces its `bone` part tints instead (Morton's neuroma: `metatarsals` → `['metatarsal_3', 'metatarsal_4']`, the rays around the nerve in the 3rd interspace, while the rig tints the stress-fracture rays 2–3), `labelAt` = its label anchor (the cartilage label of patellofemoral pain on the back of the ghosted patella, `patella:articular`) |
+| `structures` | per-view overrides of a structure rig (a rig cannot vary by condition): `{ [structureId]: { bones?, labelAt?, parts? } }` — `parts` = indices of the rig's `parts` drawn in this view (low back pain: the thoracolumbar fascia rig draws both halves, parts 0–1 right / 2–3 left; the scene draws only the left half, like the 2D figure's 「左半身：表層 / 右半身：深層」, so the multifidus, quadratus lumborum, lumbar spine and disc that the amber labels point at are not under a red sheet on the near side; the labels' overlap mask and fallback anchors use the same subset) — `bones` = the bone pieces its `bone` part tints instead (Morton's neuroma: `metatarsals` → `['metatarsal_3', 'metatarsal_4']`, the rays around the nerve in the 3rd interspace, while the rig tints the stress-fracture rays 2–3), `labelAt` = its label anchor (the cartilage label of patellofemoral pain on the back of the ghosted patella, `patella:articular`) |
 | `minor` | context parts whose labels start collapsed in 「+N」 |
 | `primary` | the injured part or zone key that carries the view's ONE pulse + halo (default: the first zone, else the first injured part in the page's order). The other injured parts stay the same red, steady, without halo |
 | `sensitive` | non-damage condition (low back, cyclist's neck, cramps — the content's `anatomyNote` says nothing is damaged and the page's legend reads 「痛みやすい場所」): the red parts are steady, nothing pulses. Default: derived from the content (a condition with an `anatomyNote`), the same rule as the page |
@@ -914,9 +919,19 @@ Zones in use: `achilles-midportion` `{ on: 'achilles-tendon', range: [0.655, 0.8
 reads as a stretch of the cream tendon between the calf muscles and the heel), `achilles-insertional` `range: [0.87, 1]`
 (「アキレス腱の付着部」, next to the steady-red retrocalcaneal bursa; posterolateral close-up, `minSize` 0.12, so the zone and
 the bursa read as two parts), `tibial-stress-fracture` / `metatarsal-stress-fracture`
-on the bone's own spot (「脛骨のひび」 / 「中足骨のひび」, `partRole: 'injured'`: the bone a steady light red). Fractions of a
+on the bone's own spot (「脛骨のひび」 / 「中足骨のひび」, `partRole: 'injured'`: the bone a steady light red), `calf-strain` (two
+zones: `{ on: 'gastrocnemius', strand: 0, range: [0.36, 0.52], label: '腓腹筋 内側頭の下端' }` — the lower end of the medial
+head's belly, where it turns into the aponeurosis (tennis leg), rest y ≈ 0.35 → 0.27, the pulse — and `{ on: 'soleus',
+strand: 2, range: [0.45, 0.66], label: 'ヒラメ筋 下半分の奥' }`, rest y ≈ 0.25 → 0.17, steady; both muscles `fade`d 0.45 / 0.6
+in their own colour so the two red cuffs read as the lesion sites), `plantar-heel-pain` (`{ on: 'plantar-fascia', range:
+[0, 0.28], label: '足底腱膜の付け根（かかと）' }` on the central band: the origin at the heel, the rest of the sheet its own
+cream). One zone per part (the label is per part). Fractions of a
 cord: `node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/fin-engine/probe/achilles.ts <structure-id>`
 prints the rest-pose y / z at each arc fraction.
+
+The view's one pulse is drawn on one side: a pulsing part (or zone) that a scene draws on both sides (`both`) keeps its
+glow + halo only on the side its label is on (`AnatomyLayer.restrictPulse`, called from the label setup); the other side
+is the same red, steady. `ghost` bone pieces are ghosted on the view's side (`cc.side`).
 
 On top of the scene, every **injured** part in highlights mode gets a see-through copy wherever other anatomy hides
 it (same technique as nerves: drawn after the opaque anatomy with depth test GREATER, so only the hidden stretches
@@ -1053,7 +1068,12 @@ show, at ~55 % opacity) — an injured tendon or bursa under a superficial muscl
   next joint (elbow / wrist / fingertips / knee / ankle / toe tips), over the whole loop and clear of the phase
   pill / player bar. A rig's exact camera (`{ position, target }`) is kept when all of that fits; otherwise the view
   is fitted to it along the authored direction (like `{ dir }`), so e.g. a gluteus-medius close-up still shows the
-  thigh abducting in a 300 px card.
+  thigh abducting in a 300 px card. That refit is a box fit with `minSize` 0.85 × the focus region's (hip 0.43 m):
+  a rig can add body points (`frame`, e.g. the piriformis demo keeps its swinging shin up to the middle in view) and
+  lower the box (`minSize`). The refit fills the free band between the pill and the bar, so the muscle can end up right
+  under the pill; a `frame` point above it moves it down (vastus lateralis: `frame: ['pelvis:asis']`). Small deep
+  muscles need an authored close-up that fits (the piriformis: from above the right side of the lower back looking
+  down the leg, so the pelvis is near the camera — ~45 px instead of a ~10 px speck).
 - Framing keeps clear of the phase pill (top, 46 px band) and the player bar (bottom). Users can orbit / pinch;
   「視点リセット」 returns to your framing.
 - **No headless crops**: when a clip's `frame` crop (no `focus`) would show the upper trunk (neck base, breastbone,
@@ -1063,9 +1083,11 @@ show, at ~55 % opacity) — an injured tendon or bursa under a superficial muscl
   the highest frame point at the greater trochanter / ischial tuberosity (`femur:greater_trochanter`,
   `pelvis:ischial_tuberosity`), never the iliac crest or ASIS — the projected `lumbar:spinous_L3` is only 1.5 cm above
   the crest, so a crest crop shows "upper trunk" and becomes a whole-figure view. fin-clips uses hips-down crops for the
-  terminal knee extension, gastrocnemius / soleus stretches, tibialis raise and single-leg balance, and knee- / mid-thigh-
-  down crops for pogo hops, both heel drops and knee-to-wall (the calves / vasti are 1.6–2.2× larger than in the
-  whole-figure view the rule had made of them). Check a crop without the browser:
+  terminal knee extension and the tibialis raise, and knee- / mid-thigh-down crops for pogo hops, both heel drops and
+  knee-to-wall (the calves / vasti are 1.6–2.2× larger than in the whole-figure view the rule had made of them). Use a
+  crop only when the cue is in it: the gastrocnemius / soleus wall stretches (hands on the wall, the forward lean,
+  「腰を落とす」) and the single-leg balance (the level pelvis, which sat under the pill) are whole-figure views again
+  (fix-3d: `hand:palm` / `head:vertex` in their `frame`); the calf is smaller but stays the labelled primary. Check a crop without the browser:
   `node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/fin-clips/probe/framing.ts [ids…]` (prints
   `HEADLESS→whole` for crops the engine widens; `FRAME='[…]'` / `CAM='[x,y,z]'` try a crop before writing it).
 - **Keep the body's cut edge away from the phase pill** (top-left): in a close-up the figure leaves the card at the top;
@@ -1087,6 +1109,9 @@ show, at ~55 % opacity) — an injured tendon or bursa under a superficial muscl
 - `highlights` — used when the Exercise data (`primary` / `secondary` in src/data) is empty. When the data
   exists the viewer highlights `Exercise.primary` (primary) and `Exercise.secondary` (secondary); if **none** of
   those muscles is rigged yet, it falls back to the clip's `highlights`, so always set them.
+- `minor` — parts whose labels start collapsed in 「+N」 (like a scene's `minor`; only secondary / involved labels
+  collapse). Use it only where labels still crowd the figure: the single-leg balance's whole-figure view puts the
+  secondary soleus there.
 - `extraHighlights` — parts highlighted **in addition** to the exercise's own targets (data or fallback), merged
   on top in exercise mode. Use it for what the data lists can't contain, e.g. a nerve on a nerve glide:
   `extraHighlights: { 'sciatic-nerve': 'involved' }`. Any `Highlight3DRole` (`'primary' | 'secondary' |
@@ -1279,5 +1304,9 @@ context lost show a Japanese message (with 「再表示する」); when the brow
 remounts itself, and a once-lost engine drops its GL objects without deleting them (they belong to the dead
 context) but still releases its restored context (`forceContextLoss` in an idle callback — otherwise it would count
 against the browser's live-context cap until garbage collection). `prefers-reduced-motion` → no autoplay, no pulse.
+Screen readers: the phase pill is an `aria-live` region only while the user drives the clip — `off` during autoplay (it
+would interrupt every 3–5 s for as long as the page is open), `polite` once they pause / scrub or press play
+themselves. The clip's phases are listed once as static text on the play button (`aria-describedby`,
+「動きの流れ：…」; `EngineUiState.phases`).
 If building a view throws (e.g. a malformed rig or clip), the viewer logs `[tribody 3d] could not show this view`
 and falls back to the standing figure with 「3Dモデルを表示できませんでした」 — check the console when a page shows that.

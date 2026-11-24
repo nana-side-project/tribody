@@ -13,6 +13,7 @@ import {
   Part,
   Rib,
   ShoulderBackLayers,
+  att,
   muscle,
   sp,
   spinePost,
@@ -20,6 +21,7 @@ import {
   tube,
   useCtx,
   vertPost,
+  type OIMap,
   type Ctx,
   type Lab,
   type P,
@@ -391,12 +393,29 @@ const VIEWS = [
   { id: 'side', label: '横から' },
 ];
 
+/**
+ * 起始 / 停止 markers (muscle page). Trapezius (back view, superficial left half): along its origin from the skull and
+ * the spinous processes, and its insertion on the clavicle, acromion and scapular spine. Levator scapulae: the upper
+ * neck vertebrae → the upper corner of the scapula. Deep neck flexors run from the lower vertebrae (origin, lower end
+ * of the strap) up to the upper vertebrae and the skull base (insertion, its upper end).
+ */
+const shift = (pts: readonly (readonly number[])[]) => pts.map((q) => [q[0] + BACK_DX, q[1]]);
+const OI_NECK_BACK: OIMap = {
+  trapezius: { o: shift(att(NMB.trapL, 'o', [0.06, 0.4, 0.78])), i: shift(att(NMB.trapL, 'i', [0.08, 0.45, 0.85])) },
+  'levator-scapulae': { o: shift(att(NMB.levator, 'o')), i: shift(att(NMB.levator, 'i')) },
+};
+const OI_NECK_SIDE: OIMap = {
+  trapezius: { o: att(SMB.trap, 'o', [0.12, 0.6]), i: att(SMB.trap, 'i', [0.15, 0.6]) },
+  'levator-scapulae': { o: att(SMB.levator, 'o'), i: att(SMB.levator, 'i') },
+  'deep-neck-flexors': { o: att(SMB.dnf, 'i', 0.5, 0.97), i: att(SMB.dnf, 'o', 0.5, 0.04) },
+};
+
 function NeckDiagram(p: RegionDiagramProps) {
   const k = useCtx(p);
   const view = p.view === 'side' ? 'side' : 'back';
   if (view === 'side') {
     return (
-      <Frame k={k} p={p} w={W} h={H} title="首を右横から見た図" cap={['← 背中側', '右横から・顔側 →']} labels={LABELS_SIDE} spots={SPOTS_SIDE} fade={[30, 70]}>
+      <Frame k={k} p={p} w={W} h={H} title="首を右横から見た図" cap={['← 背中側', '右横から・顔側 →']} labels={LABELS_SIDE} spots={SPOTS_SIDE} fade={[30, 70]} oi={OI_NECK_SIDE}>
         <SideView k={k} />
       </Frame>
     );
@@ -413,6 +432,7 @@ function NeckDiagram(p: RegionDiagramProps) {
       spots={SPOTS_BACK}
       fade={[24, 64]}
       fadeX={[16, 74]}
+      oi={OI_NECK_BACK}
     >
       <g transform={`translate(${BACK_DX} 0)`}>
         <BackView k={k} />

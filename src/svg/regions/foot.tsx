@@ -5,14 +5,16 @@
 // Sole / top: ≈15 units per cm, heel at y≈436, toes at y≈44. Medial: ≈12.5 units per cm, floor at y≈304.
 import type { ReactNode } from 'react';
 import type { RegionDiagram, RegionDiagramProps } from '../types';
-import { Ctxt, Frame, M, Nerve, Part, Ten, ell, line, muscle, sp, tube, useCtx, type Ctx, type Lab, type P, type Spot } from './hip';
+import { Ctxt, Frame, Lesion, M, Nerve, Part, Ten, att, ell, line, muscle, sp, tube, tubePart, useCtx, type Ctx, type Lab, type OIMap, type P, type Spot } from './hip';
 import { LfStyle, lfp } from './calf';
 import {
   CALC,
   Calcaneus,
+  FL_INSERT,
   FlSoleTendon,
   Metatarsals,
   Midfoot,
+  MtCrack,
   Navicular,
   Phalanges,
   SESAMOIDS,
@@ -84,6 +86,13 @@ const PF_SLIPS: { c: P[]; w: number[] }[] = [
   { c: [[172, 242], [167, 210], [163, 186]], w: [7, 5, 4.5] },
   { c: [[156, 250], [147, 222], [140, 198]], w: [7, 5, 4.5] },
 ];
+/**
+ * Plantar heel pain (see lesionsOf in ./hip): the fascia's origin on the medial process of the calcaneal tuberosity, the
+ * heel end of its central band (the 3D scene's zone 0–0.28), not the whole sheet to the toes.
+ */
+const PF_ORIGIN = sp([
+  [176, 396], [182, 406], [189, 411], [199, 408], [206, 398], [205.5, 380], [205, 364], [197, 358], [186, 358], [174, 363], [172.5, 380],
+]);
 /** soft tissue that covers the metatarsal bases in the sole view (clip of their see-through copy) */
 const SOLE_COVER = [
   PF_BODY,
@@ -92,10 +101,25 @@ const SOLE_COVER = [
 ];
 const FHL_SOLE: P[] = [[232, 300], [237, 250], [242, 206], [247, 172], [250, 130], [252, 96], [253, 70]];
 
+/**
+ * 起始 / 停止 markers (muscle page). Abductor hallucis and the short toe flexor start on the heel bone; the short flexor's
+ * four tendons (not drawn) end on the middle phalanges of toes 2–5. The long tendons end on the big toe's last phalanx
+ * (FHL) and on the 1st metatarsal base / medial cuneiform (fibularis longus); their muscles start in the leg.
+ */
+const OI_SOLE: OIMap = {
+  'abductor-hallucis': { o: att(SM.abh, 'o'), i: att(SM.abh, 'i') },
+  'flexor-digitorum-brevis': { o: att(SM.fdb, 'o', 0.5, 0.03), i: [[210, 99], [187.5, 110], [164.5, 127], [136.5, 143]] },
+  'flexor-hallucis-longus': { i: [[253, 74]] },
+  'fibularis-longus': { i: [FL_INSERT] },
+};
+
 function FootSole({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const labels: Lab[] = [
     { id: 'interdigital-nerve', t: '趾間神経', at: [172, 158], x: 104, y: 150, a: 'end' },
-    { id: 'metatarsals', t: '中足骨', at: [144, 224], x: 104, y: 202, a: 'end' },
+    // stress fracture: the label points at the cracked 3rd metatarsal (2nd and 3rd are red)
+    k.les.has('metatarsal-stress')
+      ? { id: 'metatarsals', t: '中足骨のひび', at: [188, 204], x: 104, y: 202, a: 'end' }
+      : { id: 'metatarsals', t: '中足骨', at: [144, 224], x: 104, y: 202, a: 'end' },
     { t: '小趾外転筋', at: [138, 262], x: 104, y: 244, a: 'end' },
     { t: '立方骨', at: [168, 279], x: 104, y: 284, a: 'end' },
     { id: 'flexor-digitorum-brevis', t: '短趾屈筋', at: [158, 330], x: 104, y: 320, a: 'end' },
@@ -109,7 +133,9 @@ function FootSole({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'navicular', t: '舟状骨', at: [227, 312], x: 282, y: 296 },
     // on the central band of the fascia between the talar head and the heel fat pad (clear of the see-through bone
     // outlines, so the dot cannot be read as the talus)
-    { id: 'plantar-fascia', t: '足底腱膜', at: [194, 358], x: 282, y: 340 },
+    k.les.has('plantar-origin')
+      ? { id: 'plantar-fascia', t: '足底腱膜の\n付け根', at: [198, 390], x: 282, y: 346 }
+      : { id: 'plantar-fascia', t: '足底腱膜', at: [194, 358], x: 282, y: 340 },
   ];
   const spots: Spot[] = [
     { id: 'forefoot-ball', at: [175, 172] },
@@ -126,6 +152,7 @@ function FootSole({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       cap={['右足・足の裏', '内側（親指側）→']}
       labels={labels}
       spots={spots}
+      oi={OI_SOLE}
       defs={
         <>
           <LfStyle />
@@ -154,7 +181,7 @@ function FootSole({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
           <path key={i} className="bone-g" d={d} />
         ))}
       </Ctxt>
-      <Part k={k} id="metatarsals">
+      <Part k={k} id="metatarsals" zoned={k.les.has('metatarsal-stress')}>
         <Metatarsals cls="bone-t" />
       </Part>
       <Ctxt k={k}>
@@ -179,7 +206,7 @@ function FootSole({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       <Part k={k} id="abductor-hallucis">
         <M g={SM.abh} />
       </Part>
-      <Part k={k} id="plantar-fascia">
+      <Part k={k} id="plantar-fascia" zone={k.les.has('plantar-origin') && <path className="fascia" d={PF_ORIGIN} />}>
         <path className="fascia" d={PF_BODY} />
         <path
           className="ten-fib"
@@ -211,13 +238,19 @@ function FootSole({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <Calcaneus cls="bone-x" ln="bone-xl" />
       </Part>
       {/* metatarsal bases / proximal shafts under the fascia (the rest is drawn below the soft tissue) */}
-      <XRay k={k} id="metatarsals">
+      <XRay k={k} id="metatarsals" zoned={k.les.has('metatarsal-stress')}>
         <g clipPath={`url(#${k.uid}-mtx)`}>
           <g clipPath={`url(#${k.uid}-mtc)`}>
             <Metatarsals cls="bone-x" />
           </g>
         </g>
       </XRay>
+      {/* stress fracture: the cracked shafts seen through the plantar soft tissue (like the x-ray bases) */}
+      {k.les.has('metatarsal-stress') && (
+        <Lesion k={k} id="metatarsals">
+          <MtCrack />
+        </Lesion>
+      )}
       {/* deepest layer: fibularis longus tendon round the lateral border of the cuboid, along its groove and obliquely
           across the sole to the 1st metatarsal base / medial cuneiform, drawn see-through over the superficial muscles */}
       <Part k={k} id="fibularis-longus">
@@ -288,7 +321,15 @@ const MEDM = {
 const FHL_MED: P[] = [[312, 146], [311, 180], [309, 210], [305, 230], [294, 256], [280, 266], [256, 272], [220, 278], [180, 282], [140, 284], [110, 286], [90, 290], [70, 288], [46, 284], [24, 282]];
 const TPT_MED: P[] = [[292, 30], [293, 120], [295, 170], [295, 198], [290, 216], [280, 232], [266, 242], [248, 248], [228, 250], [216, 251]];
 const PF_MED: P[] = [[330, 294], [306, 298], [276, 299], [244, 297], [210, 295], [176, 295], [140, 296], [112, 298], [92, 300], [70, 299], [50, 297]];
+const PF_MED_W = [8, 7, 6, 6, 5.5, 5.5, 5.5, 5.5, 5, 4.5, 4];
 const ARCH_MED: P[] = [[318, 290], [292, 276], [264, 262], [238, 250], [214, 244], [192, 248], [160, 258], [128, 270], [100, 284], [88, 292]];
+
+/** 起始 / 停止 markers (muscle page): see OI_SOLE; tibialis posterior ends on the navicular (and spreads under the foot). */
+const OI_MEDV: OIMap = {
+  'abductor-hallucis': { o: att(MEDM.abh, 'o'), i: att(MEDM.abh, 'i') },
+  'flexor-hallucis-longus': { i: [[27, 282]] },
+  'tibialis-posterior': { i: [[212, 248]] },
+};
 
 function FootMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const labels: Lab[] = [
@@ -301,7 +342,7 @@ function FootMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'metatarsals', t: '第1中足骨', at: [126, 260], x: 80, y: 232, a: 'end' },
     { id: 'abductor-hallucis', t: '母趾外転筋', at: [140, 286], x: 54, y: 330, a: 'middle' },
     { id: 'medial-arch', t: '内側縦アーチ', at: [176, 253], x: 140, y: 348, a: 'middle' },
-    { id: 'plantar-fascia', t: '足底腱膜', at: [230, 296], x: 216, y: 330, a: 'middle' },
+    { id: 'plantar-fascia', t: '足底腱膜', at: k.les.has('plantar-origin') ? [284, 299] : [230, 296], x: 216, y: 330, a: 'middle' },
     { id: 'calcaneus', t: '踵骨', at: [322, 262], x: 262, y: 348, a: 'middle' },
     { id: 'heel-fat-pad', t: '踵の脂肪体', at: [336, 292], x: 354, y: 330, a: 'end' },
   ];
@@ -319,6 +360,7 @@ function FootMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       cap={['← つま先', '右足・内側から']}
       labels={labels}
       spots={spots}
+      oi={OI_MEDV}
       fade={{ top: 50 }}
       defs={<LfStyle />}
     >
@@ -331,7 +373,7 @@ function FootMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <path className="bone" d={MED.ph2} />
         <path className="bone-g" d={ell(88, 294, 6, 3.8)} />
       </Ctxt>
-      <Part k={k} id="metatarsals">
+      <Part k={k} id="metatarsals" zoned={k.les.has('metatarsal-stress')}>
         <path className="bone" d={MED.mtL} style={{ opacity: 0.35 }} />
         <path className="bone" d={MED.mt1} />
       </Part>
@@ -365,8 +407,8 @@ function FootMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       <Part k={k} id="abductor-hallucis">
         <M g={MEDM.abh} />
       </Part>
-      <Part k={k} id="plantar-fascia">
-        <Ten c={PF_MED} w={[8, 7, 6, 6, 5.5, 5.5, 5.5, 5.5, 5, 4.5, 4]} cls="fascia" lines={2} />
+      <Part k={k} id="plantar-fascia" zone={k.les.has('plantar-origin') && <path className="fascia" d={tubePart(PF_MED, PF_MED_W, 0, 0.24, 0.6)} />}>
+        <Ten c={PF_MED} w={PF_MED_W} cls="fascia" lines={2} />
       </Part>
       <Part k={k} id="heel-fat-pad">
         <path className="fat" d={sp([[340, 266], [346, 282], [340, 296], [326, 304], [304, 306], [290, 304], [296, 299], [310, 298], [324, 296], [334, 289], [338, 277]])} />
@@ -396,7 +438,10 @@ const TALUS_TOP_LN = line([[173, 400], [172, 380], [170, 358]]);
 
 function FootTop({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const labels: Lab[] = [
-    { id: 'metatarsals', t: '第2中足骨', at: [153, 238], x: 96, y: 238, a: 'end' },
+    // stress fracture: the shaft–neck of the 2nd and 3rd metatarsals (red, with a crack)
+    k.les.has('metatarsal-stress')
+      ? { id: 'metatarsals', t: '中足骨のひび\n（第2・第3）', at: [151, 200], x: 96, y: 194, a: 'end' }
+      : { id: 'metatarsals', t: '第2中足骨', at: [153, 238], x: 96, y: 238, a: 'end' },
     { t: '楔状骨', at: [139, 278], x: 96, y: 280, a: 'end' },
     { id: 'navicular', t: '舟状骨', at: [133, 312], x: 96, y: 320, a: 'end' },
     { id: 'talus', t: '距骨', at: [166, 376], x: 96, y: 376, a: 'end' },
@@ -434,7 +479,7 @@ function FootTop({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       <Part k={k} id="navicular">
         <Navicular mirrored />
       </Part>
-      <Part k={k} id="metatarsals">
+      <Part k={k} id="metatarsals" zone={k.les.has('metatarsal-stress') && <MtCrack mirrored />}>
         <Metatarsals mirrored />
       </Part>
     </Frame>

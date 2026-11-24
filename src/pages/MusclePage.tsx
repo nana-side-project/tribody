@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { conditions, exercisesForMuscle, getMuscle, type Muscle } from '../data';
 import { ConditionCard, ExerciseCard } from '../components/cards';
@@ -19,7 +19,7 @@ export default function MusclePage() {
     return (
       <Page title={muscleName(id)} back="/muscles">
         <header className="page-head">
-          <span className="kicker">Muscle</span>
+          <span aria-hidden="true" lang="en" className="kicker">Muscle</span>
           <h1>
             <NameText text={muscleName(id)} />
           </h1>
@@ -68,6 +68,9 @@ function WipRelated({ id }: { id: string }) {
 
 function MuscleView({ m }: { m: Muscle }) {
   const fig = useMemo(() => findDiagramFor(m.id, m.regions), [m]);
+  // no 3D (device without WebGL, a failed download): the 起始・停止 legend would describe nothing
+  const [no3d, setNo3d] = useState(false);
+  const onNo3d = useCallback(() => setNo3d(true), []);
   const figMemo = useRememberedView(`fig:${fig?.region ?? ''}`);
   const strengthen = m.strengthen ?? [];
   const stretch = m.stretch ?? [];
@@ -78,8 +81,8 @@ function MuscleView({ m }: { m: Muscle }) {
   return (
     <Page title={m.nameJa} back="/muscles">
       <div className="viewer-hero">
-        <SafeViewer muscle={m.id} focus={m.regions[0]} height={300} />
-        <div className="viewer-hero__legend">
+        <SafeViewer muscle={m.id} focus={m.regions[0]} height={300} onUnavailable={onNo3d} />
+        <div className="viewer-hero__legend" hidden={no3d}>
           <div className="legend">
             <span className="legend__item">
               <span className="dot dot--origin" />

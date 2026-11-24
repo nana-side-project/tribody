@@ -21,14 +21,17 @@ export function ConditionCard({
   id,
   likelihood,
   showSummary = true,
+  search = '',
 }: {
   id: ConditionId;
   likelihood?: 'common' | 'possible' | 'rare';
   showSummary?: boolean;
+  /** e.g. '?spot=knee-front': the condition page opens its figure on the view with that spot */
+  search?: string;
 }) {
   const c = getCondition(id);
   return (
-    <Link to={`/condition/${id}`} className="card">
+    <Link to={`/condition/${id}${search}`} className="card">
       <div className="card__row">
         <div className="grow">
           {(likelihood || !c) && (

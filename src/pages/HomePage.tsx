@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { GUIDES, PAIN_SPOTS, REGIONS, getPainSpot, type GuideId, type PainSpotId, type RegionId, type Side } from '../data';
 import { BottomSheet, afterSheetClose } from '../components/BottomSheet';
@@ -12,6 +12,7 @@ import { conditionName, regionConditionCount, regionName, spotConditions, spotLa
 import { search, type SearchHit, type SearchKind } from '../lib/search';
 import { useMenu } from '../lib/useMenu';
 import { usePainLog } from '../lib/usePainLog';
+import { prefetchRouteWhenIdle } from '../lib/routePrefetch';
 import { getCondition } from '../data';
 
 type View = 'front' | 'back' | 'sole';
@@ -21,6 +22,7 @@ const VIEWS: { id: View; label: string }[] = [
   { id: 'sole', label: '足裏' },
 ];
 const FEATURED: GuideId[] = ['pain-monitoring', 'load-management', 'red-flags'];
+const HOME_LEAD = '痛む場所をタップすると、考えられる原因と傷んでいる組織、補強・ストレッチの方法がわかります。';
 
 /**
  * Smallest home figure (px) = 0.40 CSS px per figure unit, the smallest scale the tap rules and the magnifier layout
@@ -114,16 +116,20 @@ export default function HomePage() {
   const menu = useMenu();
   const log = usePainLog();
   const recent = useMemo(() => Object.keys(log.recentIntensity(14)) as PainSpotId[], [log]);
+  // the sheet lists conditions: load the condition page's code while the user reads it (never in the tap's own task)
+  useEffect(() => (sel ? prefetchRouteWhenIdle('condition', 450) : undefined), [sel]);
 
   return (
     <Page title="">
-      <header className="page-head">
-        <span className="kicker">Where does it hurt?</span>
+      {/* short screens (CSS: max-height 700px) drop the kicker and move the lead under the map, so the whole figure
+          fits above the tab bar on first paint */}
+      <header className="page-head page-head--home">
+        <span aria-hidden="true" lang="en" className="kicker">Where does it hurt?</span>
         <h1>どこが痛む？</h1>
-        <p className="lead">痛む場所をタップすると、考えられる原因と傷んでいる組織、補強・ストレッチの方法がわかります。</p>
+        <p className="lead home-lead">{HOME_LEAD}</p>
       </header>
 
-      <div className="card" style={{ marginTop: 16, padding: 12 }}>
+      <div className="card home-map-card">
         <Segmented label="からだの向き" value={view} options={VIEWS} onChange={setView} />
         {/* keyboard users can skip the ~30 hotspots */}
         <button type="button" className="skip-link" onClick={() => pickerBtnRef.current?.focus()}>
@@ -145,6 +151,8 @@ export default function HomePage() {
           </button>
         </div>
       </div>
+
+      <p className="lead home-lead--below">{HOME_LEAD}</p>
 
       <Section kicker="Regions" title="部位から探す" tight>
         <div className="grid-2 grid-2--wide4">
@@ -200,7 +208,7 @@ export default function HomePage() {
         label="痛む場所を選ぶ"
         header={
           <>
-            <span className="kicker">Pain spots</span>
+            <span aria-hidden="true" lang="en" className="kicker">Pain spots</span>
             <h2>痛む場所を選ぶ</h2>
           </>
         }
@@ -257,9 +265,11 @@ function SpotSheetBody({ id, side, onClose }: { id: PainSpotId; side?: Side; onC
           <ul className="rows">
             {candidates.map((c) => {
               const cond = getCondition(c.id);
+              // the condition page opens on the figure view that has this spot and names the side
+              const conditionUrl = `/condition/${c.id}?spot=${id}${side ? `&side=${side}` : ''}`;
               return (
                 <li key={c.id}>
-                  <button type="button" className="row" onClick={() => go(`/condition/${c.id}`)}>
+                  <button type="button" className="row" data-prefetch="condition" onClick={() => go(conditionUrl)}>
                     <div className="row__main">
                       {(c.likelihood || !cond) && (
                         <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
@@ -382,9 +392,18 @@ function ResultRow({ h }: { h: SearchHit }) {
 
 function TodayCard() {
   const menu = useMenu();
-  const total = menu.items.length;
-  const done = menu.doneTodayCount;
-  const pct = total ? Math.round((done / total) * 100) : 0;
+  // today's to-dos are the daily exercises; 週n回 strength / tendon work counts toward a weekly target instead
+  const total = menu.dailyTotal;
+  const done = menu.dailyDoneToday;
+  const pct = total ? Math.round((done / total) * 100) : menu.weeklyTarget ? Math.round((menu.weeklyDone / menu.weeklyTarget) * 100) : 0;
+  const weeklyLeft = Math.max(0, menu.weeklyTarget - menu.weeklyDone);
+  const title = total
+    ? done >= total
+      ? '毎日の種目は完了！'
+      : `毎日の種目 あと ${total - done}`
+    : weeklyLeft
+      ? `今週あと ${weeklyLeft} 回`
+      : '今週の目標を達成！';
   return (
     <Link to="/menu" className="card">
       <div className="card__row">
@@ -393,16 +412,24 @@ function TodayCard() {
         </span>
         <div className="grow">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-            <p className="card__title">{done === total ? '今日はすべて完了！' : `あと ${total - done} 種目`}</p>
+            <p className="card__title">{title}</p>
             <span className="small muted" style={{ fontVariantNumeric: 'tabular-nums' }}>
-              {done}/{total}
+              {total ? `${done}/${total}` : `${menu.weeklyDone}/${menu.weeklyTarget}`}
             </span>
           </div>
-          <div className="progress" style={{ marginTop: 10 }} role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="今日の達成度">
+          <div
+            className={`progress${total ? '' : ' progress--week'}`}
+            style={{ marginTop: 10 }}
+            role="progressbar"
+            aria-valuenow={pct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={total ? '今日の毎日の種目の達成度' : '今週の達成度'}
+          >
             <span style={{ width: `${pct}%` }} />
           </div>
           <p className="card__sub" style={{ marginTop: 8 }}>
-            マイメニューを開いてチェック
+            {total && menu.weeklyCount ? `週に数回の種目：今週 ${menu.weeklyDone}/${menu.weeklyTarget}回` : 'マイメニューを開いてチェック'}
           </p>
         </div>
         <IconChevron className="chev" />

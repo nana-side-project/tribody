@@ -1,6 +1,6 @@
 // <AnatomyViewer> — React wrapper around the 3D engine + the compact Japanese player UI.
 // Default export (lazy-loaded by ./index.tsx). Props: AnatomyViewerProps (./contract.ts).
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { AnatomyViewerProps } from './contract';
 import { dataReady, loadData } from './data-access';
 import { Engine, type EngineUiState, type ViewSpec, WebGLUnavailableError } from './engine';
@@ -20,7 +20,7 @@ export interface DevOptions {
   onEngine?: (e: Engine | null) => void;
 }
 
-const INITIAL_UI: EngineUiState = { playing: false, animated: false, note: null, legend: false, speed: 1, mode: 'pose' };
+const INITIAL_UI: EngineUiState = { playing: false, animated: false, note: null, legend: false, speed: 1, mode: 'pose', phases: [] };
 
 export default function AnatomyViewer(props: AnatomyViewerProps & { dev?: DevOptions }) {
   const { height = 320, controls = true, autoPlay = true, labels = true, className, onPhase, dev } = props;
@@ -37,6 +37,9 @@ export default function AnatomyViewer(props: AnatomyViewerProps & { dev?: DevOpt
   const [phase, setPhase] = useState<string | null>(null);
   const [error, setError] = useState<null | 'nogl' | 'lost'>(null);
   const [gen, setGen] = useState(0);
+  /** the user started playback with the play button (autoplay is not the user's choice) */
+  const [userPlay, setUserPlay] = useState(false);
+  const phasesId = useId();
 
   const spec: ViewSpec = useMemo(
     () => ({
@@ -118,6 +121,7 @@ export default function AnatomyViewer(props: AnatomyViewerProps & { dev?: DevOpt
 
   useEffect(() => {
     const en = engineRef.current;
+    setUserPlay(false);
     if (!en) return;
     en.uiControls = controls !== false;
     // exercise targets / muscle regions come from the content data (already in the app bundle: a microtask):
@@ -142,13 +146,17 @@ export default function AnatomyViewer(props: AnatomyViewerProps & { dev?: DevOpt
   const e = () => engineRef.current;
   const showBar = controls !== false;
   const animated = ui.animated;
+  // The phase pill speaks only when the user drives the clip (paused / scrubbing, or playing because they pressed
+  // play): an autoplaying loop would interrupt a screen-reader user every 3–5 s for as long as the page is open. The
+  // phases are listed once as static text on the play button (aria-describedby) instead.
+  const live = !ui.playing || userPlay ? 'polite' : 'off';
 
   return (
     <div className={'tb3d' + (className ? ' ' + className : '')} style={{ height }}>
       <div ref={hostRef} className="tb3d-host" />
       <div ref={overlayRef} className="tb3d-overlay">
         {showBar && animated && phase ? (
-          <div className="tb3d-phase" aria-live="polite">
+          <div className="tb3d-phase" aria-live={live}>
             <span className="tb3d-phase-dot" />
             {phase}
           </div>
@@ -169,11 +177,20 @@ export default function AnatomyViewer(props: AnatomyViewerProps & { dev?: DevOpt
         {showBar && !error ? (
           animated ? (
             <div className="tb3d-bar" role="group" aria-label="アニメーション操作">
+              {ui.phases.length ? (
+                <span id={phasesId} className="tb3d-sr">
+                  {'動きの流れ：' + ui.phases.join('、')}
+                </span>
+              ) : null}
               <button
                 type="button"
                 className="tb3d-btn tb3d-play"
                 aria-label={ui.playing ? '一時停止' : '再生'}
-                onClick={() => e()?.toggle()}
+                aria-describedby={ui.phases.length ? phasesId : undefined}
+                onClick={() => {
+                  setUserPlay(!ui.playing);
+                  e()?.toggle();
+                }}
               >
                 {ui.playing ? <PauseIcon /> : <PlayIcon />}
               </button>

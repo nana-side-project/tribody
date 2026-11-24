@@ -546,9 +546,10 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     ground: true,
     props: [{ kind: 'wall', at: [0, 0, 0.694], normal: [0, 0, -1] }],
     camera: { dir: [-1, 0.22, -0.45] },
-    // hips-down crop (fin-clips): the straight back leg, the heel on the floor and the bent front knee; a crop that shows
-    // the upper trunk is widened to the whole figure by the engine's no-headless-crop rule (the calf then shrank ~25 %)
-    frame: ['femur:greater_trochanter', 'femur_L:greater_trochanter', 'foot:calcaneus_post', 'toes_L:toe_tips', 'femur_L:lateral_epicondyle'],
+    // the whole figure (fix-3d): the hands on the wall and the forward lean of the whole body (「体重をゆっくり前へ」)
+    // are what make the stretch; the hips-down crop (fin-clips) hid them and cut the trunk under the phase pill. The calf
+    // is smaller but stays the labelled primary
+    frame: ['femur:greater_trochanter', 'femur_L:greater_trochanter', 'foot:calcaneus_post', 'toes_L:toe_tips', 'femur_L:lateral_epicondyle', 'hand:palm', 'hand_L:palm', 'head:vertex'],
     sides: 'R',
     highlights: { gastrocnemius: 'primary', soleus: 'secondary' },
   },
@@ -577,8 +578,9 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     ground: true,
     props: [{ kind: 'wall', at: [0, 0, 0.589], normal: [0, 0, -1] }],
     camera: { dir: [-1, 0.16, -0.12] },
-    // hips-down crop (fin-clips; the lumbar point used to trigger the whole-figure view)
-    frame: ['femur:greater_trochanter', 'femur_L:greater_trochanter', 'foot:calcaneus_post', 'toes_L:toe_tips', 'femur_L:lateral_epicondyle'],
+    // the whole figure (fix-3d): hands on the wall, both knees bent and the hips lowered (「腰を落とす」) are the cue; the
+    // hips-down crop hid the hands and the lean and cut the trunk under the phase pill
+    frame: ['femur:greater_trochanter', 'femur_L:greater_trochanter', 'foot:calcaneus_post', 'toes_L:toe_tips', 'femur_L:lateral_epicondyle', 'hand:palm', 'hand_L:palm', 'head:vertex'],
     sides: 'R',
     highlights: { soleus: 'primary', 'tibialis-posterior': 'secondary', 'flexor-hallucis-longus': 'secondary' },
   },
@@ -778,10 +780,11 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     ground: true,
     // a chair back within reach of the right hand (safety, as in the setup); the back faces the figure
     props: [{ kind: 'chair', at: [-0.72, 0.45, 0], rotY: -90 }],
-    // front-right: the hips, the knee over the foot and the lateral (fibular) side of the standing leg. Hips-down crop
-    // (fin-clips: framed from the iliac crests the lumbar spine showed without the head, which the engine widens to the
-    // whole figure) to ~25 cm below the floor (a point under the pinned right foot), which keeps the label stack above
-    // the player bar.
+    // front-right: the level pelvis, the soft knee over the foot and the lateral (fibular) side of the standing leg.
+    // The whole figure (fix-3d): the hips-down crop put the pelvis and the gluteus medius label right under the phase
+    // pill 「膝を軽く曲げ、骨盤を水平に…」, so the cue's subject could not be judged (a crop up to the pelvis shows the lumbar
+    // spine, which the no-headless-crop rule widens to the whole figure anyway). Down to ~25 cm below the floor (a point
+    // under the pinned right foot), which keeps the label stack above the player bar.
     camera: { dir: [-0.75, 0.2, 0.66] },
     frame: [
       'femur:greater_trochanter',
@@ -791,7 +794,11 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       'toes_L:toe_tips',
       'foot_L:calcaneus_post',
       { bone: 'foot', rest: [0.09, -0.1, 0.05] },
+      'head:vertex',
     ],
+    // the whole-figure view leaves the lower leg small: the secondary soleus label waits in 「+N」 so the three primary
+    // ankle stabilisers and the gluteus medius (the level-pelvis cue) are not stacked on top of each other
+    minor: ['soleus'],
     sides: 'R',
     highlights: {
       'fibularis-longus': 'primary',

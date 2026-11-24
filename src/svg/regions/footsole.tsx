@@ -6,7 +6,7 @@
 // (navicular, cuneiforms, cuboid) 254–323 medially / 268–313 laterally, with the talar head behind the navicular
 // (to ≈ 345): ~1/4 of the foot on the medial side; metatarsals 6.6–8 cm; toes unchanged.
 import type { ReactNode } from 'react';
-import { Part, Ten, ell, line, sp, tube, type Ctx, type P, type PartId } from './hip';
+import { Part, Ten, crAt, ell, line, numAt, sp, tube, tubePart, type Ctx, type P, type PartId, type XY } from './hip';
 
 type Pt = readonly [number, number];
 export const mx = (p: Pt): [number, number] => [360 - p[0], p[1]];
@@ -161,6 +161,37 @@ export function Metatarsals({ mirrored = false, cls = 'bone' }: { mirrored?: boo
   );
 }
 
+/**
+ * Metatarsal stress fracture (see lesionsOf in ./hip): the shaft–neck of the 2nd and 3rd metatarsals (the classic
+ * runner's site, as the 3D scene's rays 2–3) in full red, each with a small crack across it.
+ */
+export function MtCrack({ mirrored = false }: { mirrored?: boolean }) {
+  const f = (pts: readonly P[]) => (mirrored ? mirror(pts) : (pts as P[]));
+  return (
+    <>
+      {MTS.slice(1, 3).map((m, i) => {
+        const c = f(m.c);
+        // crack: a short zig-zag across the shaft at u ≈ .66
+        const u = 0.66;
+        const a = crAt(c, u - 0.02);
+        const b = crAt(c, u + 0.02);
+        const o = crAt(c, u);
+        const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+        const t: XY = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+        const nrm: XY = [-t[1], t[0]];
+        const h = numAt(m.w, u, 9) * 0.62;
+        const pt = (k: number, d: number): XY => [o[0] + nrm[0] * h * k + t[0] * d, o[1] + nrm[1] * h * k + t[1] * d];
+        return (
+          <g key={i}>
+            <path className="bone" d={tubePart(c, m.w, 0.42, 0.93, 0.5)} />
+            <path className="crack" d={line([pt(-1, 0), pt(-0.35, 1.6), pt(0.2, -1.4), pt(1, 0.6)])} />
+          </g>
+        );
+      })}
+    </>
+  );
+}
+
 export function Phalanges({ mirrored = false, cls = 'bone' }: { mirrored?: boolean; cls?: string }) {
   return (
     <>
@@ -176,9 +207,17 @@ export function Phalanges({ mirrored = false, cls = 'bone' }: { mirrored?: boole
  * and fascia. With `id` it follows that part's highlight / dim state (glow when injured); without, it is context.
  * Never tappable: taps fall through to the muscles below (the real part, with data-part, is drawn underneath).
  */
-export function XRay({ k, id, children }: { k: Ctx; id?: PartId; children: ReactNode }) {
+export function XRay({ k, id, zoned = false, children }: { k: Ctx; id?: PartId; zoned?: boolean; children: ReactNode }) {
   const role = id ? k.hl[id] : undefined;
   const cls = id ? `thk-part${role ? ` is-${role}` : ''}${k.dim && !role ? ' is-dim' : ''}` : `thk-ctx${k.dim ? ' is-dim' : ''}`;
+  if (role === 'injured' && zoned) {
+    // focal lesion drawn elsewhere (Part zone / Lesion): this copy in the light red of the rest of the part
+    return (
+      <g className={`${cls} is-zoned thk-xray`} aria-hidden="true">
+        <g className="thk-zrest">{children}</g>
+      </g>
+    );
+  }
   return (
     <g className={`${cls} thk-xray`} aria-hidden="true">
       {role === 'injured' && (
@@ -221,6 +260,7 @@ export const XRAY_CSS = `
 .thk .bone-xl { fill: none; stroke: var(--bone-ink); stroke-width: .65; opacity: .6; stroke-linecap: round; }
 .thk .is-injured .bone-x { fill: var(--injured); fill-opacity: .42; stroke: var(--k-inj-ink); stroke-width: 1.1; stroke-dasharray: none; opacity: 1; }
 .thk .is-injured .bone-xl { stroke: #fff; opacity: .45; }
+.thk .is-injured .thk-zrest .bone-x { fill: var(--injured); fill-opacity: .16; stroke: var(--k-zink); stroke-width: 1; }
 .thk .is-involved .bone-x { fill: var(--k-amber); fill-opacity: .22; stroke: var(--k-amber); stroke-width: 1.5; stroke-dasharray: none; opacity: 1; }
 .thk :is(.is-selected, .is-muscle) .bone-x { fill-opacity: .3; stroke: var(--text); stroke-width: 1.6; stroke-dasharray: none; opacity: 1; }
 .thk .thk-halo :is(.bone-xl) { display: none !important; }

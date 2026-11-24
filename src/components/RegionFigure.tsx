@@ -64,6 +64,34 @@ function viewWithSpot(d: RegionDiagram, spot: string): string | undefined {
   return d.views.find((v) => ((d.spots?.[v.id] ?? []) as string[]).includes(spot))?.id;
 }
 
+/**
+ * The view to open a condition's figure on when the user came from a tapped spot: the figure's usual view
+ * (`preferred`, else the view showing most of `ids`) if it has a hotspot for `spot`; otherwise, of the views that have
+ * one, the one that shows the most of `ids` (primary weighted, as bestView). Undefined when no view with that spot
+ * draws any of the primary parts — the usual teaching view is better then.
+ */
+export function viewForSpot(region: RegionId, spot: string, ids: string[], primary: string[] = [], preferred?: string): string | undefined {
+  const d = safeDiagram(region);
+  if (!d) return undefined;
+  const hasSpot = (v: string) => ((d.spots?.[v] ?? []) as string[]).includes(spot);
+  const usual = preferred && d.views.some((v) => v.id === preferred) ? preferred : bestView(d, ids, primary);
+  if (usual && hasSpot(usual)) return usual;
+  const withSpot = d.views.filter((v) => hasSpot(v.id));
+  if (!withSpot.length) return undefined;
+  const v = bestView({ ...d, views: withSpot }, ids, primary);
+  const shown = (d.parts?.[v] ?? []) as string[];
+  return primary.some((id) => shown.includes(id)) ? v : undefined;
+}
+
+/** The view of `region`'s diagram that draws `id` (in the main figure if possible), or undefined. */
+export function viewForPart(region: RegionId, id: string): string | undefined {
+  const d = safeDiagram(region);
+  if (!d) return undefined;
+  const pv = PREFERRED_VIEW[id as MuscleId | StructureId];
+  if (pv && pv.region === region && ((d.parts?.[pv.view] ?? []) as string[]).includes(id)) return pv.view;
+  return (d.views.find((v) => mainParts(d, v.id).includes(id)) ?? d.views.find((v) => ((d.parts?.[v.id] ?? []) as string[]).includes(id)))?.id;
+}
+
 /** Find a region diagram (preferring `regions` order) with a view whose parts include `id`. */
 export function findDiagramFor(id: string, prefer: RegionId[] = []): { region: RegionId; view: string } | null {
   // the illustration owners' choice of the view that shows this part best
@@ -202,23 +230,59 @@ export function RegionFigure({
         }
         return { x0, y0, x1, y1 };
       };
-      const parts = injuredIds.flatMap((id) => [...wrap.querySelectorAll(`[data-part="${CSS.escape(id)}"]`)]);
-      // the diagrams mark the labels of highlighted parts (…is-hl is-injured); keep them in the zoomed frame too
-      const labels = [...wrap.querySelectorAll('.is-hl.is-injured text')];
-      const b = box(parts);
-      const u = box([...parts, ...labels]);
       const cw = canvas.clientWidth;
       const ch = canvas.clientHeight;
-      if (!Number.isFinite(b.x0) || !cw || !ch) return setFocusBox(null);
+      if (!cw || !ch) return setFocusBox(null);
+      const isSmall = (b: { x0: number; y0: number; x1: number; y1: number }) => {
+        const w = b.x1 - b.x0;
+        const h = b.y1 - b.y0;
+        return Number.isFinite(w) && w * h < 0.06 * cw * ch && Math.max(w / cw, h / ch) < 0.4;
+      };
+      const partsOf = (id: string) => [...wrap.querySelectorAll(`[data-part="${CSS.escape(id)}"]`)];
+      const parts = injuredIds.flatMap(partsOf);
+      // the diagrams mark the labels of highlighted parts (…is-hl is-injured); keep them in the zoomed frame too
+      const labelGroups = [...wrap.querySelectorAll('.is-hl.is-injured')].filter((g) => g.querySelector('text'));
+      let b = box(parts);
+      let perPart = false;
+      let labels = labelGroups.flatMap((g) => [...g.querySelectorAll('text')]);
+      if (!isSmall(b)) {
+        // the injured tissue as a whole is large (a big muscle), but one injured part may be tiny (the pubic
+        // symphysis next to adductor longus): zoom onto the smallest such part and its own label
+        let best: { b: ReturnType<typeof box>; id: string } | null = null;
+        for (const id of injuredIds) {
+          const pb = box(partsOf(id));
+          if (!isSmall(pb)) continue;
+          if (!best || (pb.x1 - pb.x0) * (pb.y1 - pb.y0) < (best.b.x1 - best.b.x0) * (best.b.y1 - best.b.y0)) best = { b: pb, id };
+        }
+        if (best) {
+          const pb = best.b;
+          b = pb;
+          perPart = true;
+          // its label: the injured label whose leader starts on (or next to) this part
+          labels = labelGroups
+            .filter((g) => {
+              const dot = g.querySelector('circle, .ldot');
+              if (!dot) return false;
+              const r = dot.getBoundingClientRect();
+              const x = (r.left + r.width / 2 - wr.left) / scale;
+              const y = (r.top + r.height / 2 - wr.top) / scale;
+              return x >= pb.x0 - 12 && x <= pb.x1 + 12 && y >= pb.y0 - 12 && y <= pb.y1 + 12;
+            })
+            .flatMap((g) => [...g.querySelectorAll('text')]);
+        }
+      }
+      const u = box([...(perPart ? [] : parts), ...labels]);
+      const ub = Number.isFinite(u.x0) ? { x0: Math.min(u.x0, b.x0), y0: Math.min(u.y0, b.y0), x1: Math.max(u.x1, b.x1), y1: Math.max(u.y1, b.y1) } : b;
+      if (!Number.isFinite(b.x0)) return setFocusBox(null);
       setFocusBox({
         x: b.x0,
         y: b.y0,
         w: b.x1 - b.x0,
         h: b.y1 - b.y0,
-        ux: Math.max(0, u.x0),
-        uy: Math.max(0, u.y0),
-        uw: Math.min(cw, u.x1) - Math.max(0, u.x0),
-        uh: Math.min(ch, u.y1) - Math.max(0, u.y0),
+        ux: Math.max(0, ub.x0),
+        uy: Math.max(0, ub.y0),
+        uw: Math.min(cw, ub.x1) - Math.max(0, ub.x0),
+        uh: Math.min(ch, ub.y1) - Math.max(0, ub.y0),
         cw,
         ch,
       });
@@ -255,6 +319,7 @@ export function RegionFigure({
   // only worth it when the injured tissue covers a small part of the figure
   const small = !!focusBox && focusBox.w * focusBox.h < 0.06 * focusBox.cw * focusBox.ch && Math.max(focusBox.w / focusBox.cw, focusBox.h / focusBox.ch) < 0.4;
   let zoomStyle: CSSProperties | undefined;
+  let zoomT: { s: number; tx: number; ty: number } | null = null;
   if (zoomed && focusBox && small) {
     // the injured tissue fills ~40% of the frame; zoom less if that would cut off its labels (min 1.5×)
     const f = focusBox;
@@ -269,7 +334,38 @@ export function RegionFigure({
     const tx = Math.min(0, Math.max(focusBox.cw - s * focusBox.cw, focusBox.cw / 2 - s * cx));
     const ty = Math.min(0, Math.max(focusBox.ch - s * focusBox.ch, focusBox.ch / 2 - s * cy));
     zoomStyle = { transform: `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${s.toFixed(3)})` };
+    zoomT = { s, tx, ty };
   }
+  // While zoomed, a label that the canvas edge would cut (「大腿四頭筋腱」 read as 「大腿四頭筋」) is hidden with its
+  // leader line; the labels of the injured parts always stay.
+  const zoomKey = zoomT ? `${zoomT.s}:${zoomT.tx}:${zoomT.ty}` : '';
+  useLayoutEffect(() => {
+    const wrap = zoomRef.current;
+    const canvas = canvasRef.current;
+    if (!wrap || !canvas) return;
+    const groups = [...wrap.querySelectorAll<SVGGElement>('.thk-lab, .tbu-lab')];
+    for (const g of groups) g.removeAttribute('data-cut');
+    if (!zoomT) return;
+    const { s: zs, tx, ty } = zoomT;
+    const cw = canvas.clientWidth;
+    const ch = canvas.clientHeight;
+    const wr = wrap.getBoundingClientRect();
+    // current (possibly mid-transition) scale: positions / scale = unzoomed canvas px
+    const cur = wr.width / Math.max(1, cw) || 1;
+    for (const g of groups) {
+      // the injured tissue's own labels always stay (the zoom frames them); a cut amber one is as unreadable as a faded one
+      if (g.classList.contains('is-injured')) continue;
+      const t = g.querySelector('text');
+      if (!t) continue;
+      const r = t.getBoundingClientRect();
+      const x0 = ((r.left - wr.left) / cur) * zs + tx;
+      const x1 = ((r.right - wr.left) / cur) * zs + tx;
+      const y0 = ((r.top - wr.top) / cur) * zs + ty;
+      const y1 = ((r.bottom - wr.top) / cur) * zs + ty;
+      if (x0 < 1 || y0 < 1 || x1 > cw - 1 || y1 > ch - 1) g.setAttribute('data-cut', '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomKey, shown]);
 
   if (!diagram) {
     return (

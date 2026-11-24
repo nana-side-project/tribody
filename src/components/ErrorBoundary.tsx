@@ -3,7 +3,8 @@ import { Component, type ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
-  fallback?: ReactNode;
+  /** What to show instead; a function gets the error (e.g. to tell a network failure from an unsupported device). */
+  fallback?: ReactNode | ((error: Error) => ReactNode);
   /** Changing this resets the boundary. */
   resetKey?: unknown;
 }
@@ -32,8 +33,10 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.error) {
+      const { fallback } = this.props;
+      if (typeof fallback === 'function') return fallback(this.state.error);
       return (
-        this.props.fallback ?? (
+        fallback ?? (
           <div className="placeholder" role="status">
             <div>
               <strong>表示できませんでした</strong>

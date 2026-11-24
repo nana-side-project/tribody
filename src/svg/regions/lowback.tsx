@@ -17,6 +17,7 @@ import {
   PS,
   Part,
   Rib,
+  att,
   band,
   fpt,
   muscle,
@@ -25,8 +26,10 @@ import {
   spinePost,
   strap,
   tube,
+  oiFrom,
   useCtx,
   vertPost,
+  type OIMap,
   type Ctx,
   type Field,
   type Lab,
@@ -535,6 +538,30 @@ const VIEWS = [
   { id: 'front', label: 'おなか側' },
 ];
 
+/**
+ * 起始 / 停止 markers (muscle page). Back: quadratus lumborum (iliac crest → 12th rib and lumbar transverse
+ * processes); erector spinae from its aponeurosis on the sacrum / iliac crest (it inserts above this crop); multifidus
+ * from the sacrum and the mammillary processes (its sheet's lateral edge) to the spinous processes 2–4 levels up (its
+ * medial edge). Front: rectus abdominis pubis → ribs / sternum; obliques — external from the ribs to its aponeurosis,
+ * internal from the iliac crest / inguinal ligament up to the ribs and aponeurosis. Cross-section: transversus
+ * abdominis from the thoracolumbar fascia (back) round to its aponeurosis at the rectus sheath (front).
+ */
+const OI_LB_BACK: OIMap = {
+  ...oiFrom({ 'quadratus-lumborum': LB.ql, 'erector-spinae': LB.es }, [62, 22, 300, 336]),
+  multifidus: { o: att(LB.multifidus, 'i', [0.35, 0.92]), i: att(LB.multifidus, 'o', [0.15, 0.6]) },
+};
+const OI_LB_FRONT: OIMap = oiFrom(
+  { 'rectus-abdominis': [ABF.ra, ABF.raL], obliques: [ABF.eoA, ABF.io] },
+  [40, 24, 320, 352],
+);
+const secPt = (q: readonly number[]) => T(q[0], q[1]);
+const OI_LB_SEC: OIMap = {
+  'transversus-abdominis': {
+    o: [...att(SMW.taR, 'i', 0.5, 0.97), ...att(SMW.taL, 'i', 0.5, 0.97)].map(secPt),
+    i: [...att(SMW.taR, 'o', 0.5, 0.03), ...att(SMW.taL, 'o', 0.5, 0.03)].map(secPt),
+  },
+};
+
 function LowbackDiagram(p: RegionDiagramProps) {
   const k = useCtx(p);
   const view = p.view === 'side' || p.view === 'front' ? p.view : 'back';
@@ -551,6 +578,7 @@ function LowbackDiagram(p: RegionDiagramProps) {
         spots={[]}
         fade={[26, 30]}
         fadeX={[46, 46]}
+        oi={OI_LB_FRONT}
         defs={(uid) => (
           <>
             <clipPath id={`${uid}-taw`}>
@@ -578,6 +606,7 @@ function LowbackDiagram(p: RegionDiagramProps) {
         cap={['腰の輪切り（上から見た図）', '↑ おなか側']}
         labels={LABELS_SEC}
         spots={SPOTS_SEC}
+        oi={OI_LB_SEC}
         overlay={
           <text className="cap-t" x={W - 8} y={H - 8} textAnchor="end">
             ↓ 背中側
@@ -602,6 +631,7 @@ function LowbackDiagram(p: RegionDiagramProps) {
       spots={SPOTS_BACK}
       fade={[22, 44]}
       fadeX={[62, 60]}
+      oi={OI_LB_BACK}
       defs={(uid) => (
         <clipPath id={`${uid}-tlf`}>
           <path d={TLF_L} />

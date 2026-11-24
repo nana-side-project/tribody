@@ -13,6 +13,7 @@ import {
   muscle,
   sp,
   tube,
+  att,
   useCtx,
   xy,
   type Ctx,
@@ -170,6 +171,7 @@ function KneeFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       h={H}
       title="右膝を前から見た図（左が外側、右が内側）"
       cap={['右膝・前から', '内側 →']}
+      oi={{ 'vastus-medialis': { i: att(KFM.vm, 'i', [0.62, 0.88]) } }}
       labels={labels}
       spots={spots}
       fade={{ top: 34, bottom: 40 }}
@@ -598,6 +600,7 @@ function KneeMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       h={H}
       title="右膝を内側から見た図（左が膝の前）"
       cap={['← 前', '右膝・内側から']}
+      oi={{ 'vastus-medialis': { i: att(KMM.vm, 'i', [0.62, 0.88]) } }}
       labels={labels}
       spots={spots}
       fade={{ top: 34, bottom: 40 }}

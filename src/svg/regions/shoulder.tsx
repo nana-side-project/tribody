@@ -10,6 +10,9 @@
 import { createContext, useContext, useId, type KeyboardEvent, type ReactNode } from 'react';
 import { MUSCLES, PAIN_SPOTS, STRUCTURES, type MuscleId, type PainSpotId, type StructureId } from '../../data/registry';
 import type { Highlights, RegionDiagram, RegionDiagramProps } from '../types';
+import { OILegend, OIMarks, OI_CSS, OI_LEG_H, oiDots, type OIMap } from './markers';
+
+export type { OI, OIMap } from './markers';
 
 /* ══════════════════════════════════ geometry ══════════════════════════════════ */
 
@@ -241,6 +244,8 @@ export interface MuscleSpec extends Field {
   seams?: number[];
 }
 export interface MuscleGeo {
+  /** the muscle surface (u across, s origin → insertion): attachment points via `att` */
+  surf: Surf;
   /** outline (for the stroke) */
   body: string;
   /** fill: the outline, or (when neighbouring fibres cross) separate thin strips — no winding holes */
@@ -343,6 +348,7 @@ function geoOf(m: Field | Surf, o: { t0?: Num; t1?: Num; n?: number; seams?: num
   const K = 16;
   const fill = crosses(S) ? Array.from({ length: K }, (_, j) => band(m, j / K - 0.004, (j + 1) / K + 0.004, t0, t1, 2, 14)) : [body];
   return {
+    surf: S,
     body,
     fill,
     ten,
@@ -353,6 +359,37 @@ function geoOf(m: Field | Surf, o: { t0?: Num; t1?: Num; n?: number; seams?: num
     hi: band(m, 0.3, 0.55, t0, t1, 8),
     seam,
   };
+}
+
+/**
+ * Points on the origin (s = 0) or insertion (s = 1) end of a muscle, at fibre position(s) u across it — for the
+ * 起始 / 停止 markers (Frame `oi`). Only use an end that is a real attachment in that view (not a cut or a crop).
+ */
+export function att(g: MuscleGeo, end: 'o' | 'i', us: number | readonly number[] = 0.5, s?: number): XY[] {
+  const at = s ?? (end === 'o' ? 0 : 1);
+  return (typeof us === 'number' ? [us] : us).map((u) => g.surf(u, at));
+}
+
+/**
+ * 起始 / 停止 markers from the two ends of muscles (`att`, mid-fibre, or the fibre positions `us`) for one view. An
+ * end outside `box` ([x0, y0, x1, y1]: the part of the view that is not cropped or faded) is left out, so a muscle
+ * that runs off the drawing gets no dot there. Override the muscles whose end is not their real attachment.
+ */
+export function oiFrom(
+  geos: Partial<Record<PartId, MuscleGeo | readonly MuscleGeo[]>>,
+  box: readonly [number, number, number, number],
+  /** fibre positions of the origin dots (broad origins: several dots along the origin line) */
+  us: Partial<Record<PartId, readonly number[]>> = {},
+): OIMap {
+  const inBox = (p: readonly number[]) => p[0] >= box[0] && p[0] <= box[2] && p[1] >= box[1] && p[1] <= box[3];
+  const out: OIMap = {};
+  for (const [id, g] of Object.entries(geos) as [PartId, MuscleGeo | readonly MuscleGeo[]][]) {
+    const list: readonly MuscleGeo[] = Array.isArray(g) ? g : [g as MuscleGeo];
+    const o = list.flatMap((x) => att(x, 'o', us[id] ?? 0.5)).filter(inBox);
+    const i = list.flatMap((x) => att(x, 'i')).filter(inBox);
+    if (o.length || i.length) out[id] = { o, i };
+  }
+  return out;
 }
 
 /* ══════════════════════════════════ styles ══════════════════════════════════ */
@@ -409,7 +446,7 @@ export const KIT_CSS = `
 .tbu .nucleus { fill: color-mix(in srgb, var(--bursa) 55%, var(--rd-cart)); stroke: color-mix(in srgb, var(--bursa) 50%, #102a44); stroke-width: .6; }
 .tbu .nerve { fill: var(--nerve); stroke: color-mix(in srgb, var(--nerve) 55%, #4a3600); stroke-width: .6; }
 .tbu .inset-bg { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
-.tbu .cap-t { font-size: ${CAP_FS}px; fill: var(--text-2); opacity: .8; font-weight: 600; letter-spacing: .02em; paint-order: stroke; stroke: var(--surface); stroke-width: 3.2px; stroke-linejoin: round; }
+.tbu .cap-t { font-size: ${CAP_FS}px; fill: var(--text-2); opacity: .85; font-weight: 600; letter-spacing: .02em; paint-order: stroke; stroke: var(--surface); stroke-width: 3.2px; stroke-linejoin: round; }
 .tbu .note-t { font-size: ${CAP_FS}px; fill: var(--text-2); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3.2px; stroke-linejoin: round; }
 
 .tbu .drop { fill: #1a0503; opacity: .2; stroke: none; }
@@ -460,13 +497,14 @@ export const KIT_CSS = `
 .tbu-lab .ld { fill: none; stroke: var(--text-2); stroke-width: .75; opacity: .65; }
 .tbu-lab .ldot { fill: var(--text-2); opacity: .85; }
 .tbu-lab .lhit { fill: transparent; }
-.tbu-lab.is-ctx text { fill: var(--text-2); opacity: .8; font-weight: 400; }
+/* context names and the names of faded parts stay readable (≥ 4.5:1): the shapes fade, the names only turn lighter */
+.tbu-lab.is-ctx text, .tbu-lab.is-dim text { fill: var(--text-3); font-weight: 400; }
 .tbu-lab.is-hl text { fill: var(--text); font-weight: 700; }
 .tbu-lab.is-injured text { fill: var(--injured); font-weight: 700; }
 .tbu-lab.is-injured .ld, .tbu-lab.is-injured .ldot { stroke: var(--injured); fill: var(--injured); opacity: 1; }
 .tbu-lab.is-involved text { fill: color-mix(in srgb, var(--rd-amber) 62%, var(--text)); font-weight: 700; }
 .tbu-lab.is-involved .ld, .tbu-lab.is-involved .ldot { stroke: var(--rd-amber); fill: var(--rd-amber); opacity: 1; }
-.tbu-lab.is-dim { opacity: .3; }
+.tbu-lab.is-dim .ld, .tbu-lab.is-dim .ldot { opacity: .3; }
 
 /* pain-spot hotspots: white target markers so they read on red muscle and grey bone */
 .tbu-spot { cursor: pointer; outline: none; }
@@ -715,14 +753,17 @@ export interface FrameProps {
   fadeX?: [number, number];
   /** extra <defs> (masks / clip paths), given the diagram's unique id prefix */
   defs?: (uid: string) => ReactNode;
+  /** 起始 / 停止 markers per muscle (drawn for the 'selected' one, with a legend strip under the drawing) */
+  oi?: OIMap;
 }
 
 /** Root <svg> of a region diagram: styles, glow filter, drawing, labels, hotspots. */
-export function Frame({ k, p, w, h, title, cap, labels, spots, children, overlay, fade, fadeX, defs }: FrameProps) {
+export function Frame({ k, p, w, h, title, cap, labels, spots, children, overlay, fade, fadeX, defs, oi }: FrameProps) {
   const showLabels = p.showLabels ?? true;
+  const dots = oiDots(oi, k.hl);
   return (
     <svg
-      viewBox={`0 0 ${w} ${h}`}
+      viewBox={`0 0 ${w} ${dots.length ? h + OI_LEG_H : h}`}
       className={`tbu${p.className ? ` ${p.className}` : ''}`}
       role="group"
       aria-label={title}
@@ -730,6 +771,7 @@ export function Frame({ k, p, w, h, title, cap, labels, spots, children, overlay
     >
       <title>{title}</title>
       <style>{KIT_CSS}</style>
+      {dots.length > 0 && <style>{OI_CSS}</style>}
       <defs>
         <filter id={`${k.uid}-glow`} x="-40%" y="-40%" width="180%" height="180%">
           <feGaussianBlur stdDeviation="3.2" />
@@ -771,6 +813,8 @@ export function Frame({ k, p, w, h, title, cap, labels, spots, children, overlay
         </g>
       </g>
       <UidCtx.Provider value={k.uid}>{overlay}</UidCtx.Provider>
+      <OIMarks dots={dots} />
+      {dots.length > 0 && <OILegend w={w} y={h} dots={dots} className="note-t" />}
       {cap && (
         <g aria-hidden="true">
           <text className="cap-t" x={8} y={14}>
@@ -1374,6 +1418,49 @@ const VIEWS = [
   { id: 'back-deep', label: '後ろ・深層' },
 ];
 
+/** what the shoulder views show uncropped (top / bottom fades) */
+const BOX_SH = [4, 30, 356, 376] as const;
+/**
+ * 起始 / 停止 markers (muscle page), from the muscle ends inside each view (oiFrom). Front views: the biceps long head
+ * starts above the joint where its tendon ends (the short head on the coracoid); the serratus slips start on the ribs
+ * and end on the scapula behind them (not visible from the front); the supraspinatus and latissimus are seen only at
+ * their insertions. Back views: the broad trapezius and latissimus get dots along their origin lines.
+ */
+const OI_SH_FRONT: OIMap = {
+  ...oiFrom({ 'pectoralis-major': MF.pecMajor, deltoid: MF.deltoid, trapezius: MF.trap, 'latissimus-dorsi': MF.lat }, BOX_SH),
+  'serratus-anterior': { o: SERRATUS.flatMap((g) => att(g, 'o')) },
+  'biceps-brachii': { o: [[153, 87], ...att(MF.biShort, 'o')] },
+};
+const OI_SH_DEEP: OIMap = {
+  ...oiFrom({ subscapularis: MF.subscap, 'pectoralis-minor': MF.pecMinor, trapezius: MF.trap, 'latissimus-dorsi': MF.lat }, BOX_SH),
+  supraspinatus: { i: att(MF.supra, 'i') },
+  'serratus-anterior': { o: SERRATUS.flatMap((g) => att(g, 'o')) },
+  'biceps-brachii': { o: [[153, 87], ...att(MF.biShort, 'o')] },
+};
+const OI_SH_BACK: OIMap = oiFrom(
+  {
+    'latissimus-dorsi': MB.lat,
+    'triceps-brachii': [MB.triLat, MB.triLong],
+    'teres-minor': MB.tminor,
+    infraspinatus: MB.infra,
+    trapezius: MB.trap,
+    deltoid: MB.deltoid,
+  },
+  BOX_SH,
+  { 'latissimus-dorsi': [0.15, 0.5], trapezius: [0.2, 0.55, 0.9] },
+);
+const OI_SH_BACK_DEEP: OIMap = oiFrom(
+  {
+    'triceps-brachii': [MB.triLat, MB.triLong],
+    'teres-minor': MB.tminor,
+    infraspinatus: MB.infra,
+    supraspinatus: MB.supra,
+    'levator-scapulae': MB.levator,
+    rhomboids: [MB.rhMinor, MB.rhMajor],
+  },
+  BOX_SH,
+);
+
 function ShoulderDiagram(p: RegionDiagramProps) {
   const k = useCtx(p);
   const view = VIEWS.some((v) => v.id === p.view) ? (p.view as string) : 'front';
@@ -1391,6 +1478,7 @@ function ShoulderDiagram(p: RegionDiagramProps) {
         spots={SPOTS_FRONT}
         overlay={deep ? <GlenoidInset k={k} /> : undefined}
         fade={[34, 46]}
+        oi={deep ? OI_SH_DEEP : OI_SH_FRONT}
       >
         <FrontView k={k} deep={deep} />
       </Frame>
@@ -1408,6 +1496,7 @@ function ShoulderDiagram(p: RegionDiagramProps) {
       labels={deep ? LABELS_BACK_DEEP : LABELS_BACK}
       spots={SPOTS_BACK}
       fade={[30, 46]}
+      oi={deep ? OI_SH_BACK_DEEP : OI_SH_BACK}
     >
       <BackView k={k} deep={deep} />
     </Frame>

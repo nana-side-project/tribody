@@ -12,6 +12,10 @@
 import { useId, type KeyboardEvent, type ReactNode } from 'react';
 import { MUSCLES, PAIN_SPOTS, STRUCTURES, type MuscleId, type PainSpotId, type StructureId } from '../../data/registry';
 import type { Highlights, RegionDiagram, RegionDiagramProps } from '../types';
+import { OILegend, OIMarks, OI_CSS, OI_LEG_H, oiDots, type OIMap } from './markers';
+
+
+export type { OI, OIMap } from './markers';
 
 /* ═════════════════════════════════════ geometry ═════════════════════════════════════ */
 
@@ -120,6 +124,21 @@ export function tube(center: readonly P[], w: Num, n = 24, cap = 0.6): string {
   return sp([...L, end(1, 1), ...R.reverse(), end(0, -1)], true);
 }
 
+/**
+ * The stretch u ∈ [u0, u1] of a tube (same centre line and widths as `tube(c, w)`), e.g. one zone of a tendon. `cap`
+ * rounds its ends (0 = square).
+ */
+export function tubePart(c: readonly P[], w: Num, u0: number, u1: number, cap = 0.25, n = 14): string {
+  const pts: P[] = [];
+  const ws: number[] = [];
+  for (let j = 0; j <= n; j++) {
+    const u = u0 + ((u1 - u0) * j) / n;
+    pts.push(crAt(c, u));
+    ws.push(numAt(w, u, 4));
+  }
+  return tube(pts, ws, 2 * n, cap);
+}
+
 /** Centre line of a tube (for fibre / texture lines). */
 export const line = (pts: readonly P[]) => sp(pts, false);
 
@@ -218,6 +237,8 @@ function pennate(S: Sheet, n: number, s0: number, s1: number, mode: 'bi' | 'uni'
 }
 
 export interface MuscleGeo {
+  /** the sheet it was made from (attachment points: `att`) */
+  sheet: Sheet;
   body: string;
   ten: string[];
   tenFib: string;
@@ -274,6 +295,7 @@ export function muscle(S: Sheet): MuscleGeo {
     fibL = fibres(S, n, t0, t1, 0, 0.07);
   }
   return {
+    sheet: S,
     body: band(S, 0, 1, t0, t1),
     ten,
     tenFib,
@@ -286,6 +308,34 @@ export function muscle(S: Sheet): MuscleGeo {
   };
 }
 
+/* ── 起始 / 停止 markers (muscle page) ── */
+
+/**
+ * Points on the origin (s = 0) or insertion (s = 1) end of a muscle sheet, at fibre position(s) u across it — for the
+ * 起始 / 停止 markers (Frame `oi`). Only use an end that is a real attachment in that view (not a cut or a crop).
+ */
+export function att(g: MuscleGeo, end: 'o' | 'i', us: number | readonly number[] = 0.5, s?: number): XY[] {
+  const at = s ?? (end === 'o' ? 0 : 1);
+  return (typeof us === 'number' ? [us] : us).map((u) => spt(g.sheet, u, at));
+}
+
+/**
+ * 起始 / 停止 markers from the two ends of muscle sheets (`att`, mid-fibre) for one view. An end outside `box`
+ * ([x0, y0, x1, y1]: the part of the view that is not cropped or faded) is left out, so a muscle that runs off the
+ * drawing gets no dot there. Override the muscles whose sheet end is not their real attachment in that view.
+ */
+export function oiFrom(geos: Partial<Record<PartId, MuscleGeo | readonly MuscleGeo[]>>, box: readonly [number, number, number, number]): OIMap {
+  const inBox = (p: readonly number[]) => p[0] >= box[0] && p[0] <= box[2] && p[1] >= box[1] && p[1] <= box[3];
+  const out: OIMap = {};
+  for (const [id, g] of Object.entries(geos) as [PartId, MuscleGeo | readonly MuscleGeo[]][]) {
+    const list: readonly MuscleGeo[] = Array.isArray(g) ? g : [g as MuscleGeo];
+    const o = list.flatMap((x) => att(x, 'o')).filter(inBox);
+    const i = list.flatMap((x) => att(x, 'i')).filter(inBox);
+    if (o.length || i.length) out[id] = { o, i };
+  }
+  return out;
+}
+
 /* ═════════════════════════════════════ styles ═════════════════════════════════════ */
 
 const DARK = `
@@ -293,7 +343,8 @@ const DARK = `
   --k-hi-o: .05; --k-mus-ink: color-mix(in srgb, var(--muscle) 52%, #000); --k-ten-ink: color-mix(in srgb, var(--tendon) 52%, #000);
   --k-bone-sh: #000; --k-bone-sh-o: .18; --k-body: color-mix(in srgb, var(--surface-2) 70%, var(--surface));
   --k-ctx: color-mix(in srgb, var(--muscle) 46%, var(--surface)); --k-cut: color-mix(in srgb, var(--muscle) 70%, #fff);
-  --k-fat: color-mix(in srgb, var(--nerve) 42%, #6a6258);`;
+  --k-fat: color-mix(in srgb, var(--nerve) 42%, #6a6258);
+  --k-zten: color-mix(in srgb, var(--injured) 20%, color-mix(in srgb, var(--tendon) 68%, var(--surface)));`;
 
 /** caption / inset-note font size in user units: same as labels, so ≥ 11 CSS px on a 360 px phone (figure ≈ 302 px wide) */
 export const CAP_FS = 13.25;
@@ -305,6 +356,8 @@ export const KIT_CSS = `
   --k-inj-ink: color-mix(in srgb, var(--injured) 70%, #000); --k-body: color-mix(in srgb, var(--surface-2) 55%, var(--surface));
   --k-ctx: color-mix(in srgb, var(--muscle) 40%, var(--surface)); --k-cut: color-mix(in srgb, var(--muscle) 55%, #fff);
   --k-fat: color-mix(in srgb, var(--nerve) 30%, #fff);
+  --k-zmus: color-mix(in srgb, var(--injured) 34%, var(--surface)); --k-zten: color-mix(in srgb, var(--injured) 22%, var(--tendon));
+  --k-zbone: color-mix(in srgb, var(--injured) 22%, var(--bone)); --k-zink: color-mix(in srgb, var(--injured) 72%, var(--text));
   display: block; width: 100%; height: auto; max-width: 480px; margin: 0 auto; overflow: hidden;
   font-family: inherit; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
   touch-action: manipulation; }
@@ -362,8 +415,18 @@ export const KIT_CSS = `
 .thk-halo { pointer-events: none; opacity: .5; animation: thk-pulse 1.9s ease-in-out infinite; }
 .thk-halo * { fill: var(--injured) !important; stroke: var(--injured) !important; stroke-width: 5px !important; opacity: 1 !important; fill-opacity: 1 !important; }
 /* open texture lines must not be force-filled in the glow copy (they would fill into wedges on curved parts) */
-.thk .thk-halo :is(.fib, .fib-l, .ten-fib, .bone-ln, .nerve-ln, .seam, .raphe, .hi, .shade, .rim, .rimc, .rim-t, .ghost) { display: none !important; }
+.thk .thk-halo :is(.fib, .fib-l, .ten-fib, .bone-ln, .nerve-ln, .seam, .raphe, .hi, .shade, .rim, .rimc, .rim-t, .ghost, .crack) { display: none !important; }
 @keyframes thk-pulse { 0%, 100% { opacity: .22; } 50% { opacity: .8; } }
+/* focal lesion (Part zone prop): the injured part itself light red without glow, only its lesion zone full red with the
+   glow and pulse — a stress-fracture crack, one stretch of a tendon (see lesionsOf) */
+.thk .is-injured .thk-zrest :is(.mus, .cutf) { fill: var(--k-zmus); stroke: var(--k-zink); }
+.thk .is-injured .thk-zrest :is(.ten, .lig, .cap, .fascia, .fascia-t) { fill: var(--k-zten); stroke: var(--k-zink); fill-opacity: 1; }
+.thk .is-injured .thk-zrest :is(.bone, .bone-t) { fill: var(--k-zbone); stroke: var(--k-zink); fill-opacity: 1; }
+.thk .is-injured .thk-zrest .ol { stroke: var(--k-zink); stroke-width: 1; }
+.thk .is-injured .thk-zrest :is(.fib, .ten-fib, .bone-ln, .raphe) { stroke: var(--k-zink); opacity: .3; }
+.thk .is-injured .thk-zrest .fib-l { opacity: .12; }
+.thk .is-injured .thk-zrest .hi { opacity: var(--k-hi-o); }
+.thk .crack { fill: none; stroke: #fff; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: .92; }
 .thk .is-involved .mus { fill: color-mix(in srgb, var(--muscle) 72%, var(--k-amber)); }
 .thk .is-involved .ol { stroke: var(--k-amber); stroke-width: 1.7; }
 .thk .is-involved :is(.bone, .bone-t, .cart, .labrum) { fill: color-mix(in srgb, var(--bone) 70%, var(--k-amber)); stroke: var(--k-amber); stroke-width: 1.7; }
@@ -382,7 +445,8 @@ export const KIT_CSS = `
 .thk-lab .ld { fill: none; stroke: var(--text-2); stroke-width: .75; opacity: .65; }
 .thk-lab .ldot { fill: var(--text-2); opacity: .85; }
 .thk-lab .lhit { fill: transparent; }
-.thk-lab.is-ctx text { opacity: .8; font-weight: 400; }
+/* context names and the names of faded parts stay readable (≥ 4.5:1): the shapes fade, the names only turn lighter */
+.thk-lab.is-ctx text, .thk-lab.is-dim text { fill: var(--text-3); font-weight: 400; }
 .thk-lab.is-hl text { fill: var(--text); font-weight: 700; }
 .thk-lab.is-injured text { fill: var(--injured); }
 .thk-lab.is-injured :is(.ld, .ldot) { stroke: var(--injured); fill: var(--injured); opacity: 1; }
@@ -390,7 +454,7 @@ export const KIT_CSS = `
 .thk-lab.is-involved text { fill: color-mix(in srgb, var(--k-amber) 62%, var(--text)); }
 .thk-lab.is-involved :is(.ld, .ldot) { stroke: var(--k-amber); fill: var(--k-amber); opacity: 1; }
 .thk-lab.is-involved .ld { fill: none; }
-.thk-lab.is-dim { opacity: .3; }
+.thk-lab.is-dim :is(.ld, .ldot) { opacity: .3; }
 
 /* pain-spot hotspots */
 /* same marker as the upper-body kit (shoulder.tsx): white-ringed dot that reads on red muscle and grey bone in both themes */
@@ -422,18 +486,45 @@ const NAME = new Map<string, string>([
 const SPOT_NAME = new Map<string, string>(PAIN_SPOTS.map((s) => [s.id, s.ja] as [string, string]));
 export const partName = (id: PartId) => NAME.get(id) ?? id;
 
+/**
+ * Focal lesions: where IN an injured part the damage sits, when that place is the message — the same zones as the 3D
+ * condition scenes (src/three/scenes.ts `zones`). The part is then drawn light red and only the zone full red with the
+ * glow (Part `zone`). The region figure only gets the highlight set, so the lesion is read from it; each rule matches
+ * exactly one condition of the current content:
+ *   'achilles-mid'        Achilles tendon injured, no retrocalcaneal bursa → 2–6 cm above the insertion (achilles-midportion)
+ *   'achilles-insertion'  Achilles tendon injured with the retrocalcaneal bursa → where it meets the heel bone (achilles-insertional)
+ *   'tibia-stress'        tibia injured → one point, posteromedial distal third (tibial-stress-fracture; MTSS keeps it 'involved')
+ *   'metatarsal-stress'   metatarsals injured → 2nd / 3rd shaft–neck (metatarsal-stress-fracture; Morton's keeps them 'involved')
+ *   'plantar-origin'      plantar fascia injured → its origin on the heel bone (plantar-heel-pain)
+ *   'calf-strain'         gastrocnemius AND soleus injured → lower end of the medial head + lower half of the soleus
+ *                         (calf-strain; muscle-cramps has only the gastrocnemius red: the whole muscle cramps)
+ */
+export type Lesion = 'achilles-mid' | 'achilles-insertion' | 'tibia-stress' | 'metatarsal-stress' | 'plantar-origin' | 'calf-strain';
+
+export function lesionsOf(hl: Highlights): ReadonlySet<Lesion> {
+  const s = new Set<Lesion>();
+  if (hl['achilles-tendon'] === 'injured') s.add(hl['retrocalcaneal-bursa'] ? 'achilles-insertion' : 'achilles-mid');
+  if (hl.tibia === 'injured') s.add('tibia-stress');
+  if (hl.metatarsals === 'injured') s.add('metatarsal-stress');
+  if (hl['plantar-fascia'] === 'injured') s.add('plantar-origin');
+  if (hl.gastrocnemius === 'injured' && hl.soleus === 'injured') s.add('calf-strain');
+  return s;
+}
+
 export interface Ctx {
   uid: string;
   hl: Highlights;
   dim: boolean;
   onPart?: (id: PartId) => void;
+  /** focal lesions of the shown highlight set (see lesionsOf) */
+  les: ReadonlySet<Lesion>;
 }
 
 export function useCtx(p: RegionDiagramProps): Ctx {
   const raw = useId();
   const uid = `thk${raw.replace(/[^a-zA-Z0-9]/g, '')}`;
   const hl = p.highlights ?? {};
-  return { uid, hl, dim: !!p.dimOthers && Object.keys(hl).length > 0, onPart: p.onPartSelect };
+  return { uid, hl, dim: !!p.dimOthers && Object.keys(hl).length > 0, onPart: p.onPartSelect, les: lesionsOf(hl) };
 }
 
 const keyAct = (fn: () => void) => (e: KeyboardEvent) => {
@@ -443,10 +534,16 @@ const keyAct = (fn: () => void) => (e: KeyboardEvent) => {
   }
 };
 
-/** A tappable anatomical part (muscle / structure) carrying data-part="<id>". */
-export function Part({ k, id, children }: { k: Ctx; id: PartId; children: ReactNode }) {
+/**
+ * A tappable anatomical part (muscle / structure) carrying data-part="<id>". `zone`: the focal lesion inside it (drawn
+ * with the same classes as the part, e.g. a stretch of tendon, a crack) — when the part is injured and a zone is given,
+ * the part is drawn light red and only the zone full red with the glow.
+ */
+export function Part({ k, id, zone, zoned: elsewhere = false, children }: { k: Ctx; id: PartId; zone?: ReactNode; zoned?: boolean; children: ReactNode }) {
   const role = k.hl[id];
-  const cls = `thk-part${role ? ` is-${role}` : ''}${k.dim && !role ? ' is-dim' : ''}`;
+  // `zoned` without a zone: the lesion is drawn by a <Lesion> further up the drawing order (over other parts)
+  const zoned = role === 'injured' && (!!zone || elsewhere);
+  const cls = `thk-part${role ? ` is-${role}` : ''}${zoned ? ' is-zoned' : ''}${k.dim && !role ? ' is-dim' : ''}`;
   const on = k.onPart;
   return (
     <g
@@ -459,12 +556,42 @@ export function Part({ k, id, children }: { k: Ctx; id: PartId; children: ReactN
       onKeyDown={on ? keyAct(() => on(id)) : undefined}
     >
       <title>{partName(id)}</title>
-      {role === 'injured' && (
-        <g className="thk-halo" filter={`url(#${k.uid}-glow)`} aria-hidden="true">
+      {zoned ? (
+        <>
+          {!!zone && (
+            <g className="thk-halo" filter={`url(#${k.uid}-glow)`} aria-hidden="true">
+              {zone}
+            </g>
+          )}
+          <g className="thk-zrest">{children}</g>
+          {!!zone && <g className="thk-zone">{zone}</g>}
+        </>
+      ) : (
+        <>
+          {role === 'injured' && (
+            <g className="thk-halo" filter={`url(#${k.uid}-glow)`} aria-hidden="true">
+              {children}
+            </g>
+          )}
           {children}
-        </g>
+        </>
       )}
-      {children}
+    </g>
+  );
+}
+
+/**
+ * The focal lesion of an injured part drawn on a layer of its own, above parts drawn after that part (e.g. a crack in
+ * the tibia over the periosteum strip of the medial border). Pair it with <Part zoned>. Not tappable.
+ */
+export function Lesion({ k, id, children }: { k: Ctx; id: PartId; children: ReactNode }) {
+  if (k.hl[id] !== 'injured') return null;
+  return (
+    <g data-part={id} className="thk-part is-injured is-zoned thk-lesion" aria-hidden="true" style={{ pointerEvents: 'none' }}>
+      <g className="thk-halo" filter={`url(#${k.uid}-glow)`}>
+        {children}
+      </g>
+      <g className="thk-zone">{children}</g>
     </g>
   );
 }
@@ -670,17 +797,20 @@ export interface FrameProps {
   defs?: ReactNode;
   /** soft fade-out of the cropped limb at the top / bottom edge (user units) */
   fade?: { top?: number; bottom?: number };
+  /** 起始 / 停止 markers per muscle (drawn for the 'selected' one, with a legend strip under the drawing) */
+  oi?: OIMap;
 }
 
 /** Root <svg> of a region diagram: styles, glow filter, drawing, labels, hotspots. */
-export function Frame({ k, p, w, h, title, cap, labels, spots, children, overlay, defs, fade }: FrameProps) {
+export function Frame({ k, p, w, h, title, cap, labels, spots, children, overlay, defs, fade, oi }: FrameProps) {
   const showLabels = p.showLabels ?? true;
   const ft = fade?.top ?? 0;
   const fb = fade?.bottom ?? 0;
   const hasFade = ft > 0 || fb > 0;
+  const dots = oiDots(oi, k.hl);
   return (
     <svg
-      viewBox={`0 0 ${w} ${h}`}
+      viewBox={`0 0 ${w} ${dots.length ? h + OI_LEG_H : h}`}
       className={`thk${p.className ? ` ${p.className}` : ''}`}
       role="group"
       aria-label={title}
@@ -688,6 +818,7 @@ export function Frame({ k, p, w, h, title, cap, labels, spots, children, overlay
     >
       <title>{title}</title>
       <style>{KIT_CSS}</style>
+      {dots.length > 0 && <style>{OI_CSS}</style>}
       <defs>
         <filter id={`${k.uid}-glow`} x="-40%" y="-40%" width="180%" height="180%">
           <feGaussianBlur stdDeviation="3.2" />
@@ -709,6 +840,8 @@ export function Frame({ k, p, w, h, title, cap, labels, spots, children, overlay
       </defs>
       <g mask={hasFade ? `url(#${k.uid}-fade)` : undefined}>{children}</g>
       {overlay}
+      <OIMarks dots={dots} />
+      {dots.length > 0 && <OILegend w={w} y={h} dots={dots} className="note-t" />}
       {cap && (
         <g aria-hidden="true">
           <text className="cap-t" x={8} y={14}>
@@ -976,6 +1109,28 @@ function hipSection(c: XY) {
     capM: tube(T([[33, 18], [22, 26], [10, 31], [-2, 37]]), 3.6),
   };
 }
+/** what the hip views show uncropped (top / bottom fades) */
+const BOX_HIP = [4, 24, 356, 420] as const;
+/** 起始 / 停止 markers (muscle page): the sheet ends inside the view; see oiFrom. */
+const OI_FRONT: OIMap = oiFrom(
+  {
+    'adductor-magnus': FM.amag,
+    iliopsoas: [FM.iliacus, FM.psoas],
+    'adductor-longus': FM.alon,
+    gracilis: FM.grac,
+    'vastus-lateralis': FM.vl,
+    'gluteus-medius': FM.gmed,
+    'rectus-femoris': FM.rf,
+    'tensor-fasciae-latae': FM.tfl,
+    sartorius: FM.sart,
+    'rectus-abdominis': FM.ra,
+  },
+  BOX_HIP,
+);
+// vastus lateralis: a pennate field whose s runs ACROSS the thigh — it starts along the femur (below the greater
+// trochanter, down the linea aspera) and inserts through the quadriceps tendon on the kneecap (below these views)
+OI_FRONT['vastus-lateralis'] = { o: att(FM.vl, 'o', [0.04, 0.42]) };
+
 function HipFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const IC: XY = [54, 412];
   const IR = 46;
@@ -1013,6 +1168,7 @@ function HipFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       labels={labels}
       spots={spots}
       fade={{ top: 28, bottom: 46 }}
+      oi={OI_FRONT}
       overlay={
         <>
           <Ctxt k={k}>
@@ -1226,6 +1382,22 @@ const BM = {
 const ITB_B: P[] = [[246, 150], [250, 200], [248, 260], [244, 330], [240, 400], [236, 480]];
 const ITB_BW = [20, 26, 22, 16, 14, 13];
 
+/** 起始 / 停止 markers (muscle page): the sheet ends inside the view; see oiFrom. */
+const OI_BACK: OIMap = oiFrom(
+  {
+    'adductor-magnus': BM.amag,
+    gracilis: BM.grac,
+    semimembranosus: BM.sm,
+    'vastus-lateralis': BM.vl,
+    'biceps-femoris': BM.bf,
+    semitendinosus: BM.st,
+    'gluteus-medius': BM.gmed,
+    'gluteus-maximus': BM.gmax,
+  },
+  BOX_HIP,
+);
+OI_BACK['vastus-lateralis'] = { o: att(BM.vl, 'o', [0.04, 0.42]) };
+
 function HipBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const labels: Lab[] = [
     { t: '仙骨', at: [84, 112], x: 58, y: 104, a: 'end' },
@@ -1255,6 +1427,7 @@ function HipBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       labels={labels}
       spots={spots}
       fade={{ top: 20, bottom: 46 }}
+      oi={OI_BACK}
     >
       <Ctxt k={k}>
         <path className="body" d={BK.body} />
@@ -1347,6 +1520,23 @@ const GMED_HOLE = ell(192, 133, 31, 17, -12);
 const SACROTUB: P[] = [[103, 150], [106, 176], [110, 204], [116, 232]];
 const SCIATIC: P[] = [[136, 150], [142, 172], [150, 196], [156, 222], [160, 252], [164, 292], [166, 340], [164, 400], [160, 490]];
 
+/** 起始 / 停止 markers (muscle page): the sheet ends inside the view; see oiFrom. */
+const OI_DEEP: OIMap = oiFrom(
+  {
+    'vastus-lateralis': BM.vl,
+    'adductor-magnus': [DM.amin, BM.amag],
+    gracilis: BM.grac,
+    semimembranosus: BM.sm,
+    'gluteus-minimus': DM.gmin,
+    'gluteus-medius': BM.gmed,
+    piriformis: DM.pir,
+    semitendinosus: DM.st,
+    'biceps-femoris': DM.bf,
+  },
+  BOX_HIP,
+);
+OI_DEEP['vastus-lateralis'] = { o: att(BM.vl, 'o', [0.04, 0.42]) };
+
 function HipDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const hole = `${k.uid}-gmh`;
   const labels: Lab[] = [
@@ -1384,6 +1574,7 @@ function HipDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       labels={labels}
       spots={spots}
       fade={{ top: 20, bottom: 46 }}
+      oi={OI_DEEP}
       defs={<HoleMask id={hole} d={GMED_HOLE} w={W} h={H} />}
     >
       <Ctxt k={k}>
@@ -1554,6 +1745,22 @@ const SM2 = {
 const ITB_S: P[] = [[183, 194], [184, 260], [185, 330], [185, 400], [186, 480]];
 const WIN_S = ell(172, 222, 26, 37, -4);
 
+/** 起始 / 停止 markers (muscle page): the sheet ends inside the view; see oiFrom. */
+const OI_SIDE: OIMap = oiFrom(
+  {
+    'vastus-lateralis': SM2.vl,
+    'rectus-femoris': SM2.rf,
+    'biceps-femoris': SM2.bf,
+    'gluteus-medius': SM2.gmed,
+    'gluteus-maximus': SM2.gmax,
+    'tensor-fasciae-latae': SM2.tfl,
+  },
+  BOX_HIP,
+);
+OI_SIDE['vastus-lateralis'] = { o: att(SM2.vl, 'o', [0.04, 0.42]) };
+// the long head of biceps femoris comes out from under gluteus maximus here: its origin (ischial tuberosity) is hidden
+delete OI_SIDE['biceps-femoris'];
+
 function HipSide({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const win = `${k.uid}-sw`;
   const labels: Lab[] = [
@@ -1581,6 +1788,7 @@ function HipSide({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       labels={labels}
       spots={spots}
       fade={{ top: 20, bottom: 46 }}
+      oi={OI_SIDE}
       defs={
         <clipPath id={win}>
           <path d={WIN_S} />

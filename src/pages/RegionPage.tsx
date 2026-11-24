@@ -30,13 +30,10 @@ import {
   structureName,
 } from '../lib/labels';
 import { useRememberedView } from '../lib/useRememberedView';
+import { regionViewer } from '../lib/viewerHighlights';
 import NotFoundPage from './NotFoundPage';
 
 const STRUCTURES_PREVIEW = 4;
-
-/** Key muscles listed for a region whose belly lies outside that region's 3D crop although their data names the
- *  region (大腿筋膜張筋 reaches the knee only through the iliotibial band): selecting one frames its first region. */
-const BELLY_ELSEWHERE: Partial<Record<RegionId, MuscleId[]>> = { knee: ['tensor-fasciae-latae'] };
 
 export default function RegionPage() {
   const { id = '' } = useParams();
@@ -88,19 +85,14 @@ function RegionView({ id }: { id: RegionId }) {
   // the viewer emphasises that one (the engine labels at most ~10 parts, so the chip row is the full list)
   const keyMuscles = region?.keyMuscles ?? [];
   const [selMuscle, setSelMuscle] = useState<MuscleId | null>(null);
-  const highlights3d = useMemo(
-    () => Object.fromEntries(keyMuscles.map((m) => [m, m === selMuscle ? ('selected' as const) : ('secondary' as const)])),
-    [keyMuscles, selMuscle],
-  );
-  // a key muscle that lives in another region (中殿筋 on the knee page) is out of this region's 3D crop: frame its own
-  const selHome = selMuscle ? getMuscle(selMuscle)?.regions : undefined;
-  const elsewhere = !!selMuscle && (!selHome?.includes(id) || !!BELLY_ELSEWHERE[id]?.includes(selMuscle));
-  const focus3d: RegionId = elsewhere && selHome?.length ? selHome[0] : id;
+  // a key muscle that lives in another region (中殿筋 on the knee page) is out of this region's 3D crop: the viewer
+  // frames its own region (shared with the 3D harness: src/lib/viewerHighlights.ts)
+  const { highlights: highlights3d, focus: focus3d } = useMemo(() => regionViewer(id, keyMuscles, selMuscle), [id, keyMuscles, selMuscle]);
 
   return (
     <Page title={name} back="/">
       <header className="page-head">
-        <span className="kicker">{region?.nameEn ?? 'Region'}</span>
+        <span aria-hidden="true" lang="en" className="kicker">{region?.nameEn ?? 'Region'}</span>
         <h1>{name}</h1>
         {region ? <p className="lead">{region.description}</p> : <p className="lead">この部位の解説は準備中です。</p>}
       </header>
@@ -212,7 +204,7 @@ function RegionView({ id }: { id: RegionId }) {
         {list.length ? (
           <div className="stack">
             {list.map((c) => (
-              <ConditionCard key={c.id} id={c.id} likelihood={c.likelihood} />
+              <ConditionCard key={c.id} id={c.id} likelihood={c.likelihood} search={spot ? `?spot=${spot}` : undefined} />
             ))}
           </div>
         ) : (

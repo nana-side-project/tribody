@@ -290,9 +290,13 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     restPose: { joints: { knee_R: { flex: 90 } } },
     actionPose: { joints: { hip_R: { rot: 35 } } },
     stretchPose: { joints: { hip_R: { rot: -40 } } },
-    // from behind the feet and above (right side): sacrum → notch → trochanter and the shin swinging left / right are
-    // all in view (checked at 360 / 390 / 430 px; the demo framing refits along this direction when the card is narrow)
-    camera: { position: [-0.99, 1.62, -1.18], target: [-0.02, 0.3, -0.19] },
+    // from above the right side of the lower back, looking down the leg (fix-3d): the pelvis is near the camera, so the
+    // muscle is ~45 px long in a 300 px card (it was a ~10 px speck in the old whole-body view from behind the feet);
+    // the thigh runs away to the knee and the shin's wiper swing (foot in = 収縮, foot out = ストレッチ) shows at the
+    // upper left. `frame` keeps the shin up to its middle in view over the loop; checked at 360 / 390 / 430 px
+    camera: { position: [-0.81, 1.266, 0.326], target: [-0.133, 0.25, -0.238] },
+    frame: [{ mix: ['tibia:tibial_tuberosity', 'tibia:lateral_malleolus'], t: 0.45 }],
+    minSize: 0.3,
     focus: 'hip',
   },
   // ── R3a: iliopsoas — psoas major (2 strands: T12–L2 and L2–L4 bodies / transverse processes) + iliacus

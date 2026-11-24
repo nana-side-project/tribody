@@ -163,26 +163,35 @@ function ConditionOne({ cid }: { cid: string }) {
   );
 }
 
-/** Every muscle as its muscle page shows it (findDiagramFor → selected + dimOthers). */
+/**
+ * Every muscle as its muscle page shows it (findDiagramFor → selected + dimOthers). &mr=<region> only the muscles of
+ * that region; &m=<id> one muscle; &all=1 every view of that region that draws it, with labels (to check the
+ * 起始 / 停止 markers and their legend against the names).
+ */
 function MuscleGallery() {
   const only = q.get('mr');
+  const one = q.get('m');
+  const all = !!q.get('all');
   return (
     <>
       {muscles
-        .filter((m) => !only || m.regions[0] === only)
+        .filter((m) => (!only || m.regions[0] === only) && (!one || m.id === one))
         .map((m) => {
           const f = findDiagramFor(m.id, m.regions);
           const d = f ? getRegionDiagram(f.region) : undefined;
+          const views =
+            d && f ? (all ? d.views.map((v) => v.id).filter((v) => ((d.parts[v] ?? []) as string[]).includes(m.id)) : [f.view]) : [];
           return (
             <section key={m.id}>
               <h2>
                 {m.id} → {f ? `${f.region}:${f.view}` : 'NONE'}
               </h2>
-              {d && f && (
-                <div className="cardx">
-                  <View d={d} view={f.view} hl={{ [m.id]: 'selected' } as Highlights} dim mode="nolabels" />
-                </div>
-              )}
+              {d &&
+                views.map((v) => (
+                  <div key={v} className="cardx" data-view={v} style={{ marginBottom: 8 }}>
+                    <View d={d} view={v} hl={{ [m.id]: 'selected' } as Highlights} dim mode={all ? 'plain' : 'nolabels'} />
+                  </div>
+                ))}
             </section>
           );
         })}

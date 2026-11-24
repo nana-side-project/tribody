@@ -36,7 +36,7 @@ label format: `著者 et al. タイトル要約. 雑誌 年`):
 - Proximal hamstring tendinopathy: Goom T et al. JOSPT 2016 — avoid compressive stretches early (deep hip flexion stretches), isometrics → progressive loading; cycling saddle pressure.
 - Groin pain: Weir A et al. Doha agreement BJSM 2015 (adductor-, iliopsoas-, inguinal-, pubic-related); Harøy J 2019 Copenhagen adduction programme.
 - ITB syndrome: friction theory is outdated — compression of a richly innervated fat/connective layer at the lateral femoral epicondyle (Fairclough 2006). ITB itself **cannot be meaningfully stretched or lengthened by foam rolling**; say so honestly. Hip abductor strengthening, load/downhill management, cadence.
-- MTSS & tibial stress fracture: Winters M 2013/2018; bone stress injury continuum (Warden 2014, Hoenig 2022 consensus); RED-S / low energy availability (Mountjoy IOC consensus 2018/2023) — mention as risk factor sensitively. **Stress fracture suspicion → stop running and see a doctor; no "work through it"**.
+- MTSS & tibial stress fracture: Winters M 2013/2018; bone stress injury continuum (Warden 2014, Hoenig 2022 consensus); REDs / low energy availability (Mountjoy IOC consensus 2018/2023) — mention as risk factor sensitively. **Stress fracture suspicion → stop running and see a doctor; no "work through it"**.
 - Running load & cadence: increasing step rate 5–10% reduces knee/hip load (Heiderscheit 2011). The "10% rule" has limited evidence — present as a cautious guide, emphasise avoiding sudden spikes (Nielsen 2014 weekly progression; Frandsen 2025 single-session spikes vs. the longest run in the previous 30 days).
 - Exercise-associated muscle cramps: altered neuromuscular control from fatigue is the leading theory; dehydration/electrolyte theory has weak evidence (Schwellnus 2008/2011). Stretching relieves an acute cramp. Recommend pacing, conditioning, and seeing a doctor for frequent cramps without exertion.
 - Shoulder (swimmers): subacromial pain is multifactorial (rotator cuff tendinopathy ± bursa); **"impingement" as a purely mechanical cause is outdated** — explain overload + reduced tolerance; scapular control & cuff strength; stroke technique (crossover entry, thumb-first entry, dropped elbow, unilateral breathing, sudden paddle use); Kibler scapular dyskinesis consensus (BJSM 2013, 2015); Lewis J 2016.
@@ -96,6 +96,15 @@ Explain **why it happens in triathlon** per discipline, concretely:
   a muscle's `stretch` list, even if the muscle appears in the exercise's `primary`/`secondary` for 3D highlighting.
 - Cross-reference across regions: knee pain needs hip work (`ex-clamshell`, `ex-side-plank`…), Achilles needs soleus work, etc.
   You may reference any exercise id in the registry even if another agent writes it — trust its name in the registry.
+- **One exercise, many plans: keep `dose`, `cues` and `caution` condition-neutral.** The same exercise object is shown (and copied
+  into マイメニュー) from every plan that uses it, e.g. the heel drop from Achilles tendinopathy *and* calf strain, the clamshell from
+  a stress-fracture plan where running is not allowed. So no protocol-specific frequency (「原法は1日2回」), no 「ランの前に」,
+  no 「痛みが強い時期」, no 「（腱のリハビリ時）」 in `dose`. When a rule differs by condition, name the condition
+  (「アキレス腱障害では5/10まで（肉離れでは3まで）」), and put the plan-specific dose into that phase's `guidance` in a line that
+  contains the exercise's name (the part after the last 「・」 is enough, e.g. 「ヒールドロップは週3回…」): the exercise page opened
+  from the plan shows matching guidance lines first.
+- Do not prescribe a tendon protocol (daily, pain up to 5/10) in a muscle-injury, bone or cramp plan. Bone (stress fracture) plans:
+  bone pain 0–2/10 and stop at the first bony pain.
 
 ## Cross-links you are responsible for
 
@@ -103,6 +112,20 @@ Explain **why it happens in triathlon** per discipline, concretely:
 - `Muscle.relatedConditions`, `Muscle.strengthen/stretch` ↔ `Exercise.primary/secondary`.
 - `Condition.involved` uses muscle **or** structure ids with `kind` set correctly.
 - `Condition.anatomyNote` (optional): a short reassurance shown under the anatomy legend when the red highlight could be
-  misread as damage (non-specific low back / neck pain, cramps). Keep it to 1–2 sentences.
+  misread as damage (non-specific low back / neck pain, cramps, scapular dyskinesis — a movement finding, not an injury).
+  Keep it to 1–2 sentences. It switches the page to 「どこが痛む？」 wording and the 3D to a steady (non-pulsing) red. Never add
+  one to a real tissue injury (calf strain, tendinopathy, fracture).
+- Involvement roles: `injured` / `irritated` / `compressed` are drawn **red** in 2D, 3D and the list (「どこが傷んでいる？」).
+  Use them only for the tissue that hurts. A structure that is merely nearby or rarely affected (the sciatic nerve beside a
+  hamstring tendon, the periosteum strip around a stress fracture) gets an amber role and a note that says so.
+  A muscle marked `tight` needs a stretch in the plan, or a note saying why not (insertional Achilles: strengthen, don't stretch).
+- `Muscle.actions` is read by laypeople: every movement term gets a plain gloss in the same string —
+  外転（腕を横に上げる／脚を横に開く）, 内転（体に引き寄せる／脚を閉じる）, 外旋・内旋（外／内にひねる）, 屈曲・伸展
+  (joint-specific: 腕を前に上げる／後ろへ引く, 膝を曲げる／伸ばす), 挙上（肩をすくめる）, 下制（引き下げる）,
+  上方回旋・下方回旋（肩先を上へ／下へ向けて回す）, 前傾・後傾, 底屈（つま先を下げる）, 背屈（つま先を上げる）, 側屈（横に倒す）.
+  Part-specific actions start with the part: 「前部: …」「長頭: …」.
+- Consistency across pages: walk–run restarts use the guide 「ラン復帰プログラム」 stage 1 (1分ラン＋4分ウォーク×6回) and name the
+  guide; energy deficiency is 「REDs（スポーツにおける相対的エネルギー不足）」. A differential that links to another condition must be
+  covered by that page (e.g. lumbar *referred* pain → `low-back-pain`; nerve-root pain / sciatica is a separate, unlinked row → 受診).
 - Run `OWNER=<you> npm run validate` and `npx tsc --noEmit -p tsconfig.json` until your part is clean
   (warnings about objects other owners haven't written yet are expected).

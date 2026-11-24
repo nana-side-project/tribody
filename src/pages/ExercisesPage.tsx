@@ -79,7 +79,7 @@ export default function ExercisesPage() {
   return (
     <Page title="エクササイズ">
       <header className="page-head">
-        <span className="kicker">Exercise library</span>
+        <span aria-hidden="true" lang="en" className="kicker">Exercise library</span>
         <h1>エクササイズ</h1>
         <p className="lead">補強・ストレッチ・モビリティ。3Dアニメーションで動きと使う筋肉を確認して、マイメニューに追加できます。</p>
       </header>

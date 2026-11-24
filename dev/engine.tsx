@@ -13,9 +13,8 @@ import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CONDITIONS, EXERCISES, MUSCLES, REGIONS, STRUCTURES } from '../src/data/registry';
 import type { ConditionId, ExerciseId, MuscleId, RegionId, StructureId } from '../src/data/registry';
-import { getCondition, getMuscle, getRegion } from '../src/data';
-import type { InvolvementRole } from '../src/data/types';
-import { isPrimaryRole } from '../src/lib/labels';
+import { getCondition, getRegion } from '../src/data';
+import { conditionHighlights3d, regionViewer } from '../src/lib/viewerHighlights';
 import AnatomyViewer from '../src/three/AnatomyViewer';
 import { CLIPS } from '../src/three/clips';
 import type { Highlight3DRole } from '../src/three/contract';
@@ -96,24 +95,19 @@ function parseHl(s: string | null) {
   return out;
 }
 
-/** ?condition=<id>: the condition page's 3D props (src/pages/ConditionPage.tsx → highlights3d): the tissue whose role is
- *  'injured' first, then irritated / compressed ones (all 'injured' in 3D), then the involved context ('involved'). */
+/** ?condition=<id>: the condition page's 3D props (src/pages/ConditionPage.tsx, via the shared
+ *  src/lib/viewerHighlights.ts → conditionHighlights3d). */
 function conditionView(id: string) {
   const c = getCondition(id);
   if (!c) {
     console.warn('unknown condition', id, '— ids:', CONDITIONS.map((x) => x.id).join(' '));
     return null;
   }
-  const rank = (r: InvolvementRole) => (r === 'injured' ? 0 : isPrimaryRole(r) ? 1 : 2);
-  const highlights: Partial<Record<MuscleId | StructureId, Highlight3DRole>> = {};
-  for (const i of [...(c.involved ?? [])].sort((a, b) => rank(a.role) - rank(b.role)))
-    highlights[i.ref as MuscleId] = isPrimaryRole(i.role) ? 'injured' : 'involved';
-  return { title: c.nameJa, condition: c.id as ConditionId, focus: c.region as RegionId, highlights };
+  return { title: c.nameJa, condition: c.id as ConditionId, focus: c.region as RegionId, highlights: conditionHighlights3d(c) };
 }
 
-/** ?region=<id>[&sel=<muscle>]: the region page's 3D props (src/pages/RegionPage.tsx): key muscles 'secondary', the
- *  tapped chip 'selected'; a selected muscle whose belly lies outside the crop frames its own first region. */
-const BELLY_ELSEWHERE: Partial<Record<RegionId, MuscleId[]>> = { knee: ['tensor-fasciae-latae'] };
+/** ?region=<id>[&sel=<muscle>]: the region page's 3D props (src/pages/RegionPage.tsx, via the shared
+ *  src/lib/viewerHighlights.ts → regionViewer): key muscles 'secondary', the tapped chip 'selected', its framing. */
 function regionView(id: string, sel: string | null) {
   const r = getRegion(id);
   if (!r) {
@@ -123,10 +117,8 @@ function regionView(id: string, sel: string | null) {
   const keys = (r.keyMuscles ?? []) as MuscleId[];
   const selMuscle = sel && keys.includes(sel as MuscleId) ? (sel as MuscleId) : null;
   if (sel && !selMuscle) console.warn(`sel=${sel} is not a key muscle of ${id}:`, keys.join(' '));
-  const highlights = Object.fromEntries(keys.map((m) => [m, m === selMuscle ? 'selected' : 'secondary'])) as Partial<Record<MuscleId, Highlight3DRole>>;
-  const home = selMuscle ? (getMuscle(selMuscle)?.regions as RegionId[] | undefined) : undefined;
-  const elsewhere = !!selMuscle && (!home?.includes(id as RegionId) || !!BELLY_ELSEWHERE[id as RegionId]?.includes(selMuscle));
-  return { title: r.nameJa ?? id, condition: undefined as ConditionId | undefined, focus: (elsewhere && home?.length ? home[0] : id) as RegionId, highlights };
+  const v = regionViewer(id as RegionId, keys, selMuscle);
+  return { title: r.nameJa ?? id, condition: undefined as ConditionId | undefined, focus: v.focus, highlights: v.highlights };
 }
 
 // Which rig / clip file owns each id (see docs/ENGINE.md → "Ownership").
