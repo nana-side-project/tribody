@@ -276,8 +276,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     props: [
       // edge of a door frame: its inner face is at x −0.285, level with the back of the hand
       { kind: 'box', at: [-0.325, 2.0, 0.33], size: [0.08, 2.0, 0.13] },
-      // folded towel between the elbow and the trunk
-      { kind: 'ball', at: { bone: 'lumbar', rest: [0.157, 1.13, -0.012] }, radius: 0.03, color: '#cfdde8' },
+      // rolled towel between the elbow and the trunk (lies front-to-back, follows the trunk)
+      { kind: 'towel', at: { bone: 'lumbar', rest: [0.157, 1.13, -0.012] }, axis: 'z', radius: 0.028, length: 0.17 },
     ],
     // from behind-right: the posterior cuff, the 90° elbow at the side and the hand on the jamb
     camera: { dir: [-0.7, 0.55, -0.6] },
@@ -317,11 +317,12 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     loop: 'loop',
     props: [
       { kind: 'mat', rotY: 90 },
-      // pillow: its top touches the side of the head (y 0.183), clear of the bottom shoulder and hand (palm z 0.23)
-      { kind: 'box', at: [0.75, 0.183, 0], size: [0.27, 0.183, 0.27], color: '#9aaebe' },
+      // pillow: its top touches the side of the head (y 0.183; the puffed top is 1.35× the 0.135 edge height), clear
+      // of the bottom shoulder and hand (palm z 0.23)
+      { kind: 'pillow', at: [0.75, 0.183, 0], size: [0.27, 0.135, 0.34] },
       { kind: 'dumbbell', hand: 'R', size: 0.7 },
-      // folded towel between the elbow and the waist
-      { kind: 'ball', at: { bone: 'lumbar', rest: [0.155, 1.13, -0.02] }, radius: 0.028, color: '#cfdde8' },
+      // rolled towel between the elbow and the waist (lies front-to-back along the trunk)
+      { kind: 'towel', at: { bone: 'lumbar', rest: [0.155, 1.13, -0.02] }, axis: 'z', radius: 0.026, length: 0.17 },
     ],
     camera: { dir: [-0.4, 0.45, 1] },
     frame: ['hand:palm', 'humerus:head', 'forearm:olecranon', 'pelvis:iliac_crest_mid', 'thorax:sternum_body', 'head:vertex'],
@@ -574,8 +575,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       // post on the figure's left; band at navel height, horizontal to the hand
       { kind: 'box', at: [0.42, 1.25, 0.24], size: [0.05, 1.25, 0.05] },
       { kind: 'band', from: [0.395, 1.1, 0.24], to: 'hand:palm' },
-      // folded towel between the elbow and the trunk
-      { kind: 'ball', at: { bone: 'lumbar', rest: [0.157, 1.13, -0.012] }, radius: 0.03, color: '#cfdde8' },
+      // rolled towel between the elbow and the trunk (lies front-to-back, follows the trunk)
+      { kind: 'towel', at: { bone: 'lumbar', rest: [0.157, 1.13, -0.012] }, axis: 'z', radius: 0.028, length: 0.17 },
     ],
     // from above-front: the forearm swinging out like a door while the elbow stays at the side
     camera: { dir: [-0.2, 1.1, 0.6] },

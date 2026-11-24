@@ -683,7 +683,7 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       // step: top at 0.15, back edge 4.5 cm behind the 1st MT head (the heel hangs free), front face at the wall
       { kind: 'step', at: [-0.01, 0.15, 0.271], size: [0.34, 0.15, 0.538] },
       // rolled towel lying on the step under the toes
-      { kind: 'roller', at: [-0.011, 0.164, 0.077], axis: 'x', radius: 0.014, length: 0.14 },
+      { kind: 'towel', at: [-0.011, 0.164, 0.077], axis: 'x', radius: 0.014, length: 0.16 },
       { kind: 'wall', at: [0, 0, 0.54], normal: [0, 0, -1], width: 1.0 },
     ],
     // side view (from the right, slightly behind): the heel rising, the ankle plantarflexing and the toes kept

@@ -835,8 +835,10 @@ Flat `normal` is a bone-frame direction: `lateral | medial | anterior | posterio
 | `step`, `box` | `at` (centre of the TOP face), `size? [x, h, z]` | furniture: placed once from t = 0 |
 | `wall` | `at` (point on the surface at floor level), `normal?`, `width?`, `height?` | semi-transparent |
 | `mat` | `at?` (default: under the pelvis), `size? [len, width]`, `rotY?` | lies on the floor |
-| `roller` | `at` (roller centre), `axis? 'x'|'z'`, `length?`, `radius?` | foam roller |
+| `roller` | `at` (roller centre), `axis? 'x'|'z'`, `length?`, `radius?`, `color?` | foam roller |
 | `ball` | `at`, `radius?`, `color?` | follows every frame, e.g. `{ mix: ['femur_R:medial_epicondyle', 'femur_L:medial_epicondyle'], t: 0.5 }` between the knees |
+| `towel` | `at`, `axis? 'x'|'y'|'z'|[x,y,z]`, `length?` (0.2), `radius?` (0.03), `color?` | rolled towel (cream roll, spiral on the ends). On a **body point** it follows that bone every frame, position *and* orientation (`axis` in the bone's rest frame), e.g. between the elbow and the waist: `{ kind: 'towel', at: { bone: 'lumbar', rest: [0.157, 1.13, -0.012] }, axis: 'z', radius: 0.028, length: 0.17 }`; on a **world point** it lies still (`axis` in world), e.g. under the toes |
+| `pillow` | `at` (centre of the TOP), `size? [x, h, z]`, `rotY?`, `color?` | soft rounded cushion, placed once; the puffed middle is 1.35 × `h` tall, so `at.y` = 1.35 × h puts it on the floor |
 | `dumbbell` | `hand? 'R'|'L'`, `size?` | held in the palm, follows the hand |
 | `slant` | `at` (bottom centre), `angle?`, `size?`, `rotY?` | slant board rising toward +z |
 | `chair`, `bench` | `at` (centre of the seat's top), `rotY?` | e.g. `{ at: { mix: ['pelvis:ischial_tuberosity_R', 'pelvis:ischial_tuberosity_L'], t: 0.5 }, off: [0, -0.035, -0.03] }` |
