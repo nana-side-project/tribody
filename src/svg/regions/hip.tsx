@@ -295,6 +295,9 @@ const DARK = `
   --k-ctx: color-mix(in srgb, var(--muscle) 46%, var(--surface)); --k-cut: color-mix(in srgb, var(--muscle) 70%, #fff);
   --k-fat: color-mix(in srgb, var(--nerve) 42%, #6a6258);`;
 
+/** caption / inset-note font size in user units: same as labels, so ≥ 11 CSS px on a 360 px phone (figure ≈ 302 px wide) */
+export const CAP_FS = 13.25;
+
 export const KIT_CSS = `
 .thk { --k-amber: var(--involved, #e0901a); --k-cart: #e1ebf2; --k-labrum: #a9c3d8; --k-vivid: #d8342a; --k-shade: #2b0805; --k-shade-o: .14;
   --k-hi-o: .08; --k-mus-ink: color-mix(in srgb, var(--muscle) 60%, #2a0805);
@@ -343,8 +346,8 @@ export const KIT_CSS = `
 .thk .inset-bg { fill: var(--surface); stroke: var(--border); stroke-width: 1.2; }
 .thk .inset-ring { fill: none; stroke: var(--text-2); stroke-width: .9; opacity: .55; }
 .thk .inset-ln { fill: none; stroke: var(--text-2); stroke-width: .8; opacity: .55; stroke-dasharray: 2.5 2.5; }
-.thk .cap-t { font-size: 12px; fill: var(--text-2); opacity: .85; font-weight: 600; letter-spacing: .02em; }
-.thk .note-t { font-size: 12px; fill: var(--text-2); font-weight: 600; }
+.thk .cap-t { font-size: ${CAP_FS}px; fill: var(--text-2); opacity: .85; font-weight: 600; letter-spacing: .02em; paint-order: stroke; stroke: var(--surface); stroke-width: 3.2px; stroke-linejoin: round; }
+.thk .note-t { font-size: ${CAP_FS}px; fill: var(--text-2); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3.2px; stroke-linejoin: round; }
 
 /* parts & highlight roles */
 .thk-part, .thk-ctx { transition: opacity .25s ease; }
@@ -748,7 +751,7 @@ export function Inset({ k, name, cx, cy, r, title, children }: { k: Ctx; name: s
       <g clipPath={`url(#${id})`}>{children}</g>
       <circle className="inset-ring" cx={cx} cy={cy} r={r} />
       {title && (
-        <text className="cap-t" x={cx} y={cy + r + 13} textAnchor="middle">
+        <text className="cap-t" x={cx} y={cy + r + 16} textAnchor="middle">
           {title}
         </text>
       )}

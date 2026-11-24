@@ -378,11 +378,12 @@ export const BONE_PIECES: BonePieceDef[] = [
     seg: 'pelvis',
     mat: 'bone',
     build: () => {
-      // partial-sphere cup around the femoral head, dome pointing superomedially (+x = medial on the right)
+      // partial-sphere cup around the femoral head, dome pointing superomedially and back (+x = medial on the right):
+      // the opening faces lateral-down-forward — ~47° inclination, ~23° anteversion (it used to face mostly down)
       const g = new SphereGeometry(0.0305, 16, 6, 0, Math.PI * 2, 0, Math.PI * 0.56);
-      g.applyQuaternion(new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), new Vector3(0.42, 0.86, -0.22).normalize()));
+      g.applyQuaternion(new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), new Vector3(0.62, 0.72, -0.26).normalize()));
       g.translate(-0.085, 0.92, 0);
-      return [g, tube(ringPts(R(0.085, 0.92, 0), new Vector3(-0.42, -0.86, 0.22).normalize(), 0.03, 0.0058), 0.0035, { closed: true, n: 24, radial: 4 })];
+      return [g, tube(ringPts(R(0.085, 0.92, 0), new Vector3(-0.62, -0.72, 0.26).normalize(), 0.03, 0.0058), 0.0035, { closed: true, n: 24, radial: 4 })];
     },
   },
   {
@@ -426,9 +427,12 @@ export const BONE_PIECES: BonePieceDef[] = [
   },
   { part: 'acromion', seg: 'scapula', mat: 'bone', build: () => [ellipsoid(R(0.184, 1.451, -0.008), [0.017, 0.006, 0.02], deg(0, 0, 8))] },
   { part: 'coracoid', seg: 'scapula', mat: 'bone', build: () => [tube([R(0.138, 1.42, -0.01), R(0.141, 1.43, 0.012), R(0.151, 1.42, 0.034)], 0.0045, { n: 7, radial: 5 })] },
-  { part: 'glenoid', seg: 'scapula', mat: 'cartilage', build: () => [ellipsoid(R(0.151, 1.405, -0.012), [0.0035, 0.019, 0.013], deg(0, -20, 0))] },
+  // glenoid: faces laterally and ~35° anteriorly (in the scapular plane, see rig.ts scapNormal), its face 0.5 mm off the
+  // humeral head (it used to face back-out and sit 1 cm inside the head)
+  { part: 'glenoid', seg: 'scapula', mat: 'cartilage', build: () => [ellipsoid(R(0.1525, 1.405, -0.0238), [0.0035, 0.019, 0.013], deg(0, 35, 0))] },
   // ── arm
-  { part: 'humeral_head', seg: 'humerus', mat: 'bone', build: () => [sphere(R(0.167, 1.409, -0.007), 0.0235, 16, 10)] },
+  // centred on the glenohumeral rotation centre (rig.ts REST_ORIGIN.humerus), so the head spins in place
+  { part: 'humeral_head', seg: 'humerus', mat: 'bone', build: () => [sphere(R(0.175, 1.405, -0.008), 0.0235, 16, 10)] },
   { part: 'greater_tubercle', seg: 'humerus', mat: 'bone', build: () => [ellipsoid(R(0.189, 1.405, -0.004), [0.011, 0.017, 0.014])] },
   {
     part: 'humerus',

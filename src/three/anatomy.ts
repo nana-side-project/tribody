@@ -425,12 +425,11 @@ export class AnatomyLayer {
     const bone = colorOf(this.pal.bone);
     const c = colorOf(this.roleColor(v.role, this.pal.muscle));
     if (v.role === 'injured' && !v.hasSpot) {
-      // extrapolate past the role colour (clamped): bone.lerp(result, 0.62) ≈ the injured red
-      _tint.copy(c).sub(bone).multiplyScalar(1 / 0.62).add(bone);
-      _tint.r = Math.min(1, Math.max(0, _tint.r));
-      _tint.g = Math.min(1, Math.max(0, _tint.g));
-      _tint.b = Math.min(1, Math.max(0, _tint.b));
-      return _tint;
+      // extrapolate past the role colour (clamped): bone.lerp(result, 0.62) ≈ the injured red. Per channel by hand:
+      // Color.sub() clamps every channel at 0, which turned the light theme's tint back into plain bone (the
+      // injured patella of patellofemoral pain rendered untinted) and left the dark one salmon.
+      const ex = (b: number, x: number) => Math.min(1, Math.max(0, b + (x - b) / 0.62));
+      return _tint.setRGB(ex(bone.r, c.r), ex(bone.g, c.g), ex(bone.b, c.b));
     }
     return _tint.copy(bone).lerp(c, v.role === 'injured' ? 0.6 : 0.7);
   }

@@ -362,6 +362,9 @@ const DARK_VARS = `
   --rd-hi-o: .05; --rd-mus-ink: color-mix(in srgb, var(--muscle) 55%, #000);
   --rd-ten-ink: color-mix(in srgb, var(--tendon) 55%, #000); --rd-bone-sh: #000; --rd-bone-sh-o: .16;`;
 
+/** caption / inset-note font size in user units: same as labels, so ≥ 11 CSS px on a 360 px phone (figure ≈ 302 px wide) */
+export const CAP_FS = 13.25;
+
 export const KIT_CSS = `
 .tbu { --rd-amber: var(--involved, #e0901a); --rd-cart: #dfe9f1; --rd-vivid: #d8342a; --rd-shade: #2b0805; --rd-shade-o: .13;
   --rd-hi-o: .07; --rd-mus-ink: color-mix(in srgb, var(--muscle) 62%, #2a0805);
@@ -406,8 +409,8 @@ export const KIT_CSS = `
 .tbu .nucleus { fill: color-mix(in srgb, var(--bursa) 55%, var(--rd-cart)); stroke: color-mix(in srgb, var(--bursa) 50%, #102a44); stroke-width: .6; }
 .tbu .nerve { fill: var(--nerve); stroke: color-mix(in srgb, var(--nerve) 55%, #4a3600); stroke-width: .6; }
 .tbu .inset-bg { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
-.tbu .cap-t { font-size: 12px; fill: var(--text-2); opacity: .8; font-weight: 600; letter-spacing: .02em; }
-.tbu .note-t { font-size: 12px; fill: var(--text-2); font-weight: 600; }
+.tbu .cap-t { font-size: ${CAP_FS}px; fill: var(--text-2); opacity: .8; font-weight: 600; letter-spacing: .02em; paint-order: stroke; stroke: var(--surface); stroke-width: 3.2px; stroke-linejoin: round; }
+.tbu .note-t { font-size: ${CAP_FS}px; fill: var(--text-2); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3.2px; stroke-linejoin: round; }
 
 .tbu .drop { fill: #1a0503; opacity: .2; stroke: none; }
 .tbu .tone-deep .mus { fill: color-mix(in srgb, var(--muscle) 82%, #3a0805); }
@@ -1324,7 +1327,7 @@ function GlenoidInset({ k }: { k: Ctx }) {
       <Part k={k} id="biceps-long-head-tendon">
         <path className="ten" d={GLEN.biceps} />
       </Part>
-      <text className="note-t" x={cx} y={cy + r + 13} textAnchor="middle">
+      <text className="note-t" x={cx} y={cy + r + 16} textAnchor="middle">
         関節窩を横から
       </text>
     </g>

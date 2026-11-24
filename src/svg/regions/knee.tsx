@@ -364,7 +364,7 @@ function KneeLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       overlay={
         <g className="thk-inset">
           <rect className="inset-bg" x={LOC.x} y={LOC.y} width={LOC.w} height={LOC.h} rx={12} />
-          <text className="cap-t" x={LOC.x + LOC.w / 2} y={LOC.y + 14} textAnchor="middle">
+          <text className="cap-t" x={LOC.x + LOC.w / 2} y={LOC.y + 16} textAnchor="middle">
             腸脛靱帯の全体
           </text>
           <Ctxt k={k}>

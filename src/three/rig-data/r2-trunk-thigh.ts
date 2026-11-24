@@ -249,19 +249,20 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
   // processes.
   'quadratus-lumborum': {
     id: 'quadratus-lumborum',
+    // qa3-fix-body: the rig lumps all thoracic side bend into the T12/L1 joint (the thorax frame origin), so a rib-12
+    // insertion 8–9 cm from the midline swung ~4 cm per 30° of thorax.lat and the muscle reached 1.8–2.4 × its rest
+    // length in the side plank (and poked out of the skin). Origins / insertions are now a little more medial (as the
+    // real QL: posterior iliac crest & iliolumbar ligament → medial half of rib 12 + L1–L4 transverse processes), the
+    // rib insertion follows the thorax only halfway (the 12th rib is floating), and points on the lumbar spine follow
+    // its side bend in proportion to their height (the rig bends the whole lumbar spine at L5/S1; erector spinae and
+    // multifidus use the same distributed mixes).
     strands: [
       {
         name: '腸肋部（外側）',
         path: [
-          { bone: 'pelvis', rest: [0.114, 1.078, -0.05] },
-          {
-            mix: [
-              { bone: 'pelvis', rest: [0.1, 1.112, -0.058] },
-              { bone: 'thorax', rest: [0.1, 1.112, -0.058] },
-            ],
-            t: 0.5,
-          },
-          { bone: 'thorax', rest: [0.086, 1.153, -0.08] },
+          { bone: 'pelvis', rest: [0.104, 1.074, -0.054] },
+          { mix: [{ bone: 'pelvis', rest: [0.094, 1.11, -0.064] }, { bone: 'lumbar', rest: [0.094, 1.11, -0.064] }], t: 0.7 },
+          { mix: [{ bone: 'lumbar', rest: [0.074, 1.148, -0.084] }, { bone: 'thorax', rest: [0.074, 1.148, -0.084] }], t: 0.3 },
         ],
         radius: 0.005,
         tendon: [0.06, 0.1],
@@ -270,15 +271,9 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
       {
         name: '腸肋部（内側）',
         path: [
-          { bone: 'pelvis', rest: [0.1, 1.074, -0.058] },
-          {
-            mix: [
-              { bone: 'pelvis', rest: [0.084, 1.112, -0.064] },
-              { bone: 'thorax', rest: [0.084, 1.112, -0.064] },
-            ],
-            t: 0.5,
-          },
-          { bone: 'thorax', rest: [0.068, 1.157, -0.088] },
+          { bone: 'pelvis', rest: [0.092, 1.07, -0.06] },
+          { mix: [{ bone: 'pelvis', rest: [0.08, 1.11, -0.07] }, { bone: 'lumbar', rest: [0.08, 1.11, -0.07] }], t: 0.7 },
+          { mix: [{ bone: 'lumbar', rest: [0.062, 1.152, -0.09] }, { bone: 'thorax', rest: [0.062, 1.152, -0.09] }], t: 0.3 },
         ],
         radius: 0.005,
         tendon: [0.06, 0.1],
@@ -287,8 +282,9 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
       {
         name: '腸腰部（→L3横突起）',
         path: [
-          { bone: 'pelvis', rest: [0.104, 1.072, -0.054] },
-          { ref: 'lumbar:transverse_L3', off: [0.008, 0.001, 0.0] },
+          { bone: 'pelvis', rest: [0.096, 1.071, -0.058] },
+          // L3 bends with ~55 % of the (rigid) lumbar segment's side bend relative to the pelvis
+          { mix: [{ bone: 'pelvis', rest: [0.061, 1.086, -0.062] }, { bone: 'lumbar', rest: [0.061, 1.086, -0.062] }], t: 0.55 },
         ],
         radius: 0.0042,
         tendon: [0.06, 0.12],
@@ -297,8 +293,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
       {
         name: '腸腰部（→L1横突起）',
         path: [
-          { bone: 'pelvis', rest: [0.108, 1.074, -0.052] },
-          { ref: 'lumbar:transverse_L1', off: [0.008, 0.001, 0.002] },
+          { bone: 'pelvis', rest: [0.1, 1.073, -0.056] },
+          { mix: [{ bone: 'pelvis', rest: [0.053, 1.146, -0.074] }, { bone: 'lumbar', rest: [0.053, 1.146, -0.074] }], t: 0.9 },
         ],
         radius: 0.0042,
         tendon: [0.06, 0.12],

@@ -1,8 +1,12 @@
 // Shared plantar (sole) geometry of the right foot: used by foot.tsx (sole / top views) and by the calf diagram's
 // small sole inset that shows where fibularis longus inserts. Plantar coordinates: seen from below, toes up, big toe
 // on the viewer's RIGHT; ≈15 units per cm, heel at y≈438, toe tips at y≈44. Original artwork.
+//
+// Skeleton proportions (foot ≈ 394 units ≈ 26 cm): calcaneus 313–428 (≈ 7.7 cm, ~30 % of the foot); midfoot tarsals
+// (navicular, cuneiforms, cuboid) 254–323 medially / 268–313 laterally, with the talar head behind the navicular
+// (to ≈ 345): ~1/4 of the foot on the medial side; metatarsals 6.6–8 cm; toes unchanged.
 import type { ReactNode } from 'react';
-import { Part, Ten, ell, line, sp, tube, type Ctx, type P } from './hip';
+import { Part, Ten, ell, line, sp, tube, type Ctx, type P, type PartId } from './hip';
 
 type Pt = readonly [number, number];
 export const mx = (p: Pt): [number, number] => [360 - p[0], p[1]];
@@ -25,13 +29,19 @@ export const SKIN_SOLE: P[] = [
   [262, 182], [254, 212], [246, 242], [240, 272], [236, 302], [234, 332], [232, 362], [229, 392], [219, 418], [202, 432],
 ];
 
-/** metatarsal centre lines (base → head) and widths, plantar coordinates */
+/**
+ * Metatarsal centre lines (base → head) and widths, plantar coordinates. The tube's rounded base end reaches
+ * ≈ w/2·0.9 beyond the first point, so the bases sit on the cuneiforms / cuboid along the oblique tarsometatarsal
+ * (Lisfranc) line: 1st base most distal (y≈254), 2nd recessed between the cuneiforms (≈266), 5th most proximal (≈281).
+ */
 export const MTS: { c: P[]; w: number[]; head: [number, number, number, number] }[] = [
-  { c: [[234, 284], [237, 244], [241, 204], [245, 178]], w: [24, 17, 17, 24], head: [246, 168, 15, 13] },
-  { c: [[212, 286], [212, 242], [211, 194], [210, 162]], w: [13, 9, 9, 12], head: [210, 154, 9.5, 8.5] },
-  { c: [[194, 290], [192, 244], [189, 200], [186, 172]], w: [12, 8.5, 8.5, 11], head: [186, 164, 9, 8] },
-  { c: [[174, 294], [171, 252], [167, 212], [163, 186]], w: [12, 8.5, 8.5, 11], head: [163, 178, 9, 8] },
-  { c: [[154, 300], [150, 262], [144, 224], [139, 198]], w: [15, 9, 9, 11], head: [139, 190, 9, 8] },
+  { c: [[226, 244], [232, 220], [239, 196], [245, 178]], w: [24, 17, 17, 24], head: [246, 168, 15, 13] },
+  { c: [[205, 260], [207, 228], [209, 192], [210, 162]], w: [13, 9, 9, 12], head: [210, 154, 9.5, 8.5] },
+  { c: [[190, 257], [189, 226], [187, 196], [186, 172]], w: [12, 8.5, 8.5, 11], head: [186, 164, 9, 8] },
+  { c: [[172, 267], [170, 236], [167, 208], [163, 186]], w: [12, 8.5, 8.5, 11], head: [163, 178, 9, 8] },
+  // 5th: the centre line starts in the tuberosity of its base (fibularis brevis inserts there), which flares
+  // backwards and laterally beyond the cuboid
+  { c: [[146, 290], [155, 276], [152, 248], [145, 218], [139, 198]], w: [10, 15, 9.5, 9, 11], head: [139, 190, 9, 8] },
 ];
 /** phalanges per toe (plantar coordinates) */
 export const PHAL: { c: P[]; w: number }[] = [
@@ -50,15 +60,93 @@ export const PHAL: { c: P[]; w: number }[] = [
   { c: [[137, 151], [136, 136]], w: 7 },
   { c: [[136, 132], [135, 122]], w: 6.5 },
 ];
+/** the two sesamoid bones under the head of the 1st metatarsal (in the flexor hallucis brevis tendons) */
+export const SESAMOIDS = [ell(240, 172, 5, 7.5), ell(253, 170, 5, 7.5)];
 
-export const CALC_SOLE: P[] = [[180, 426], [204, 420], [218, 402], [220, 372], [214, 344], [206, 318], [194, 300], [172, 296], [154, 304], [144, 330], [140, 362], [144, 396], [156, 418]];
+/**
+ * Calcaneus seen from below: anterior process ending at the calcaneocuboid joint (laterally, y≈313), lateral border,
+ * tuberosity (heel), medial concavity and the sustentaculum tali (medial shelf that carries the talus).
+ */
+export const CALC: P[] = [
+  [184, 316], [170, 313], [156, 314], [150, 319],
+  [148, 334], [147, 352], [149, 372], [152, 392], [157, 409], [165, 421], [179, 428],
+  [195, 427], [206, 419], [211, 406],
+  [208, 393], [206, 383], [208, 374],
+  [214, 366], [216, 357], [213, 349], [205, 345],
+  [196, 339], [189, 328],
+];
+/** medial process of the calcaneal tuberosity: origin of the plantar fascia, flexor digitorum brevis, abductor hallucis
+ * (its anterior margin drawn as a relief line; centre ≈ 198, 401) */
+export const CALC_MED_PROC = line([[186, 407], [188, 398], [196, 393], [205, 394], [210, 400]]);
+/** lateral process of the calcaneal tuberosity (abductor digiti minimi): smaller, at the lateral corner */
+export const CALC_LAT_PROC = line([[157, 409], [160, 402], [167, 399], [173, 403]]);
+/** head of the talus: only the part seen between the navicular (in front), the sustentaculum tali and the anterior
+ * calcaneus (behind / laterally) — the spring-ligament area */
+export const TALUS_HEAD = sp([
+  [190, 321], [198, 322.5], [208, 322.5], [218, 324], [222, 329], [221, 336], [214, 342], [205, 345], [196, 339], [190, 329],
+]);
+/** navicular: concave behind (talar head), three facets in front (cuneiforms), tuberosity medially (tibialis posterior) */
+export const NAVIC: P[] = [
+  [187, 305], [196, 302], [208, 301], [219, 301], [225, 305], [229, 311], [227, 319], [218, 323], [208, 321], [198, 321], [190, 319], [186, 312],
+];
+/** cuboid: 4th / 5th metatarsal bases in front, calcaneus behind, notch on the lateral border for fibularis longus */
+export const CUBOID: P[] = [
+  [183, 268, 1], [168, 274], [153, 282, 1], [148, 291], [146, 299], [149, 307], [158, 311], [171, 310], [183, 313, 1], [184, 296], [184, 282],
+];
+/** tuberosity (ridge) of the cuboid: the posterior lip of the groove for the fibularis longus tendon */
+export const CUBOID_RIDGE: P[] = [[151, 307], [165, 301], [182, 292]];
+/** cuneiforms: lateral, intermediate (shortest: the 2nd metatarsal base is recessed), medial (largest) */
+export const CUNE: P[][] = [
+  [[184, 263], [192, 261], [198, 264], [198, 282], [198, 299], [190, 300], [184, 298], [184, 280]],
+  [[199, 267], [205, 265], [211, 268], [211, 284], [211, 299], [205, 300], [199, 299], [199, 284]],
+  [[212, 256], [221, 253], [229, 256], [232, 270], [231, 286], [227, 298], [219, 300], [212, 298], [212, 276]],
+];
+
+/** Tarsal bones in front of the calcaneus (talar head, navicular, cuneiforms, cuboid with the groove's ridge). */
+export function Midfoot({
+  cls = 'bone',
+  ln = 'bone-ln',
+  talus = true,
+  ridge = true,
+  mirrored = false,
+}: {
+  cls?: string;
+  ln?: string;
+  talus?: boolean;
+  ridge?: boolean;
+  mirrored?: boolean;
+}) {
+  const f = (pts: readonly P[]) => (mirrored ? mirror(pts) : (pts as P[]));
+  return (
+    <>
+      {talus && <path className={cls} d={TALUS_HEAD} />}
+      {CUNE.map((c, i) => (
+        <path key={i} className={cls} d={sp(f(c))} />
+      ))}
+      <path className={cls} d={sp(f(CUBOID))} />
+      {ridge && <path className={ln} d={line(f(CUBOID_RIDGE))} />}
+    </>
+  );
+}
+
+export function Navicular({ cls = 'bone', mirrored = false }: { cls?: string; mirrored?: boolean }) {
+  return <path className={cls} d={sp(mirrored ? mirror(NAVIC) : NAVIC)} />;
+}
+
+export function Calcaneus({ cls = 'bone', ln = 'bone-ln' }: { cls?: string; ln?: string }) {
+  return (
+    <>
+      <path className={cls} d={sp(CALC)} />
+      <path className={ln} d={CALC_MED_PROC} />
+      <path className={ln} d={CALC_LAT_PROC} />
+    </>
+  );
+}
 
 export function Metatarsals({ mirrored = false, cls = 'bone' }: { mirrored?: boolean; cls?: string }) {
   const f = (pts: readonly P[]) => (mirrored ? mirror(pts) : (pts as P[]));
   return (
     <>
-      {/* tuberosity of the 5th metatarsal (drawn first so the shaft overlaps it) */}
-      <path className={cls} d={ell(mirrored ? 213 : 147, 303, 8.5, 6.5, mirrored ? 24 : -24)} />
       {MTS.map((m, i) => {
         const [hx, hy, rx, ry] = m.head;
         const hc = mirrored ? mx([hx, hy]) : [hx, hy];
@@ -83,29 +171,60 @@ export function Phalanges({ mirrored = false, cls = 'bone' }: { mirrored?: boole
   );
 }
 
+/**
+ * See-through ("x-ray") copy of bones drawn ABOVE the plantar soft tissue, so the skeleton reads through the muscles
+ * and fascia. With `id` it follows that part's highlight / dim state (glow when injured); without, it is context.
+ * Never tappable: taps fall through to the muscles below (the real part, with data-part, is drawn underneath).
+ */
+export function XRay({ k, id, children }: { k: Ctx; id?: PartId; children: ReactNode }) {
+  const role = id ? k.hl[id] : undefined;
+  const cls = id ? `thk-part${role ? ` is-${role}` : ''}${k.dim && !role ? ' is-dim' : ''}` : `thk-ctx${k.dim ? ' is-dim' : ''}`;
+  return (
+    <g className={`${cls} thk-xray`} aria-hidden="true">
+      {role === 'injured' && (
+        <g className="thk-halo" filter={`url(#${k.uid}-glow)`}>
+          {children}
+        </g>
+      )}
+      {children}
+    </g>
+  );
+}
 
 /* ═════════════ fibularis (peroneus) longus tendon under the foot ═════════════ */
 
 /**
  * Fibularis longus tendon, plantar coordinates: it comes forward along the lateral side of the calcaneus (below the
- * peroneal trochlea), turns round the lateral border into the groove on the plantar surface of the cuboid (just
- * behind the 5th metatarsal tuberosity), crosses the sole obliquely — forwards and medially, in the deepest layer —
- * and inserts on the plantar-lateral side of the base of the 1st metatarsal and the medial cuneiform.
+ * peroneal trochlea), turns round the lateral border of the cuboid (in its notch, just behind the tuberosity of the
+ * 5th metatarsal) into the groove on the plantar surface of the cuboid, then crosses the sole obliquely — forwards
+ * and medially, in the deepest layer, under the cuneiforms — and inserts on the plantar-lateral side of the base of
+ * the 1st metatarsal and of the medial cuneiform.
  */
-export const FL_SOLE: P[] = [[139, 380], [140, 354], [143, 335], [150, 322], [168, 313], [192, 305], [214, 299], [229, 295]];
-export const FL_SOLE_W = [5.5, 6.5, 7, 7.5, 7.5, 7, 7, 7.5];
+export const FL_SOLE: P[] = [[140, 384], [141, 362], [143, 340], [145, 321], [147, 307], [153, 299], [166, 292], [182, 283], [197, 275], [209, 268], [217, 263]];
+export const FL_SOLE_W = [5.5, 6.5, 7, 7, 7.5, 7.5, 7.5, 7, 7, 7, 7];
 /** the two insertion slips: base of the 1st metatarsal / medial cuneiform */
 const FL_SLIPS: P[][] = [
-  [[226, 295], [234, 292], [240, 289]],
-  [[226, 296], [234, 299], [241, 302]],
+  [[214, 263], [221, 258], [227, 252]],
+  [[214, 264], [221, 266], [227, 269]],
 ];
+/** label anchors: insertion (1st metatarsal base / medial cuneiform) and the tendon beside the calcaneus */
+export const FL_INSERT: Pt = [222, 261];
+export const FL_LAT: Pt = [142, 352];
 
-/** See-through ("x-ray") style for a tendon that runs deep to what is drawn over it. */
+/** See-through ("x-ray") style for a tendon / bones drawn over the plantar soft tissue (see XRay). */
 export const XRAY_CSS = `
 .thk .ten-x { fill: var(--tendon); fill-opacity: .55; stroke: var(--k-ten-ink); stroke-width: .9; stroke-dasharray: 3 2; }
 .thk .is-injured .ten-x { fill: var(--injured); fill-opacity: 1; stroke: var(--k-inj-ink); stroke-dasharray: none; }
 .thk .is-involved .ten-x { fill: color-mix(in srgb, var(--tendon) 62%, var(--k-amber)); fill-opacity: 1; stroke: var(--k-amber); stroke-width: 1.5; stroke-dasharray: none; }
-.thk :is(.is-selected, .is-muscle) .ten-x { fill-opacity: 1; stroke: var(--text); stroke-width: 1.6; stroke-dasharray: none; }`;
+.thk :is(.is-selected, .is-muscle) .ten-x { fill-opacity: 1; stroke: var(--text); stroke-width: 1.6; stroke-dasharray: none; }
+.thk .bone-x { fill: var(--bone); fill-opacity: .22; stroke: var(--bone-ink); stroke-width: .8; stroke-linejoin: round; opacity: .75; pointer-events: stroke; }
+.thk .bone-xl { fill: none; stroke: var(--bone-ink); stroke-width: .65; opacity: .6; stroke-linecap: round; }
+.thk .is-injured .bone-x { fill: var(--injured); fill-opacity: .42; stroke: var(--k-inj-ink); stroke-width: 1.1; stroke-dasharray: none; opacity: 1; }
+.thk .is-injured .bone-xl { stroke: #fff; opacity: .45; }
+.thk .is-involved .bone-x { fill: var(--k-amber); fill-opacity: .22; stroke: var(--k-amber); stroke-width: 1.5; stroke-dasharray: none; opacity: 1; }
+.thk :is(.is-selected, .is-muscle) .bone-x { fill-opacity: .3; stroke: var(--text); stroke-width: 1.6; stroke-dasharray: none; opacity: 1; }
+.thk .thk-halo :is(.bone-xl) { display: none !important; }
+.thk :is(.thk-xray, .thk-halo) :is(.bone-x, .bone-xl), .thk .thk-xray { pointer-events: none; }`;
 
 /** The tendon (and its insertion slips) in plantar coordinates; `cls` = 'ten-x' (see-through) or 'ten'. */
 export function FlSoleTendon({ cls = 'ten-x', grow = 1 }: { cls?: string; grow?: number }) {
@@ -120,19 +239,6 @@ export function FlSoleTendon({ cls = 'ten-x', grow = 1 }: { cls?: string; grow?:
 }
 
 /* ═════════════ sole inset for the calf diagram (fibularis longus insertion) ═════════════ */
-
-/** Calcaneus ending at the calcaneocuboid joint, and the midfoot bones (plantar coordinates; schematic). */
-const CALC_IN: P[] = [[180, 426], [204, 420], [218, 402], [220, 372], [214, 346], [205, 330], [188, 323], [168, 323], [153, 328], [144, 344], [140, 366], [144, 396], [156, 418]];
-const MIDFOOT: { d: P[]; ln?: P[] }[] = [
-  // cuboid, with the groove for the fibularis longus tendon running obliquely across its plantar surface
-  { d: [[146, 306], [162, 299], [180, 300], [188, 309], [186, 320], [168, 322], [152, 326], [143, 318]], ln: [[146, 318], [166, 311], [186, 306]] },
-  // navicular
-  { d: [[198, 318], [214, 313], [232, 316], [240, 324], [232, 332], [212, 333], [198, 330]] },
-  // cuneiforms: lateral, intermediate, medial
-  { d: [[188, 300], [202, 298], [206, 306], [204, 316], [190, 316]] },
-  { d: [[206, 297], [220, 296], [222, 306], [220, 314], [206, 314]] },
-  { d: [[223, 296], [244, 293], [250, 302], [246, 314], [236, 318], [224, 314]] },
-];
 
 /** Inset geometry in the host frame: the sole is turned 180° (heel up, toes down, big toe on the LEFT) so that, below
  * a posterior view of the leg, it continues the leg the right way round (medial left, lateral right). */
@@ -170,13 +276,13 @@ export function FlSoleInset({ k, from, children }: { k: Ctx; from: readonly [num
             <g opacity={0.75}>
               <Phalanges cls="bone-g" />
               <Metatarsals cls="bone-g" />
-              <path className="bone-g" d={sp(CALC_IN)} />
-              {MIDFOOT.map((b, i) => (
-                <path key={i} className="bone-g" d={sp(b.d)} />
+              {SESAMOIDS.map((d, i) => (
+                <path key={i} className="bone-g" d={d} />
               ))}
+              <Midfoot cls="bone-g" />
+              <Navicular cls="bone-g" />
+              <Calcaneus cls="bone-g" />
             </g>
-            <path className="bone-ln" d={line(MIDFOOT[0].ln!)} />
-            <path className="bone-g" d={ell(147, 303, 8.5, 6.5, -24)} />
           </g>
           <Part k={k} id="fibularis-longus">
             <FlSoleTendon cls="ten" grow={1.5} />

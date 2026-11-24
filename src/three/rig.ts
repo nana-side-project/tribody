@@ -633,11 +633,13 @@ export const SKIN_SHAPES: SkinShapeDef[] = [
   { seg: 'tibia', kind: 'ellipsoid', c: [0.087, 0.355, -0.03], r: [0.047, 0.1, 0.046], loft: true },
   { seg: 'foot', kind: 'ellipsoid', c: [0.09, 0.045, -0.04], r: [0.037, 0.045, 0.045] },
   // foot: the ball of the foot under the metatarsal heads (bottom exactly at the sole plane y = 0, like the heel and
-  // the toes; the old sole curved up 2.5 cm under the heads). It rides the TOES segment: it straddles the MTP axis,
-  // and on the foot its front half swung into the floor in every heel raise. Lateral edges stay inside the old foot /
-  // toe volumes (side-lying contacts).
+  // the toes; the old sole curved up 2.5 cm under the heads). Medial heads: a capsule on the TOES segment centred on
+  // the MTP axis (toes origin y 0.016, z 0.13), so toe extension / flexion and heel raises leave its bottom where it
+  // is. Lateral heads (1–2 cm behind the axis): on the FOOT, which lifts them in a heel raise. (A single capsule on
+  // either segment dipped 0.5–2 cm through the floor or step in heel raises / toe extension.)
   { seg: 'foot', kind: 'ellipsoid', c: [0.093, 0.04, 0.052], r: [0.045, 0.04, 0.092] },
-  { seg: 'toes', kind: 'capsule', a: [0.065, 0.0195, 0.137], b: [0.12, 0.0195, 0.113], ra: 0.0195, rb: 0.015 },
+  { seg: 'toes', kind: 'capsule', a: [0.064, 0.016, 0.132], b: [0.1, 0.016, 0.128], ra: 0.016, rb: 0.016 },
+  { seg: 'foot', kind: 'capsule', a: [0.1, 0.0175, 0.122], b: [0.12, 0.0165, 0.112], ra: 0.0175, rb: 0.015 },
   { seg: 'toes', kind: 'ellipsoid', c: [0.093, 0.02, 0.165], r: [0.044, 0.02, 0.04] },
   // big toe and little toe (their tips stuck out of the toe volume); bottoms 1–3 mm above the sole plane
   { seg: 'toes', kind: 'capsule', a: [0.063, 0.0145, 0.15], b: [0.062, 0.0135, 0.188], ra: 0.0125, rb: 0.0125 },

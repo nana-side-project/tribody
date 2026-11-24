@@ -19,13 +19,12 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { mix: [{ bone: 'tibia', rest: [0.06, 0.47, -0.03] }, 'femur:medial_condyle_post'], t: 1 },
           { bone: 'tibia', rest: [0.072, 0.43, -0.046] },
           { bone: 'tibia', rest: [0.074, 0.33, -0.055] },
-          // heel cord (r4 verify): the mannequin's ankle skin is thin (back surface z ≈ −0.04 at y 0.10–0.15), so the
-          // tendon hugs the inside of it down to y 0.125 (a straight cord would float 1–2 cm behind the leg), then
-          // passes BEHIND the posterosuperior calcaneus / retrocalcaneal bursa to the tuberosity — the same line as the
-          // achilles-tendon structure. Limitation: in deep plantarflexion (≥ 45°, prone / supine bases) the heel rises
-          // to the level of the lowest tibia via and the cord bends there.
-          { bone: 'tibia', rest: [0.087, 0.2, -0.0445] },
-          { bone: 'tibia', rest: [0.09, 0.125, -0.0355] },
+          // heel cord: just inside the back of the ankle skin (z ≈ −0.06 at y 0.10–0.2 since qa3-fix-body; it used to be
+          // −0.04 and the cord had to run 1.5 cm further forward), then BEHIND the posterosuperior calcaneus /
+          // retrocalcaneal bursa to the tuberosity — the same line as the achilles-tendon structure. Being further back,
+          // the cord bends much less at the lowest tibia via when the heel rises in deep plantarflexion.
+          { bone: 'tibia', rest: [0.087, 0.2, -0.054] },
+          { bone: 'tibia', rest: [0.09, 0.125, -0.05] },
           { bone: 'foot', rest: [0.09, 0.054, -0.0755] }, // behind the posterosuperior calcaneus (retrocalcaneal bursa in front)
           { ref: 'foot:calcaneus_post', off: [0, 0.004, -0.003] },
         ],
@@ -39,8 +38,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { mix: [{ bone: 'tibia', rest: [0.118, 0.47, -0.03] }, 'femur:lateral_condyle_post'], t: 1 },
           { bone: 'tibia', rest: [0.11, 0.43, -0.047] },
           { bone: 'tibia', rest: [0.106, 0.34, -0.052] },
-          { bone: 'tibia', rest: [0.093, 0.2, -0.0445] },
-          { bone: 'tibia', rest: [0.09, 0.125, -0.0355] },
+          { bone: 'tibia', rest: [0.093, 0.2, -0.054] },
+          { bone: 'tibia', rest: [0.09, 0.125, -0.05] },
           { bone: 'foot', rest: [0.09, 0.054, -0.0755] }, // behind the posterosuperior calcaneus (retrocalcaneal bursa in front)
           { ref: 'foot:calcaneus_post', off: [0, 0.004, -0.003] },
         ],
@@ -67,8 +66,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         path: [
           'tibia:fibula_post_prox',
           { bone: 'tibia', rest: [0.112, 0.33, -0.044] },
-          { bone: 'tibia', rest: [0.098, 0.2, -0.0385] },
-          { bone: 'tibia', rest: [0.09, 0.125, -0.0345] },
+          { bone: 'tibia', rest: [0.098, 0.2, -0.048] },
+          { bone: 'tibia', rest: [0.09, 0.125, -0.049] },
           { bone: 'foot', rest: [0.09, 0.054, -0.0755] },
           { ref: 'foot:calcaneus_post', off: [0, 0.004, -0.003] },
         ],
@@ -80,8 +79,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         path: [
           { ref: 'tibia:posterior_prox', off: [0.0, -0.01, -0.008] },
           { bone: 'tibia', rest: [0.092, 0.3, -0.046] },
-          { bone: 'tibia', rest: [0.09, 0.19, -0.0395] },
-          { bone: 'tibia', rest: [0.09, 0.125, -0.0345] },
+          { bone: 'tibia', rest: [0.09, 0.19, -0.049] },
+          { bone: 'tibia', rest: [0.09, 0.125, -0.049] },
           { bone: 'foot', rest: [0.09, 0.054, -0.0755] },
           { ref: 'foot:calcaneus_post', off: [0, 0.004, -0.003] },
         ],
@@ -93,8 +92,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         path: [
           'tibia:soleal_line',
           { bone: 'tibia', rest: [0.072, 0.32, -0.04] },
-          { bone: 'tibia', rest: [0.082, 0.2, -0.0385] },
-          { bone: 'tibia', rest: [0.09, 0.125, -0.0345] },
+          { bone: 'tibia', rest: [0.082, 0.2, -0.048] },
+          { bone: 'tibia', rest: [0.09, 0.125, -0.049] },
           { bone: 'foot', rest: [0.09, 0.054, -0.0755] },
           { ref: 'foot:calcaneus_post', off: [0, 0.004, -0.003] },
         ],
@@ -525,10 +524,10 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
       {
         type: 'tendon',
         path: [
-          // same line as the gastrocnemius / soleus tendons: just inside the (thin) ankle skin, then down to the heel
-          { bone: 'tibia', rest: [0.09, 0.25, -0.0505] },
-          { bone: 'tibia', rest: [0.09, 0.18, -0.041] },
-          { bone: 'tibia', rest: [0.09, 0.125, -0.0355] },
+          // same line as the gastrocnemius / soleus tendons: just inside the ankle skin, then down to the heel
+          { bone: 'tibia', rest: [0.09, 0.25, -0.0565] },
+          { bone: 'tibia', rest: [0.09, 0.18, -0.0535] },
+          { bone: 'tibia', rest: [0.09, 0.125, -0.0505] },
           { bone: 'foot', rest: [0.09, 0.054, -0.0755] }, // behind the posterosuperior calcaneus (bursa in between)
           { bone: 'foot', rest: [0.09, 0.031, -0.0765] },
         ],

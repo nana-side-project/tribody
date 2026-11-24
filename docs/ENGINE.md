@@ -228,6 +228,17 @@ Values outside are clamped (and logged once to the console):
   `upRot = clamp(0.22·(e − 30°), 0, 30°)` and `protr = 0.3 · upRot`. Upward rotation pivots about the
   scapular-plane normal through the middle of the scapular spine; the clavicle re-aims so the AC joint stays
   connected (→ natural clavicle elevation). Your explicit scapula DOFs are **added** on top.
+- **Shoulder girdle model** (`RIG_OPTIONS`): `protr` / `elev` turn the **clavicle** about the sternoclavicular joint;
+  the scapula hangs at its AC end and
+  - **slides up / down** with `elev` (it turns with only `elevRot` = 20 % of the clavicle's elevation): a shrug
+    lifts the scapula ~5 cm, a depression lowers it, the inferior angle no longer swings sideways;
+  - **turns 65 %** (`protrRot`) with protraction, so the medial border glides ~1 cm over the ribs instead of winging
+    off them (`protr: 25` moves the medial border ~5 cm laterally);
+  - **retraction saturates** (`retractR` 15): effective angle = −15·tanh(−protr / 15) → −10 ≈ −8.7°, −20 ≈ −13°,
+    −30 ≈ −14.5°; the medial border stops ~3 cm from the spinous processes (−20 used to move it 6 cm, onto the
+    spine). Retraction values beyond −20 add almost nothing.
+  Values for the scapula landmarks per pose: `node shots/eng-verify-motion/probe/run.mjs
+  /home/user/forclaude/shots/qa3-fix-body/probe/girdle.ts`.
 - **Patella** glides from the trochlea onto the condyles: its centre moves on an arc around the condyles and tilts
   ~0.6 × knee flexion. The tilt per knee angle (`PAT_TILT` in rig.ts) was solved so the **patellar tendon keeps
   its rest length** (apex → tibial tuberosity) at every knee angle — so `patella:*` landmarks stay on the femur and
@@ -263,6 +274,15 @@ upper back, sacrum and heels touch (hip −2°, neck −8°); in PRONE the chest
 tops of the feet ~2 cm above (the face is just off the floor); in QUADRUPED hands and knees
 touch, in PLANK forearms and toes, in HALF_KNEEL the right knee + toes and the left foot.
 
+**Grounding = what you see.** `lowest skin point` is taken over every skin shape (`SKIN_SHAPES` in rig.ts). Since
+qa3-fix-body the knees (femoral condyles, kneecap, upper tibia) and the buttocks are drawn shapes too, so a kneeling
+knee, a seated or long-sitting pelvis and the forefoot sole (ball of the foot under the metatarsal heads, on the
+`toes` segment) touch visibly where the figure is grounded (they used to hover 1–2 cm: the lofted rings were smaller
+than the grounding shapes there). Visible-skin contacts per clip / base pose:
+`node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/qa3-fix-body/probe/contacts.ts out.json`
+(+ `cmp-contacts.mjs base.json out.json` to compare two trees). After that change QUADRUPED's hands are still ~2 cm
+above the floor and SIT_CHAIR's thighs ~3 cm above the seat (base-pose solves, not skin).
+
 ---
 
 ## 5. Landmarks & attachment refs
@@ -276,6 +296,7 @@ touch, in PLANK forearms and toes, in HALF_KNEEL the right knee + toes and the l
 { ref: 'pelvis:iliac_crest_mid', off: [0.012, -0.03, 0.02] }  // landmark + offset [lat, y, z] in the bone frame
 { bone: 'femur', rest: [0.168, 0.76, 0.0] }              // any point rigidly on a bone, in REST coords
 { mix: ['femur_R:medial_epicondyle', 'femur_L:medial_epicondyle'], t: 0.5 }  // world-space blend (can span bones)
+{ mix: [a, b], t: 0.5, off: [0, 0.01, -0.004] }          // + offset [lat, y, z] in the FIRST point's bone frame
 ```
 
 - Midline landmarks (marked ·mid below, `lat = 0`) have no side. Bilateral landmarks on midline bones
@@ -283,6 +304,15 @@ touch, in PLANK forearms and toes, in HALF_KNEEL the right knee + toes and the l
 - `off` is lateral-positive like everything else (`+lat` = more lateral on either side).
 - `{ bone, rest }` is the workhorse for **via points**: read the rest coordinates of nearby landmarks from
   the table, pick a point outside the bone surface, done. It stays rigid on that bone.
+- A **mix of the same rest point on two neighbouring bones** spreads a joint's motion: the rig bends the whole lumbar
+  spine at L5/S1 and the whole thoracic spine at T12/L1, so e.g. a point on L3 is
+  `{ mix: [{ bone: 'pelvis', rest: P }, { bone: 'lumbar', rest: P }], t: 0.55 }` (erector spinae, multifidus and
+  quadratus lumborum do this; a rigid lumbar point stretches short trunk muscles ~2× in a side bend).
+- Landmarks sit on the modelled bone surface (+ ~2–3 mm): `node shots/eng-verify-motion/probe/run.mjs
+  /home/user/forclaude/shots/qa3-fix-body/probe/lmbone.ts [regex] [thr]` lists the distance of each landmark to its
+  bone. Some are intentionally off-bone: `foot:calcaneus_plantar` / `arch_mid` (sole / heel pad), `pelvis:iliac_fossa`
+  (inside the basin), spinal `body_*` / `lamina_*` (muscle-side points), `thorax:rib6_ant` / `costal_margin` (front of
+  the cartilages).
 - Turn on `?debug=1` to see every landmark as a blue dot (names shown near the view centre, or all names of
   one bone with `&lm=femur`).
 
@@ -329,7 +359,7 @@ touch, in PLANK forearms and toes, in HALF_KNEEL the right knee + toes and the l
 
 | landmark | rest [lat, y, z] | description |
 |---|---|---|
-| `spinous_L1` ·mid | 0.000, 1.145, -0.104 | L1 棘突起 |
+| `spinous_L1` ·mid | 0.000, 1.145, -0.101 | L1 棘突起 |
 | `transverse_L1` | 0.045, 1.145, -0.076 | L1 横突起 (QL, psoas, multifidus) |
 | `body_L1` | 0.024, 1.145, -0.032 | L1 椎体 前外側 (psoas) |
 | `lamina_L1` | 0.014, 1.145, -0.089 | L1 椎弓・乳頭突起 (multifidus) |
@@ -368,45 +398,45 @@ touch, in PLANK forearms and toes, in HALF_KNEEL the right knee + toes and the l
 | `spinous_T4` ·mid | 0.000, 1.378, -0.115 | T4 棘突起 (trapezius, rhomboids, lats) |
 | `transverse_T4` | 0.036, 1.378, -0.090 | T4 横突起 |
 | `body_T4` | 0.018, 1.378, -0.043 | T4 椎体 前外側 |
-| `spinous_T5` ·mid | 0.000, 1.353, -0.120 | T5 棘突起 (trapezius, rhomboids, lats) |
+| `spinous_T5` ·mid | 0.000, 1.353, -0.116 | T5 棘突起 (trapezius, rhomboids, lats) |
 | `transverse_T5` | 0.036, 1.353, -0.095 | T5 横突起 |
 | `body_T5` | 0.018, 1.353, -0.048 | T5 椎体 前外側 |
-| `spinous_T6` ·mid | 0.000, 1.327, -0.123 | T6 棘突起 (trapezius, rhomboids, lats) |
+| `spinous_T6` ·mid | 0.000, 1.327, -0.118 | T6 棘突起 (trapezius, rhomboids, lats) |
 | `transverse_T6` | 0.037, 1.327, -0.098 | T6 横突起 |
 | `body_T6` | 0.018, 1.327, -0.051 | T6 椎体 前外側 |
-| `spinous_T7` ·mid | 0.000, 1.300, -0.125 | T7 棘突起 (trapezius, rhomboids, lats) |
+| `spinous_T7` ·mid | 0.000, 1.300, -0.120 | T7 棘突起 (trapezius, rhomboids, lats) |
 | `transverse_T7` | 0.038, 1.300, -0.099 | T7 横突起 |
 | `body_T7` | 0.018, 1.300, -0.052 | T7 椎体 前外側 |
-| `spinous_T8` ·mid | 0.000, 1.273, -0.125 | T8 棘突起 (trapezius, rhomboids, lats) |
+| `spinous_T8` ·mid | 0.000, 1.273, -0.120 | T8 棘突起 (trapezius, rhomboids, lats) |
 | `transverse_T8` | 0.038, 1.273, -0.099 | T8 横突起 |
 | `body_T8` | 0.018, 1.273, -0.052 | T8 椎体 前外側 |
-| `spinous_T9` ·mid | 0.000, 1.247, -0.123 | T9 棘突起 (trapezius, rhomboids, lats) |
+| `spinous_T9` ·mid | 0.000, 1.247, -0.119 | T9 棘突起 (trapezius, rhomboids, lats) |
 | `transverse_T9` | 0.039, 1.247, -0.097 | T9 横突起 |
 | `body_T9` | 0.018, 1.247, -0.050 | T9 椎体 前外側 |
-| `spinous_T10` ·mid | 0.000, 1.222, -0.120 | T10 棘突起 (trapezius, rhomboids, lats) |
+| `spinous_T10` ·mid | 0.000, 1.222, -0.117 | T10 棘突起 (trapezius, rhomboids, lats) |
 | `transverse_T10` | 0.039, 1.222, -0.094 | T10 横突起 |
 | `body_T10` | 0.018, 1.222, -0.047 | T10 椎体 前外側 |
-| `spinous_T11` ·mid | 0.000, 1.197, -0.115 | T11 棘突起 (trapezius, rhomboids, lats) |
+| `spinous_T11` ·mid | 0.000, 1.197, -0.112 | T11 棘突起 (trapezius, rhomboids, lats) |
 | `transverse_T11` | 0.040, 1.197, -0.090 | T11 横突起 |
 | `body_T11` | 0.018, 1.197, -0.043 | T11 椎体 前外側 |
-| `spinous_T12` ·mid | 0.000, 1.172, -0.110 | T12 棘突起 (trapezius, rhomboids, lats) |
+| `spinous_T12` ·mid | 0.000, 1.172, -0.107 | T12 棘突起 (trapezius, rhomboids, lats) |
 | `transverse_T12` | 0.041, 1.172, -0.085 | T12 横突起 |
 | `body_T12` | 0.018, 1.172, -0.038 | T12 椎体 前外側 |
-| `rib1_lat` | 0.060, 1.405, 0.030 | 第1肋骨 外側面 |
-| `rib2_lat` | 0.105, 1.385, 0.035 | 第2肋骨 外側面 |
-| `rib3_lat` | 0.122, 1.358, 0.030 | 第3肋骨 外側面 |
-| `rib4_lat` | 0.133, 1.328, 0.026 | 第4肋骨 外側面 |
-| `rib5_lat` | 0.141, 1.298, 0.022 | 第5肋骨 外側面 |
-| `rib6_lat` | 0.146, 1.268, 0.018 | 第6肋骨 外側面 |
-| `rib7_lat` | 0.148, 1.238, 0.012 | 第7肋骨 外側面 |
-| `rib8_lat` | 0.148, 1.208, 0.006 | 第8肋骨 外側面 |
-| `rib9_lat` | 0.145, 1.178, 0.000 | 第9肋骨 外側面 |
-| `rib10_lat` | 0.139, 1.152, -0.012 | 第10肋骨 外側面 |
-| `rib11_lat` | 0.128, 1.130, -0.035 | 第11肋骨 外側面 |
+| `rib1_lat` | 0.056, 1.428, 0.032 | 第1肋骨 外側面 |
+| `rib2_lat` | 0.082, 1.387, 0.039 | 第2肋骨 外側面 |
+| `rib3_lat` | 0.106, 1.357, 0.033 | 第3肋骨 外側面 |
+| `rib4_lat` | 0.122, 1.328, 0.029 | 第4肋骨 外側面 |
+| `rib5_lat` | 0.134, 1.298, 0.024 | 第5肋骨 外側面 |
+| `rib6_lat` | 0.143, 1.269, 0.020 | 第6肋骨 外側面 |
+| `rib7_lat` | 0.149, 1.240, 0.014 | 第7肋骨 外側面 |
+| `rib8_lat` | 0.148, 1.211, 0.007 | 第8肋骨 外側面 |
+| `rib9_lat` | 0.148, 1.186, 0.001 | 第9肋骨 外側面 |
+| `rib10_lat` | 0.144, 1.168, -0.011 | 第10肋骨 外側面 |
+| `rib11_lat` | 0.134, 1.160, -0.036 | 第11肋骨 外側面 |
 | `rib1_ant` | 0.035, 1.413, 0.060 | 第1肋骨 前端（胸骨柄の外側） (subclavius, scalenes area) |
-| `rib3_ant` | 0.072, 1.362, 0.094 | 第3肋骨 前面 (pectoralis minor) |
-| `rib4_ant` | 0.078, 1.333, 0.100 | 第4肋骨 前面 (pectoralis minor) |
-| `rib5_ant` | 0.083, 1.302, 0.102 | 第5肋骨 前面 (pectoralis minor) |
+| `rib3_ant` | 0.079, 1.346, 0.067 | 第3肋骨 前面 (pectoralis minor) |
+| `rib4_ant` | 0.089, 1.314, 0.074 | 第4肋骨 前面 (pectoralis minor) |
+| `rib5_ant` | 0.095, 1.280, 0.078 | 第5肋骨 前面 (pectoralis minor) |
 | `rib6_ant` | 0.085, 1.270, 0.100 | 第6肋骨 前面 (pectoralis major lower fibres, rectus) |
 | `costal_cartilage_5_7` | 0.062, 1.246, 0.104 | 第5〜7肋軟骨 (rectus abdominis insertion) |
 | `costal_margin` | 0.105, 1.200, 0.085 | 肋骨弓 (external oblique, transversus) |
@@ -447,10 +477,10 @@ touch, in PLANK forearms and toes, in HALF_KNEEL the right knee + toes and the l
 
 | landmark | rest [lat, y, z] | description |
 |---|---|---|
-| `occiput` ·mid | 0.000, 1.625, -0.090 | 外後頭隆起 |
-| `nuchal_line_sup` | 0.040, 1.625, -0.083 | 上項線 (trapezius upper fibres) |
+| `occiput` ·mid | 0.000, 1.625, -0.084 | 外後頭隆起 |
+| `nuchal_line_sup` | 0.040, 1.625, -0.075 | 上項線 (trapezius upper fibres) |
 | `nuchal_line_inf` | 0.030, 1.605, -0.070 | 下項線 (suboccipitals, semispinalis) |
-| `mastoid` | 0.052, 1.600, -0.028 | 乳様突起 (SCM) |
+| `mastoid` | 0.052, 1.600, -0.024 | 乳様突起 (SCM) |
 | `skull_base_ant` | 0.010, 1.598, 0.002 | 後頭骨底部 前面 (longus capitis) |
 | `vertex` ·mid | 0.000, 1.750, 0.000 | 頭頂 |
 | `chin` ·mid | 0.000, 1.528, 0.075 | おとがい |
@@ -471,13 +501,13 @@ touch, in PLANK forearms and toes, in HALF_KNEEL the right knee + toes and the l
 | `spine_mid` | 0.120, 1.410, -0.088 | 肩甲棘 中央 (deltoid posterior, trapezius) |
 | `spine_lateral` | 0.165, 1.437, -0.050 | 肩甲棘 外側 |
 | `supraspinous_fossa` | 0.108, 1.425, -0.080 | 棘上窩 (supraspinatus) |
-| `infraspinous_fossa` | 0.112, 1.330, -0.092 | 棘下窩 (infraspinatus) |
+| `infraspinous_fossa` | 0.110, 1.330, -0.084 | 棘下窩 (infraspinatus) |
 | `subscapular_fossa` | 0.108, 1.335, -0.072 | 肩甲下窩（前面） (subscapularis) |
 | `superior_angle` | 0.077, 1.435, -0.090 | 上角 (levator scapulae) |
-| `medial_border_mid` | 0.070, 1.330, -0.112 | 内側縁 中央 (rhomboids, serratus anterior) |
+| `medial_border_mid` | 0.083, 1.333, -0.100 | 内側縁 中央 (rhomboids, serratus anterior) |
 | `inferior_angle` | 0.086, 1.236, -0.104 | 下角 (serratus, teres major) |
-| `lateral_border` | 0.135, 1.300, -0.075 | 外側縁 (teres minor, teres major) |
-| `glenoid` | 0.154, 1.405, -0.012 | 関節窩 |
+| `lateral_border` | 0.112, 1.300, -0.077 | 外側縁 (teres minor, teres major) |
+| `glenoid` | 0.153, 1.405, -0.023 | 関節窩 |
 | `supraglenoid_tubercle` | 0.155, 1.430, -0.006 | 関節上結節 (biceps long head) |
 | `infraglenoid_tubercle` | 0.150, 1.376, -0.022 | 関節下結節 (triceps long head) |
 
@@ -485,7 +515,7 @@ touch, in PLANK forearms and toes, in HALF_KNEEL the right knee + toes and the l
 
 | landmark | rest [lat, y, z] | description |
 |---|---|---|
-| `head` | 0.168, 1.408, -0.006 | 上腕骨頭 |
+| `head` | 0.175, 1.406, -0.008 | 上腕骨頭 |
 | `greater_tubercle_sup` | 0.193, 1.424, 0.000 | 大結節 上面 (supraspinatus) |
 | `greater_tubercle_mid` | 0.200, 1.405, -0.013 | 大結節 中面 (infraspinatus) |
 | `greater_tubercle_inf` | 0.196, 1.384, -0.022 | 大結節 下面 (teres minor) |
@@ -538,10 +568,10 @@ touch, in PLANK forearms and toes, in HALF_KNEEL the right knee + toes and the l
 | `shaft_lat_prox` | 0.138, 0.852, 0.004 | 大腿骨外側 上部 (vastus lateralis) |
 | `shaft_med_prox` | 0.102, 0.840, 0.012 | 大腿骨内側 上部 (vastus medialis) |
 | `shaft_ant_mid` | 0.110, 0.700, 0.024 | 大腿骨前面 中央 |
-| `linea_aspera_prox` | 0.117, 0.800, -0.026 | 粗線 上部 (adductors, vastus) |
-| `linea_aspera_mid` | 0.107, 0.700, -0.026 | 粗線 中央 (adductor longus/magnus, biceps short head) |
-| `linea_aspera_dist` | 0.099, 0.600, -0.022 | 粗線 下部 (adductor magnus) |
-| `adductor_tubercle` | 0.052, 0.540, -0.012 | 内転筋結節 (adductor magnus) |
+| `linea_aspera_prox` | 0.125, 0.800, -0.018 | 粗線 上部 (adductors, vastus) |
+| `linea_aspera_mid` | 0.111, 0.700, -0.013 | 粗線 中央 (adductor longus/magnus, biceps short head) |
+| `linea_aspera_dist` | 0.099, 0.600, -0.016 | 粗線 下部 (adductor magnus) |
+| `adductor_tubercle` | 0.058, 0.540, -0.010 | 内転筋結節 (adductor magnus) |
 | `lateral_epicondyle` | 0.132, 0.515, -0.004 | 外側上顆 (ITB passes over, LCL) |
 | `medial_epicondyle` | 0.046, 0.515, -0.004 | 内側上顆 (MCL) |
 | `lateral_condyle_post` | 0.118, 0.522, -0.030 | 外側顆 後上部 (gastrocnemius lateral head) |
@@ -567,7 +597,7 @@ touch, in PLANK forearms and toes, in HALF_KNEEL the right knee + toes and the l
 | landmark | rest [lat, y, z] | description |
 |---|---|---|
 | `tibial_tuberosity` | 0.090, 0.448, 0.034 | 脛骨粗面 (patellar tendon) |
-| `pes_anserinus` | 0.068, 0.432, 0.022 | 鵞足（脛骨内側上部） (sartorius, gracilis, semitendinosus) |
+| `pes_anserinus` | 0.074, 0.432, 0.015 | 鵞足（脛骨内側上部） (sartorius, gracilis, semitendinosus) |
 | `gerdy_tubercle` | 0.114, 0.462, 0.026 | ガーディー結節 (iliotibial band) |
 | `medial_condyle` | 0.054, 0.474, 0.000 | 脛骨内側顆 |
 | `medial_condyle_post` | 0.060, 0.468, -0.022 | 脛骨内側顆 後面 (semimembranosus) |
@@ -599,7 +629,7 @@ touch, in PLANK forearms and toes, in HALF_KNEEL the right knee + toes and the l
 |---|---|---|
 | `calcaneus_post` | 0.090, 0.034, -0.071 | 踵骨隆起 後面 (Achilles insertion) |
 | `calcaneus_post_sup` | 0.090, 0.056, -0.060 | 踵骨 後上部 (retrocalcaneal bursa) |
-| `calcaneus_plantar_medial` | 0.076, 0.008, -0.036 | 踵骨隆起 内側突起 (plantar fascia, abductor hallucis, FDB) |
+| `calcaneus_plantar_medial` | 0.080, 0.018, -0.040 | 踵骨隆起 内側突起 (plantar fascia, abductor hallucis, FDB) |
 | `calcaneus_plantar` | 0.090, 0.006, -0.030 | 踵骨 足底面（踵の脂肪体） |
 | `calcaneus_lat` | 0.114, 0.030, -0.034 | 踵骨 外側面 (CFL) |
 | `sustentaculum_tali` | 0.066, 0.048, -0.012 | 載距突起 (FHL groove, spring ligament) |
@@ -610,7 +640,7 @@ touch, in PLANK forearms and toes, in HALF_KNEEL the right knee + toes and the l
 | `medial_cuneiform_dorsal` | 0.064, 0.050, 0.082 | 内側楔状骨 内背側 (tibialis anterior) |
 | `cuboid_groove` | 0.114, 0.020, 0.050 | 立方骨 長腓骨筋腱溝 |
 | `first_met_base` | 0.066, 0.030, 0.096 | 第1中足骨底 (fibularis longus, tib ant) |
-| `fifth_met_base` | 0.130, 0.020, 0.062 | 第5中足骨底（粗面） (fibularis brevis) |
+| `fifth_met_base` | 0.127, 0.022, 0.061 | 第5中足骨底（粗面） (fibularis brevis) |
 | `met_head_1` | 0.064, 0.013, 0.140 | 第1中足骨頭（母趾球） |
 | `met_head_2` | 0.080, 0.012, 0.142 | 第2中足骨頭 |
 | `met_head_3` | 0.095, 0.012, 0.134 | 第3中足骨頭 |
@@ -1055,10 +1085,10 @@ Screenshots (phone): `node scripts/shot.mjs "http://127.0.0.1:<PORT>/dev/engine.
 
 | file | role |
 |---|---|
-| `rig.ts` | DOFs, limits, rest origins, FK (`solveFK`), skin primitives (grounding/bounds), base poses |
+| `rig.ts` | DOFs, limits, rest origins, FK (`solveFK`, shoulder-girdle model in §3), skin shapes (`SKIN_SHAPES`: drawn shapes + the volumes behind the loft; all of them ground the figure), base poses |
 | `landmarks.ts` | landmark table, ref compilation (`compileRef`, `evalPoint`) |
-| `skeleton.ts`, `skeleton-parts.ts` | procedural bone geometry per highlightable piece |
-| `skin-loft.ts` | smooth CPU-skinned trunk / arm / leg skin; `figure.ts` assembles bones + skin |
+| `skeleton.ts`, `skeleton-parts.ts` | procedural bone geometry per highlightable piece (~47k triangles for both sides; tessellation follows size — `geometry.ts` defaults) |
+| `skin-loft.ts` | smooth CPU-skinned trunk / arm / leg skin (rings: centre, half-width `a`, front half-depth `b`, optional back half-depth `bb` and exponent `n`); `figure.ts` assembles bones + skin |
 | `strands.ts` | allocation-free animated tubes (muscle / cord), length ratios, halo; `pose()` (centre line, ratios — cheap) and `write()` (geometry; colours only when they changed) |
 | `anatomy.ts` | scope → visuals, roles, colours, markers, labels anchors, fades, see-through copies; `update()` (geometry + colours), `pose()` (pre-passes), `updatePulse()` (glow only) |
 | `scenes.ts` | teaching scenes for condition / region pages (§7) |
@@ -1067,6 +1097,13 @@ Screenshots (phone): `node scripts/shot.mjs "http://127.0.0.1:<PORT>/dev/engine.
 | `engine.ts` | renderer, loop, playback, framing, interaction, debug, lifecycle |
 | `data-access.ts` | lazy, guarded access to `src/data` (content can never crash the viewer) |
 | `AnatomyViewer.tsx`, `viewer.css` | React wrapper + Japanese player UI |
+
+Bones (`figure.ts`): one merged mesh per segment + material (~31 draw calls instead of 85 pieces). Each piece keeps its
+index range; `Figure.tint(part, …)` splits a piece off on demand (its triangles leave the merged index — compacted,
+`drawRange` — and a part mesh sharing the merged vertex buffers draws them with the tint material) and puts it back on
+reset. `partMeshes(part, side)` returns the split-off meshes (only while tinted). Probes: bone triangles per part
+`shots/qa3-fix-body/probe/tris.ts`; bone vertices outside the visible skin per pose `shots/qa3-fix-body/probe/skin.ts`
+(run with `node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/qa3-fix-body/probe/<file>`).
 
 Per-frame code (FK, grounding, strands, skin loft, labels, colours) is allocation-free: reuse module-level
 temporaries, use `colorOf(css)` (cached `Color`) instead of `Color.set(string)`, and never create closures or
@@ -1091,6 +1128,7 @@ Paused when off-screen (IntersectionObserver) or the tab is hidden. Unmount deta
 the context in an idle callback (`forceContextLoss` waits for the GPU — not inside React's commit). WebGL unavailable /
 context lost show a Japanese message (with 「再表示する」); when the browser restores a lost context the viewer
 remounts itself, and a once-lost engine drops its GL objects without deleting them (they belong to the dead
-context). `prefers-reduced-motion` → no autoplay, no pulse.
+context) but still releases its restored context (`forceContextLoss` in an idle callback — otherwise it would count
+against the browser's live-context cap until garbage collection). `prefers-reduced-motion` → no autoplay, no pulse.
 If building a view throws (e.g. a malformed rig or clip), the viewer logs `[tribody 3d] could not show this view`
 and falls back to the standing figure with 「3Dモデルを表示できませんでした」 — check the console when a page shows that.

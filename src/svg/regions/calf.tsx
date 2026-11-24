@@ -5,7 +5,7 @@
 // Scale ≈ 10.8 units / cm: knee joint line y≈40, ankle joint y≈420, sole y≈508.
 import type { RegionDiagram, RegionDiagramProps } from '../types';
 import { Ctxt, Frame, HoleMask, M, Nerve, Part, Ten, ell, line, muscle, sp, useCtx, type Ctx, type Lab, type P, type Spot } from './hip';
-import { FlSoleInset, SOLE_INSET, soleInsetPt } from './footsole';
+import { FL_INSERT, FL_LAT, FlSoleInset, SOLE_INSET, soleInsetPt } from './footsole';
 
 const W = 360;
 const H = 520;
@@ -166,8 +166,8 @@ function CalfBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const flSolo = k.hl['fibularis-longus'] === 'selected' || k.hl['fibularis-longus'] === 'muscle';
   if (flSolo) {
     labels.push(
-      { id: 'fibularis-longus', t: '長腓骨筋腱', at: soleInsetPt([136, 352]), x: 266, y: 588 },
-      { id: 'fibularis-longus', t: '停止：\n第1中足骨底\n内側楔状骨', at: soleInsetPt([236, 296]), x: 104, y: 600, a: 'end' },
+      { id: 'fibularis-longus', t: '長腓骨筋腱', at: soleInsetPt(FL_LAT), x: 266, y: 588 },
+      { id: 'fibularis-longus', t: '停止：\n第1中足骨底\n内側楔状骨', at: soleInsetPt(FL_INSERT), x: 104, y: 600, a: 'end' },
     );
   }
   return (

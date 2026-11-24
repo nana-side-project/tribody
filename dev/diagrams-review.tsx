@@ -6,7 +6,9 @@
 //   ?r=knee&v=front[&m=..][&c=<conditionId>][&part=<id>][&zoom=x,y,w,h]   one view
 //   ?c=<conditionId>                                 one condition (best view, injured/involved highlights, dimOthers)
 //   ?bm=front|back|sole[&labels=1]                   body map
-//   ?check=1                                         automated contract checks (results in console + on page)
+//   ?check=1                                         automated contract checks (results in console + on page): parts, spots, taps,
+//                                                    label & caption size (≥ 11 px on a 360 px phone), clipping and overlaps,
+//                                                    also in states that add labels / insets (part selected, condition highlights)
 //   &theme=dark|light                                force theme
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -208,6 +210,54 @@ function BodyMapOne() {
 
 const overlap = (a: DOMRect, c: DOMRect) => a.x < c.x + c.width - 0.5 && c.x < a.x + a.width - 0.5 && a.y < c.y + c.height - 0.5 && c.y < a.y + a.height - 0.5;
 
+/** CSS width of a region figure on a 360 px phone (360 − 2 × 16 px gutters − card padding; measured in the app). */
+const PHONE360_FIG = 302;
+/** Smallest text in a figure on a 360 px phone (labels and captions). */
+const MIN_PX_360 = 11;
+
+/** Geometry checks of the labels, captions (view titles, inset titles / notes) and hotspots currently rendered in `host`. */
+function layoutIssues(host: HTMLElement, tag: string, sEls: SVGGElement[] = []): string[] {
+  const out: string[] = [];
+  const svg = host.querySelector('svg')!;
+  const rect = svg.getBoundingClientRect();
+  const vbW = svg.viewBox.baseVal.width;
+  const at360 = (el: Element) => parseFloat(getComputedStyle(el).fontSize) * (PHONE360_FIG / vbW);
+  const inside = (b: DOMRect) => b.left >= rect.left - 0.5 && b.right <= rect.right + 0.5 && b.top >= rect.top - 0.5 && b.bottom <= rect.bottom + 0.5;
+  const labs = [...host.querySelectorAll<SVGTextElement>('[class*="-lab"] text')];
+  const boxes = labs.map((t) => ({ t: t.textContent ?? '', b: t.getBoundingClientRect() }));
+  labs.forEach((el, i) => {
+    const { t, b } = boxes[i];
+    if (!inside(b)) out.push(`${tag}: label "${t}" clipped`);
+    const fs = parseFloat(getComputedStyle(el).fontSize) * (rect.width / vbW);
+    if (fs < 11 || fs > 13.5) out.push(`${tag}: label "${t}" renders at ${fs.toFixed(1)} px`);
+    const px = at360(el);
+    if (px < MIN_PX_360) out.push(`${tag}: label "${t}" is ${px.toFixed(2)} px on a 360 px phone (< ${MIN_PX_360})`);
+  });
+  const capEls = [...host.querySelectorAll<SVGTextElement>('.cap-t, .note-t')];
+  const caps = capEls.map((t) => ({ t: t.textContent ?? '', b: t.getBoundingClientRect() }));
+  capEls.forEach((el, i) => {
+    const c = caps[i];
+    if (!inside(c.b)) out.push(`${tag}: caption "${c.t}" clipped`);
+    const px = at360(el);
+    if (px < MIN_PX_360) out.push(`${tag}: caption "${c.t}" is ${px.toFixed(2)} px on a 360 px phone (< ${MIN_PX_360})`);
+    for (const { t, b } of boxes) if (overlap(b, c.b)) out.push(`${tag}: label "${t}" overlaps caption "${c.t}"`);
+  });
+  for (let i = 0; i < caps.length; i++)
+    for (let j = i + 1; j < caps.length; j++) if (overlap(caps[i].b, caps[j].b)) out.push(`${tag}: captions "${caps[i].t}" / "${caps[j].t}" overlap`);
+  for (let i = 0; i < boxes.length; i++)
+    for (let j = i + 1; j < boxes.length; j++) if (overlap(boxes[i].b, boxes[j].b)) out.push(`${tag}: "${boxes[i].t}" overlaps "${boxes[j].t}"`);
+  for (const e of sEls) {
+    const b = e.getBoundingClientRect();
+    const c = new DOMRect(b.x + b.width / 2 - 8, b.y + b.height / 2 - 8, 16, 16);
+    for (const { t, b: lb } of boxes) if (overlap(lb, c)) out.push(`${tag}: hotspot ${e.getAttribute('data-spot')} sits on label "${t}"`);
+    for (const { t, b: cb } of caps) if (overlap(cb, c)) out.push(`${tag}: hotspot ${e.getAttribute('data-spot')} sits on caption "${t}"`);
+  }
+  return out;
+}
+
+/** Texts of the labels and captions currently drawn (to spot states that add labels / insets). */
+const textKey = (host: HTMLElement) => [...host.querySelectorAll('[class*="-lab"] text, .cap-t, .note-t')].map((t) => t.textContent).join('|');
+
 function runChecks(): string[] {
   const out: string[] = [];
   const host = document.createElement('div');
@@ -276,28 +326,8 @@ function runChecks(): string[] {
           const dd = Math.hypot(cs[i].x - cs[j].x, cs[i].y - cs[j].y);
           if (dd < 34) out.push(`${tag}: hotspots ${cs[i].id} / ${cs[j].id} only ${dd.toFixed(0)} px apart`);
         }
-      // labels
-      const labs = [...host.querySelectorAll<SVGTextElement>('[class*="-lab"] text')];
-      const boxes = labs.map((t) => ({ t: t.textContent ?? '', b: t.getBoundingClientRect() }));
-      for (const { t, b } of boxes) {
-        if (b.left < rect.left - 0.5 || b.right > rect.right + 0.5 || b.top < rect.top - 0.5 || b.bottom > rect.bottom + 0.5)
-          out.push(`${tag}: label "${t}" clipped`);
-        const fs = parseFloat(getComputedStyle(labs[boxes.findIndex((x) => x.t === t)]).fontSize) * (rect.width / svg.viewBox.baseVal.width);
-        if (fs < 11 || fs > 13.5) out.push(`${tag}: label "${t}" renders at ${fs.toFixed(1)} px`);
-      }
-      const caps = [...host.querySelectorAll<SVGTextElement>('.cap-t')].map((t) => ({ t: t.textContent ?? '', b: t.getBoundingClientRect() }));
-      for (const c of caps) {
-        if (c.b.left < rect.left - 0.5 || c.b.right > rect.right + 0.5) out.push(`${tag}: caption "${c.t}" clipped`);
-        for (const { t, b } of boxes) if (overlap(b, c.b)) out.push(`${tag}: label "${t}" overlaps caption "${c.t}"`);
-      }
-      for (let i = 0; i < caps.length; i++) for (let j = i + 1; j < caps.length; j++) if (overlap(caps[i].b, caps[j].b)) out.push(`${tag}: captions overlap`);
-      for (let i = 0; i < boxes.length; i++)
-        for (let j = i + 1; j < boxes.length; j++) if (overlap(boxes[i].b, boxes[j].b)) out.push(`${tag}: "${boxes[i].t}" overlaps "${boxes[j].t}"`);
-      for (const e of sEls) {
-        const b = e.getBoundingClientRect();
-        const c = new DOMRect(b.x + b.width / 2 - 8, b.y + b.height / 2 - 8, 16, 16);
-        for (const { t, b: lb } of boxes) if (overlap(lb, c)) out.push(`${tag}: hotspot ${e.getAttribute('data-spot')} sits on label "${t}"`);
-      }
+      // labels, captions, hotspots: size / clipping / overlaps
+      out.push(...layoutIssues(host, tag, sEls));
       // taps
       tapped = [];
       for (const e of sEls) e.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -309,6 +339,15 @@ function runChecks(): string[] {
         const target = el.querySelector('path, ellipse, circle, rect') ?? el;
         target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         if (tapped[0] !== `p:${id}`) out.push(`${tag}: tapping ${id} → ${tapped.join() || 'nothing'}`);
+      }
+      // states that add labels / insets (muscle page: part selected + dimOthers; condition page: highlights + dimOthers)
+      render(<C view={v.id} />);
+      const base = textKey(host);
+      const states: [string, Highlights][] = [...drawn].map((id) => [`${id} selected`, { [id]: 'selected' } as Highlights]);
+      for (const c of conditions.filter((c) => c.region === r)) states.push([`condition ${c.id}`, conditionHighlights(c.id)!.hl]);
+      for (const [name, hl] of states) {
+        render(<C view={v.id} highlights={hl} dimOthers />);
+        if (textKey(host) !== base) out.push(...layoutIssues(host, `${tag} [${name}]`));
       }
       // showLabels=false hides labels; showSpots=false hides spots
       render(<C view={v.id} showLabels={false} />);

@@ -296,6 +296,9 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
   // in front of the neck) and turn back to the lesser trochanter (common tendon).
   iliopsoas: {
     id: 'iliopsoas',
+    // qa3-fix-body: the last via (in front of the femoral head, y 0.904) was dropped — in deep flexion the lesser
+    // trochanter swings up past it and the path doubled back, so the muscle was shortest at 60–90° and lengthened
+    // again toward 125°. From the pubic-ramus via (y 0.93) the tendon now runs straight to the lesser trochanter.
     strands: [
       {
         name: '大腰筋（T12–L2）',
@@ -304,7 +307,6 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { bone: 'lumbar', rest: [0.042, 1.06, -0.016] },
           { bone: 'pelvis', rest: [0.06, 0.975, 0.018] },
           { bone: 'pelvis', rest: [0.07, 0.928, 0.05] },
-          { bone: 'pelvis', rest: [0.082, 0.904, 0.044] },
           { ref: 'femur:lesser_trochanter', off: [-0.002, 0.002, 0.007] },
         ],
         radius: 0.014,
@@ -317,7 +319,6 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { bone: 'lumbar', rest: [0.05, 1.045, -0.008] },
           { bone: 'pelvis', rest: [0.066, 0.975, 0.024] },
           { bone: 'pelvis', rest: [0.076, 0.928, 0.052] },
-          { bone: 'pelvis', rest: [0.085, 0.904, 0.045] },
           { ref: 'femur:lesser_trochanter', off: [-0.001, 0.004, 0.007] },
         ],
         radius: 0.013,
@@ -329,7 +330,6 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { ref: 'pelvis:iliac_fossa', off: [0.033, 0.025, -0.02] },
           { bone: 'pelvis', rest: [0.088, 0.972, 0.037] },
           { bone: 'pelvis', rest: [0.084, 0.93, 0.055] },
-          { bone: 'pelvis', rest: [0.09, 0.905, 0.044] },
           { ref: 'femur:lesser_trochanter', off: [0.0, 0.006, 0.008] },
         ],
         radius: 0.013,
@@ -341,7 +341,6 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { ref: 'pelvis:iliac_fossa', off: [-0.005, 0.0, -0.012] },
           { bone: 'pelvis', rest: [0.08, 0.97, 0.032] },
           { bone: 'pelvis', rest: [0.081, 0.928, 0.053] },
-          { bone: 'pelvis', rest: [0.087, 0.904, 0.045] },
           { ref: 'femur:lesser_trochanter', off: [-0.001, 0.003, 0.008] },
         ],
         radius: 0.012,

@@ -550,7 +550,13 @@ export class Engine {
     else focus ??= cc.focus;
     const scopeSides = this.mode === 'highlights' || this.mode === 'muscle' ? [cc.side] : cc.sides;
     const both = new Set<string>(scene?.both ?? []);
-    this.anatomy.setScope(scope, scopeSides, { markers, ghosts: !!spec.all, fade: scene?.fade, xrayInjured: this.mode === 'highlights', both });
+    this.anatomy.setScope(scope, scopeSides, {
+      markers,
+      ghosts: !!spec.all,
+      fade: scene?.fade,
+      xrayInjured: this.mode === 'highlights',
+      both,
+    });
     this.ctxPts = this.mode === 'muscle' && spec.muscle ? this.muscleContext(spec.muscle, cc.side) : [];
     if (this.mode === 'highlights' && Object.keys(scope).length && !this.anatomy.hasVisuals) this.note = '3Dモデルは準備中です';
     if (this.mode === 'exercise' && !this.note && Object.keys(scope).length && !this.anatomy.hasVisuals) this.note = '筋肉の3Dモデルは準備中です';
@@ -1191,6 +1197,12 @@ export class Engine {
     this.key.target.position.copy(tgt);
     this.fill.position.copy(tgt).addScaledVector(back, 1.5).addScaledVector(right, 2.5).addScaledVector(up, -0.5);
     this.fill.target.position.copy(tgt);
+    // debug landmark dots are instance matrices: update them before drawing (after the draw they lagged a frame, so a
+    // single setTime() showed them at the previous pose)
+    if (this.spec.debug) {
+      cam.updateMatrixWorld();
+      this.renderDebug();
+    }
     this.renderer.render(this.scene, cam);
     this.renders++;
     // labels: re-solved when the pose or the camera changed, while they glide, or when the label set / UI changed
@@ -1208,7 +1220,6 @@ export class Engine {
         this.labelsMoving = this.labels.layout(cam, this.width, this.height, this.frameDt, this.state);
       }
     }
-    if (this.spec.debug) this.renderDebug();
     if (!this.readyFired) {
       this.readyFired = true;
       this.events.onReady?.();
@@ -1414,9 +1425,23 @@ export class Engine {
     this.debugPanel?.remove();
     // detach right away (the next page commits without waiting for the GPU)
     canvas.remove();
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    const later = (fn: () => void) => (ric ? ric(fn, { timeout: 600 }) : setTimeout(fn, 50));
     // after a context loss every GL object belongs to a dead context: drop the references (garbage-collected) —
-    // deleting them would only log INVALID_OPERATION warnings against the restored context
-    if (this.everLost) return;
+    // deleting them would only log INVALID_OPERATION warnings against the restored context. A context the browser
+    // restored is live again, though (the viewer remounts with a new one): release it, or it stays counted against the
+    // browser's live-context cap until garbage collection.
+    if (this.everLost) {
+      const r = this.renderer;
+      later(() => {
+        try {
+          if (!r.getContext().isContextLost()) r.forceContextLoss();
+        } catch {
+          /* already gone */
+        }
+      });
+      return;
+    }
     this.setupDebug(false);
     this.anatomy.dispose();
     this.props.dispose();
@@ -1430,13 +1455,10 @@ export class Engine {
     // Release the context soon (browsers cap live contexts), but not inside React's unmount: forceContextLoss waits
     // for the GPU to finish (0.2–0.3 s), which would delay the next page's first paint.
     const r = this.renderer;
-    const release = () => {
+    later(() => {
       r.dispose();
       r.forceContextLoss();
-    };
-    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
-    if (ric) ric(release, { timeout: 600 });
-    else setTimeout(release, 50);
+    });
   }
 }
 

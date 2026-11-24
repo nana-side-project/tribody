@@ -126,8 +126,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     focus: 'shoulder',
   },
   // teres minor: upper lateral border (dorsal surface; on the engine's scapula the border runs ≈ 0.13 → 0.11 lateral
-  // between y 1.35 and 1.31 — the 'scapula:lateral_border' landmark lies ~2.5 cm lateral of the bone, so rest points
-  // are used) → behind the joint → greater tubercle (inferior facet). Same ER action / cross-body stretch as infraspinatus.
+  // between y 1.35 and 1.31 — the 'scapula:lateral_border' landmark used to lie ~2.5 cm lateral of the bone, so rest
+  // points are used) → behind the joint → greater tubercle (inferior facet). Same ER action / cross-body stretch as infraspinatus.
   'teres-minor': {
     id: 'teres-minor',
     strands: [
@@ -354,8 +354,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     focus: 'shoulder',
   },
   // pectoralis minor: anterior surfaces of ribs 3–5 (near the costal cartilages) → coracoid process (medial border).
-  // Origins are rest points on the engine's rib tubes (the thorax:rib3_ant…rib5_ant landmarks float 2–3 cm in front of
-  // the modelled ribs). No via points: the muscle bridges straight to the coracoid, so protraction shortens it.
+  // Origins are rest points on the engine's rib tubes (the thorax:rib3_ant…rib5_ant landmarks used to float 2–3 cm in
+  // front of the modelled ribs; they sit on the ribs now). No via points: the muscle bridges straight to the coracoid, so protraction shortens it.
   'pectoralis-minor': {
     id: 'pectoralis-minor',
     strands: [
@@ -560,13 +560,16 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         tendon: [0.04, 0.1],
         flat: { width: 0.04, normal: 'posterior' },
       },
-      // lower (ascending) part: T5–T12 → aponeurosis over the root of the spine → tubercle at its medial end
+      // lower (ascending) part: T5–T12 → aponeurosis over the root of the spine → tubercle at its medial end.
+      // The thorax via points sit low and the insertions on the tubercle just below the root, so the last span runs
+      // up along the medial border: upward rotation (the root slides down and out) shortens these fibres (≈ 4–8 % at
+      // upRot 30) as in the content (下部: 下制・上方回旋). They used to stay neutral or lengthen.
       {
         name: '下部（T5〜T7）',
         path: [
           { ref: 'thorax:spinous_T6', off: [0.005, -0.004, -0.003] },
-          { bone: 'thorax', rest: [0.045, 1.35, -0.119] },
-          { bone: 'scapula', rest: [0.09, 1.395, -0.111] },
+          { bone: 'thorax', rest: [0.05, 1.3, -0.121] },
+          { bone: 'scapula', rest: [0.08, 1.378, -0.11] },
         ],
         radius: 0.003,
         tendon: [0.04, 0.12],
@@ -576,8 +579,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '下部（T8〜T10）',
         path: [
           { ref: 'thorax:spinous_T9', off: [0.005, -0.004, -0.003] },
-          { bone: 'thorax', rest: [0.045, 1.31, -0.121] },
-          { ref: 'scapula:spine_medial', off: [0.004, 0.0, -0.005] },
+          { bone: 'thorax', rest: [0.055, 1.27, -0.122] },
+          { bone: 'scapula', rest: [0.077, 1.372, -0.109] },
         ],
         radius: 0.003,
         tendon: [0.04, 0.15],
@@ -587,9 +590,9 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '下部（T11〜T12）',
         path: [
           { ref: 'thorax:spinous_T12', off: [0.005, 0.002, -0.002] },
-          { bone: 'thorax', rest: [0.027, 1.245, -0.121] },
-          { bone: 'thorax', rest: [0.054, 1.315, -0.121] },
-          { ref: 'scapula:spine_medial', off: [0.0, -0.004, -0.005] },
+          { bone: 'thorax', rest: [0.04, 1.22, -0.119] },
+          { bone: 'thorax', rest: [0.062, 1.29, -0.122] },
+          { bone: 'scapula', rest: [0.075, 1.366, -0.108] },
         ],
         radius: 0.003,
         tendon: [0.04, 0.15],
@@ -598,9 +601,10 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     ],
     // all three parts rotate the scapula upward: arm raised in a Y (thumb up) with the shoulder blade drawn back and down
     actionPose: { joints: { shoulder_R: { flex: 150, abd: 30 }, forearm_R: { sup: -90 }, scapula_R: { protr: -18, elev: -3 } } },
-    // head bent forward and to the opposite side (upper fibres) + arm across the chest, shoulder blade forward and down
+    // head bent forward and to the opposite side (upper fibres) + arm across the chest, shoulder blade forward, a little
+    // down and rotated downward (the lower fibres shorten in upward rotation, so they need the downward rotation)
     stretchPose: {
-      joints: { neck: { flex: 15, lat: -20 }, head: { flex: 8, lat: -8 }, shoulder_R: { flex: 90, abd: -30 }, scapula_R: { protr: 6, elev: -6 } },
+      joints: { neck: { flex: 15, lat: -20 }, head: { flex: 8, lat: -8 }, shoulder_R: { flex: 90, abd: -30 }, scapula_R: { protr: 10, elev: -4, upRot: -10 } },
     },
     camera: { dir: [-0.35, 0.22, -1] },
     focus: 'shoulder',

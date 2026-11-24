@@ -56,10 +56,12 @@ function skinGeometries(): Map<number, BufferGeometry> {
     if (p.loft) continue;
     let g: BufferGeometry;
     // the skin is drawn twice (depth pre-pass + colour): facets only where the silhouette needs them
-    if (p.kind === 'capsule') g = capsule(p.a, p.b, p.ra, p.rb, 20, 5);
-    else {
-      const big = Math.max(p.r.x, p.r.y, p.r.z) > 0.07;
-      g = new SphereGeometry(1, big ? 28 : 20, big ? 18 : 13);
+    if (p.kind === 'capsule') {
+      const small = Math.max(p.ra, p.rb) < 0.025;
+      g = capsule(p.a, p.b, p.ra, p.rb, small ? 14 : 20, small ? 4 : 5);
+    } else {
+      const big = Math.max(p.r.x, p.r.y, p.r.z);
+      g = new SphereGeometry(1, big > 0.07 ? 28 : big > 0.045 ? 20 : 16, big > 0.07 ? 18 : big > 0.045 ? 13 : 10);
       g.scale(p.r.x, p.r.y, p.r.z);
       g.applyQuaternion(p.q);
       g.translate(p.c.x, p.c.y, p.c.z);

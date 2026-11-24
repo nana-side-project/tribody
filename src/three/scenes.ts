@@ -176,6 +176,9 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     camera: { dir: [0.75, 0.2, -0.6] },
     frame: ['tibia:medial_border_mid', 'tibia:medial_border_dist', 'tibia:medial_malleolus', 'tibia:posterior_prox', 'tibia:medial_condyle'],
     minSize: 0.3,
+    // one point of bone is the message (vs the diffuse strip of shin splints): the irritated periosteum strip in amber
+    // so the fracture spot is the only red
+    roles: { 'medial-tibial-border': 'involved' },
   },
   'muscle-cramps': {
     // the cramp position: calf short, foot pointed
