@@ -147,6 +147,7 @@ Light (default) and dark. Dark mode is defined **twice**: under
 | `--origin` | `#d9772b` | `#f0954d` | 起始 marker (orange) |
 | `--insertion` | `#3f6fd1` | `#7aa2ff` | 停止 marker (blue) |
 | `--injured` | `#e0342b` | `#ff5a4f` | injured highlight (with glow/pulse) |
+| `--involved` | `#e0a23b` | `#f0b450` | involved (non-injured) highlight — amber, same as diagrams & 3D |
 | `--nerve` | `#e2b93b` | `#f3cf5a` | nerves |
 | `--bursa` | `#8fb8de` | `#6f9cc8` | bursae |
 | `--swim` | `#2a7ab8` | `#5aa9e6` | discipline colours |
