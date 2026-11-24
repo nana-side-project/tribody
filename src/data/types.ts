@@ -120,6 +120,11 @@ export interface Condition {
   summary: string; // 2–3 sentences
   whatHappens: string[]; // paragraphs: what is actually happening in the tissue
   involved: Involvement[]; // at least one with role 'injured' (or 'compressed'/'irritated')
+  /**
+   * Optional note shown right under the anatomy figure's legend. Use it when the red highlight could be misread as
+   * "damaged tissue" — e.g. non-specific pain where tissues are sensitised or overloaded rather than injured.
+   */
+  anatomyNote?: string;
   whyTriathlon: { discipline: Discipline; text: string }[];
   symptoms: string[];
   patterns: string[]; // timing / behaviour, e.g. '走り始めに痛み、温まると軽くなる'

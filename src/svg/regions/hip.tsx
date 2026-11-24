@@ -1350,6 +1350,7 @@ function HipDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { t: '仙骨', at: [84, 112], x: 58, y: 104, a: 'end' },
     { id: 'piriformis', t: '梨状筋', at: [124, 146], x: 58, y: 150, a: 'end' },
     { id: 'ischial-tuberosity', t: '坐骨結節', at: [120, 230], x: 58, y: 230, a: 'end' },
+    { id: 'gracilis', t: '薄筋', at: [66, 300], x: 58, y: 292, a: 'end' },
     { id: 'adductor-magnus', t: '大内転筋', at: [78, 344], x: 58, y: 334, a: 'end' },
     { id: 'semitendinosus', t: '半腱様筋', at: [116, 372], x: 58, y: 376, a: 'end' },
     { id: 'semimembranosus', t: '半膜様筋', at: [96, 428], x: 58, y: 418, a: 'end' },
@@ -1361,6 +1362,7 @@ function HipDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { t: '外旋筋群', at: [190, 198], x: 264, y: 236 },
     { id: 'proximal-hamstring-tendon', t: 'ハムストリング腱', at: [134, 262], x: 248, y: 268 },
     { id: 'sciatic-nerve', t: '坐骨神経', at: [164, 318], x: 264, y: 322 },
+    { id: 'iliotibial-band', t: '腸脛靱帯', at: [242, 362], x: 264, y: 370 },
     { id: 'biceps-femoris', t: '大腿二頭筋', at: [184, 404], x: 264, y: 418 },
   ];
   const spots: Spot[] = [

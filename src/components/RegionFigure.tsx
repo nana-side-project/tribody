@@ -84,6 +84,7 @@ export function RegionFigure({
   preferParts,
   preferPrimary,
   initialView,
+  onViewChange,
   caption,
   footer,
   zoomable,
@@ -104,6 +105,8 @@ export function RegionFigure({
   /** Of `preferParts`, the ones that matter most (injured tissue) — weighted when picking the view. */
   preferPrimary?: string[];
   initialView?: string;
+  /** Called when the shown view changes (tabs, spot selection), e.g. to remember it for Back. */
+  onViewChange?: (view: string) => void;
   /** Offer a 「拡大」 button when the 'injured' parts are small in the current view. */
   zoomable?: boolean;
   caption?: ReactNode;
@@ -117,7 +120,11 @@ export function RegionFigure({
     return diagram.views[0].id;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [diagram]);
-  const [view, setView] = useState(initial);
+  const [view, setViewState] = useState(initial);
+  const setView = (v: string) => {
+    setViewState(v);
+    onViewChange?.(v);
+  };
   const current = diagram?.views.some((v) => v.id === view) ? view : initial;
 
   // When a spot is selected from outside (e.g. a chip) and it's not on this view, switch to a view that has it.
@@ -140,7 +147,19 @@ export function RegionFigure({
   const figRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef<HTMLDivElement>(null);
-  const [focusBox, setFocusBox] = useState<{ x: number; y: number; w: number; h: number; cw: number; ch: number } | null>(null);
+  /** Box of the injured parts (x…h) and of the parts plus their labels (u*), in unzoomed canvas px. */
+  const [focusBox, setFocusBox] = useState<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    ux: number;
+    uy: number;
+    uw: number;
+    uh: number;
+    cw: number;
+    ch: number;
+  } | null>(null);
   const [zoomed, setZoomed] = useState(false);
   const injuredIds = useMemo(
     () => Object.entries(highlights ?? {}).filter(([, r]) => r === 'injured').map(([id]) => id),
@@ -155,24 +174,41 @@ export function RegionFigure({
       if (!wrap || !canvas) return;
       const wr = wrap.getBoundingClientRect();
       const scale = wr.width / Math.max(1, canvas.clientWidth) || 1;
-      let x0 = Infinity;
-      let y0 = Infinity;
-      let x1 = -Infinity;
-      let y1 = -Infinity;
-      for (const id of injuredIds) {
-        wrap.querySelectorAll(`[data-part="${CSS.escape(id)}"]`).forEach((el) => {
+      const box = (els: Element[]) => {
+        let x0 = Infinity;
+        let y0 = Infinity;
+        let x1 = -Infinity;
+        let y1 = -Infinity;
+        for (const el of els) {
           const r = el.getBoundingClientRect();
-          if (!r.width && !r.height) return;
+          if (!r.width && !r.height) continue;
           x0 = Math.min(x0, (r.left - wr.left) / scale);
           y0 = Math.min(y0, (r.top - wr.top) / scale);
           x1 = Math.max(x1, (r.right - wr.left) / scale);
           y1 = Math.max(y1, (r.bottom - wr.top) / scale);
-        });
-      }
+        }
+        return { x0, y0, x1, y1 };
+      };
+      const parts = injuredIds.flatMap((id) => [...wrap.querySelectorAll(`[data-part="${CSS.escape(id)}"]`)]);
+      // the diagrams mark the labels of highlighted parts (…is-hl is-injured); keep them in the zoomed frame too
+      const labels = [...wrap.querySelectorAll('.is-hl.is-injured text')];
+      const b = box(parts);
+      const u = box([...parts, ...labels]);
       const cw = canvas.clientWidth;
       const ch = canvas.clientHeight;
-      if (!Number.isFinite(x0) || !cw || !ch) return setFocusBox(null);
-      setFocusBox({ x: x0, y: y0, w: x1 - x0, h: y1 - y0, cw, ch });
+      if (!Number.isFinite(b.x0) || !cw || !ch) return setFocusBox(null);
+      setFocusBox({
+        x: b.x0,
+        y: b.y0,
+        w: b.x1 - b.x0,
+        h: b.y1 - b.y0,
+        ux: Math.max(0, u.x0),
+        uy: Math.max(0, u.y0),
+        uw: Math.min(cw, u.x1) - Math.max(0, u.x0),
+        uh: Math.min(ch, u.y1) - Math.max(0, u.y0),
+        cw,
+        ch,
+      });
     };
     measure();
     const t = setTimeout(measure, 300); // diagrams may settle (fonts / labels) after the first paint
@@ -182,10 +218,16 @@ export function RegionFigure({
   const small = !!focusBox && focusBox.w * focusBox.h < 0.06 * focusBox.cw * focusBox.ch && Math.max(focusBox.w / focusBox.cw, focusBox.h / focusBox.ch) < 0.4;
   let zoomStyle: CSSProperties | undefined;
   if (zoomed && focusBox && small) {
-    // the injured tissue fills ~40% of the frame, keeping its surroundings (and labels) in view
-    const s = Math.max(1.5, Math.min(2, (0.4 * focusBox.cw) / Math.max(1, focusBox.w), (0.4 * focusBox.ch) / Math.max(1, focusBox.h)));
-    const cx = focusBox.x + focusBox.w / 2;
-    const cy = focusBox.y + focusBox.h / 2;
+    // the injured tissue fills ~40% of the frame; zoom less if that would cut off its labels (min 1.5×)
+    const f = focusBox;
+    const s = Math.max(
+      1.5,
+      Math.min(2, (0.4 * f.cw) / Math.max(1, f.w), (0.4 * f.ch) / Math.max(1, f.h), (0.96 * f.cw) / Math.max(1, f.uw), (0.96 * f.ch) / Math.max(1, f.uh)),
+    );
+    // centre on the parts + labels when they fit at this scale, otherwise on the parts
+    const fitsU = f.uw * s <= f.cw && f.uh * s <= f.ch;
+    const cx = fitsU ? f.ux + f.uw / 2 : f.x + f.w / 2;
+    const cy = fitsU ? f.uy + f.uh / 2 : f.y + f.h / 2;
     const tx = Math.min(0, Math.max(focusBox.cw - s * focusBox.cw, focusBox.cw / 2 - s * cx));
     const ty = Math.min(0, Math.max(focusBox.ch - s * focusBox.ch, focusBox.ch / 2 - s * cy));
     zoomStyle = { transform: `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${s.toFixed(3)})` };

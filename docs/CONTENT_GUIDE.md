@@ -70,7 +70,7 @@ References: give 2–5 per condition. **Only include a `url` if you have verifie
 
 Explain **why it happens in triathlon** per discipline, concretely:
 
-- **Swim**: ~2,000+ shoulder rotations per hour; catch & pull with internal rotation + adduction (広背筋・大胸筋・肩甲下筋), recovery with
+- **Swim**: roughly 1,000–2,000 shoulder rotations per hour of swimming; catch & pull with internal rotation + adduction (広背筋・大胸筋・肩甲下筋), recovery with
   elevation; crossover / thumb-first entry, dropped elbow, breathing only one side, sudden paddle/pull-buoy volume, wetsuit
   shoulder restriction, open-water sighting (neck extension), strong plantarflexed kick → calf/foot cramps.
 - **Bike**: hours of sustained hip flexion (腸腰筋・大腿直筋が短い位置), aero position (neck & thoracic extension, lumbar flexion),
@@ -92,6 +92,8 @@ Explain **why it happens in triathlon** per discipline, concretely:
 - `primary`/`secondary` = muscles that **work** (strength/isometric/activation/plyo/balance) or that are **lengthened** (stretch/mobility).
   These drive the 3D highlighting — be anatomically right.
 - `cues`: what to feel and where (「お尻の横が熱くなればOK」). `mistakes`: the usual compensation (腰を反る、骨盤が回る、膝が内に入る…).
+- Nerve glides (`type: 'nerve-glide'`, e.g. `ex-sciatic-nerve-glide`) are nerve mobility, not muscle stretches: do **not** list them in
+  a muscle's `stretch` list, even if the muscle appears in the exercise's `primary`/`secondary` for 3D highlighting.
 - Cross-reference across regions: knee pain needs hip work (`ex-clamshell`, `ex-side-plank`…), Achilles needs soleus work, etc.
   You may reference any exercise id in the registry even if another agent writes it — trust its name in the registry.
 
@@ -100,5 +102,7 @@ Explain **why it happens in triathlon** per discipline, concretely:
 - `Condition.painSpots` ↔ `PainSpot.conditions` (owner E writes spots; others write conditions — both sides must agree; follow `PAIN_SPOTS` in the registry).
 - `Muscle.relatedConditions`, `Muscle.strengthen/stretch` ↔ `Exercise.primary/secondary`.
 - `Condition.involved` uses muscle **or** structure ids with `kind` set correctly.
+- `Condition.anatomyNote` (optional): a short reassurance shown under the anatomy legend when the red highlight could be
+  misread as damage (non-specific low back / neck pain, cramps). Keep it to 1–2 sentences.
 - Run `OWNER=<you> npm run validate` and `npx tsc --noEmit -p tsconfig.json` until your part is clean
   (warnings about objects other owners haven't written yet are expected).

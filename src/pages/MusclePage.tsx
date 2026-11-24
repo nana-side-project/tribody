@@ -8,6 +8,7 @@ import { RegionFigure, findDiagramFor } from '../components/RegionFigure';
 import { EmptyState, Section } from '../components/ui';
 import { SafeViewer } from '../components/Viewer3D';
 import { DISCIPLINE_JA, DISCIPLINE_ORDER, isKnownMuscle, muscleName, regionName } from '../lib/labels';
+import { useRememberedView } from '../lib/useRememberedView';
 import NotFoundPage from './NotFoundPage';
 
 export default function MusclePage() {
@@ -65,6 +66,7 @@ function WipRelated({ id }: { id: string }) {
 
 function MuscleView({ m }: { m: Muscle }) {
   const fig = useMemo(() => findDiagramFor(m.id, m.regions), [m]);
+  const figMemo = useRememberedView(`fig:${fig?.region ?? ''}`);
   const strengthen = m.strengthen ?? [];
   const stretch = m.stretch ?? [];
   const others = exercisesForMuscle(m.id)
@@ -165,7 +167,13 @@ function MuscleView({ m }: { m: Muscle }) {
 
       {fig && (
         <Section kicker="Diagram" title="図で見る位置">
-          <RegionFigure region={fig.region} initialView={fig.view} highlights={{ [m.id]: 'selected' }} dimOthers />
+          <RegionFigure
+            region={fig.region}
+            initialView={figMemo.initialView ?? fig.view}
+            onViewChange={figMemo.onViewChange}
+            highlights={{ [m.id]: 'selected' }}
+            dimOthers
+          />
         </Section>
       )}
 

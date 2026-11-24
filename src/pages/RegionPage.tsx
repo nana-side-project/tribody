@@ -26,6 +26,7 @@ import {
   spotLabel,
   structureName,
 } from '../lib/labels';
+import { useRememberedView } from '../lib/useRememberedView';
 import NotFoundPage from './NotFoundPage';
 
 const STRUCTURES_PREVIEW = 4;
@@ -55,6 +56,7 @@ function RegionView({ id }: { id: RegionId }) {
       { replace: true },
     );
   const [showAllStructures, setShowAllStructures] = useState(false);
+  const figMemo = useRememberedView(`fig:${id}`);
   const chipsRef = useRef<HTMLDivElement>(null);
   // keep the selected spot chip visible in the horizontally scrolling row (without moving the page)
   useEffect(() => {
@@ -86,6 +88,8 @@ function RegionView({ id }: { id: RegionId }) {
       <section className="section--tight" style={{ marginTop: 16 }} aria-label="解剖図">
         <RegionFigure
           region={id}
+          initialView={figMemo.initialView}
+          onViewChange={figMemo.onViewChange}
           showSpots
           selectedSpot={spot}
           onSpotSelect={toggleSpot}

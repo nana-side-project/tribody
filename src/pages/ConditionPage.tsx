@@ -39,6 +39,7 @@ import {
   regionName,
 } from '../lib/labels';
 import { menuActions } from '../lib/useMenu';
+import { useRememberedView } from '../lib/useRememberedView';
 import { scrollBehavior } from '../lib/useMedia';
 import { toastSaved } from '../lib/toast';
 import NotFoundPage from './NotFoundPage';
@@ -163,6 +164,7 @@ function ConditionView({ c }: { c: Condition }) {
   const figRegion = useMemo(() => override?.region ?? pickRegion(c, refs), [c]); // eslint-disable-line react-hooks/exhaustive-deps
   const figView = override && override.region === figRegion ? override.view : undefined;
   const drawn = useMemo(() => drawnParts(figRegion), [figRegion]);
+  const figMemo = useRememberedView(`fig:${figRegion}`);
   const primary = involved.filter((i) => isPrimaryRole(i.role));
   const secondary = involved.filter((i) => !isPrimaryRole(i.role));
   const primaryRefs = primary.map((i) => i.ref as string);
@@ -235,7 +237,8 @@ function ConditionView({ c }: { c: Condition }) {
           dimOthers
           preferParts={refs}
           preferPrimary={primaryRefs}
-          initialView={figView}
+          initialView={figMemo.initialView ?? figView}
+          onViewChange={figMemo.onViewChange}
           zoomable
         />
         <div className="legend" style={{ marginTop: 10, paddingLeft: 4 }}>
@@ -248,6 +251,12 @@ function ConditionView({ c }: { c: Condition }) {
             関係している筋肉・要因
           </span>
         </div>
+        {c.anatomyNote && (
+          <div className="callout callout--note" style={{ marginTop: 10 }}>
+            <IconBulb />
+            <p>{c.anatomyNote}</p>
+          </div>
+        )}
 
         {involved.length > 0 && (
           <div className="card card--flush" style={{ marginTop: 14 }}>
@@ -285,6 +294,7 @@ function ConditionView({ c }: { c: Condition }) {
         <div style={{ marginTop: 14 }}>
           <Viewer3DToggle
             highlights={highlights3d}
+            condition={c.id}
             focus={c.region}
             sub="傷んでいる組織と関係する筋肉を3Dで確認"
             legend={
