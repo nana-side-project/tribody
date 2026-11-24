@@ -41,6 +41,7 @@ export const ROLE_JA: Record<InvolvementRole, string> = {
   overloaded: '負担過多',
   tight: '硬い',
   weak: '弱い',
+  nearby: '近くを通る',
 };
 /** Roles that describe the painful tissue itself (drawn as 'injured'). */
 export const PRIMARY_ROLES: InvolvementRole[] = ['injured', 'irritated', 'compressed'];

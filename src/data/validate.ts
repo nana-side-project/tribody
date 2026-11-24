@@ -93,6 +93,9 @@ export function validate(): Issue[] {
     if (c.redFlags.length < 2) err(o, w, 'needs ≥2 redFlags');
     const phaseIds = c.phases.map((p) => p.id).join(',');
     if (phaseIds !== 'calm,build,return') err(o, w, `phases must be calm,build,return (got ${phaseIds})`);
+    for (const p of c.phases)
+      for (const e of Object.keys(p.doses ?? {}))
+        if (!p.exercises.includes(e as (typeof p.exercises)[number])) err(o, w, `phase ${p.id}: doses.${e} is not in that phase's exercises`);
     const totalEx = c.phases.reduce((n, p) => n + p.exercises.length, 0);
     if (totalEx < 3) err(o, w, `needs ≥3 exercises across phases (got ${totalEx})`);
     if (c.trainingTips.length < 1) err(o, w, 'trainingTips is empty');

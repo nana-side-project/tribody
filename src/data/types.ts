@@ -87,7 +87,8 @@ export type InvolvementRole =
   | 'compressed' // compressed structure (tendon under bone, nerve)
   | 'overloaded' // works too hard, contributes
   | 'tight' // tight/stiff, contributes
-  | 'weak'; // weak/underactive, contributes
+  | 'weak' // weak/underactive, contributes
+  | 'nearby'; // runs close by / can be irritated secondarily (e.g. a nerve beside the lesion); context only, not damaged
 
 export interface Involvement {
   ref: MuscleId | StructureId;
@@ -105,6 +106,11 @@ export interface RehabPhase {
   guidance: string[]; // load management, what to avoid, etc.
   exercises: ExerciseId[]; // in recommended order
   progressWhen: string[]; // criteria to move on (or "return to sport" criteria for the last phase)
+  /**
+   * Optional per-plan dose overrides for exercises of THIS phase (keys must be in `exercises`). Only the fields given
+   * replace the exercise's default `dose` when the exercise is shown or added to My Menu from this plan step.
+   */
+  doses?: Partial<Record<ExerciseId, Partial<Exercise['dose']>>>;
 }
 
 export type EvidenceLevel = 'strong' | 'moderate' | 'limited' | 'expert';

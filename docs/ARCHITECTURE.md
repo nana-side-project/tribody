@@ -124,6 +124,16 @@ Routing details: `<HashRouter useTransitions={false}>`. Every page except home i
 chunk before the first render, so deep links show no blank fallback. `AppLayout` wraps the outlet in `Suspense` and an
 error boundary (再読み込み). Overlays (bottom sheet, body-map lens) push a history entry through
 `src/lib/overlayHistory.ts`, so the phone's Back button closes the overlay instead of leaving the page.
+Shared highlight mapping: `src/lib/viewerHighlights.ts` (condition → 2D/3D highlights, region page 3D card) is used by
+the pages and by the 3D harness, so `/dev/engine.html?condition=` shows exactly what the condition page shows.
+Idle route prefetch lives in `src/lib/routePrefetch.ts` (after the first input plus a quiet spell; `data-prefetch` on buttons).
+Offline: `npm run build` writes every emitted file into `dist/sw.js` (vite.config.ts `precacheManifest`; `public/sw.js`
+keeps its `/*__TRIBODY_BUILD__*/` marker), so the first visit caches the whole app incl. the 3D viewer. The single-file
+build registers no service worker.
+Context from the body map: the home sheet opens `/condition/:id?spot=<id>&side=<left|right>`; the condition page passes
+`side`/`spot` to the 2D figure (`RegionDiagramProps.side`, `condition`) and the 3D viewer (`AnatomyViewerProps.side`, `spot`),
+and pre-fills the pain log. Plans can override an exercise's dose per step (`RehabPhase.doses`); the exercise page and
+My Menu show the plan's dose when opened or added from that step.
 Search (`src/lib/search.ts`) is one tiered scorer shared by home, the exercise library and the muscle list, with an
 everyday-word alias table (ひざ→膝, かかと↔踵, 足裏↔足底, …).
 

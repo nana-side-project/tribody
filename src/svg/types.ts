@@ -1,6 +1,6 @@
 // Contract between 2D illustrations (body map, region diagrams) and the UI.
 import type { ComponentType } from 'react';
-import type { MuscleId, PainSpotId, RegionId, StructureId } from '../data/registry';
+import type { ConditionId, MuscleId, PainSpotId, RegionId, StructureId } from '../data/registry';
 
 export type HighlightRole = 'injured' | 'involved' | 'muscle' | 'selected';
 /** Map of muscle/structure id → how to emphasise it. Anything not listed is drawn normally. */
@@ -20,6 +20,16 @@ export interface RegionDiagramProps {
   onSpotSelect?: (id: PainSpotId) => void;
   /** Called when a muscle/structure shape is tapped. */
   onPartSelect?: (id: MuscleId | StructureId) => void;
+  /**
+   * Condition page: which condition the highlights belong to. Lets a diagram draw the exact lesion zone of that
+   * condition (e.g. Achilles mid-portion vs insertion, a stress-fracture spot) instead of inferring it from the set.
+   */
+  condition?: ConditionId;
+  /**
+   * Which side of the body the user is concerned with. 'left' draws the limb as the left side (mirrored drawing,
+   * captions and labels stay readable and say 左). Default 'right'.
+   */
+  side?: 'left' | 'right';
   className?: string;
 }
 
@@ -44,7 +54,14 @@ export interface BodyMapProps {
   activeSpots?: PainSpotId[];
   selectedSpot?: PainSpotId | null;
   onSelect?: (id: PainSpotId, side: 'left' | 'right') => void;
-  /** Optional per-spot intensity 0–10 (from the pain log) drawn as a heat tint. */
+  /** Optional per-spot intensity 0–10 (from the pain log) drawn as a heat tint on both sides. */
   intensity?: Partial<Record<PainSpotId, number>>;
+  /**
+   * Per-side intensity 0–10. When a spot has an entry here it wins over `intensity` for that spot: only the sides
+   * given are tinted ('both' tints both).
+   */
+  intensitySides?: Partial<Record<PainSpotId, { left?: number; right?: number; both?: number }>>;
+  /** Per-side active spots; when a spot has an entry here it wins over `activeSpots` for that spot. */
+  activeSides?: Partial<Record<PainSpotId, ('left' | 'right')[]>>;
   className?: string;
 }

@@ -1,6 +1,6 @@
 // PUBLIC CONTRACT of the 3D engine — the UI codes against this; keep it stable.
 // The engine agent implements it (see docs/ENGINE.md once written).
-import type { ConditionId, ExerciseId, MuscleId, RegionId, StructureId } from '../data/registry';
+import type { ConditionId, ExerciseId, MuscleId, PainSpotId, RegionId, StructureId } from '../data/registry';
 
 export type Highlight3DRole = 'injured' | 'involved' | 'primary' | 'secondary' | 'selected';
 
@@ -18,6 +18,16 @@ export interface AnatomyViewerProps {
   condition?: ConditionId;
   /** Frame the camera on this region (defaults depend on mode). */
   focus?: RegionId;
+  /**
+   * Condition / region pages: which side of the body the user is concerned with (the side they tapped on the body
+   * map). 'left' shows the highlighted parts on the left limb (scene mirrored). Default: the scene's own side (right).
+   */
+  side?: 'left' | 'right';
+  /**
+   * Condition page: the pain spot the user tapped. Lets a scene pick a camera that shows that spot (e.g. the back of
+   * the shoulder for 肩の後ろ on 水泳肩). Without it the scene's default camera is used.
+   */
+  spot?: PainSpotId;
   /** Show the built-in player UI (play/pause, speed, phase label, view reset). Default true. */
   controls?: boolean;
   autoPlay?: boolean; // default true
