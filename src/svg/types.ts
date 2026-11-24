@@ -28,6 +28,11 @@ export interface RegionDiagram {
   views: { id: string; label: string }[]; // e.g. [{id:'front', label:'前から'}, {id:'side', label:'横から'}]
   /** Which ids are drawn in which view (lets the UI pick the best view for a highlight set). */
   parts: Record<string, (MuscleId | StructureId)[]>;
+  /**
+   * Ids (also listed in `parts`) that a view draws only in a small locator inset, e.g. the knee side view's
+   * ITB inset shows the gluteal muscles. They still highlight, but don't count when the UI picks a default view.
+   */
+  insetParts?: Record<string, (MuscleId | StructureId)[]>;
   /** Which pain spots have hotspots in which view. */
   spots: Record<string, PainSpotId[]>;
   Component: ComponentType<RegionDiagramProps>;

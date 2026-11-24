@@ -20,24 +20,31 @@ function safeDiagram(region: RegionId): RegionDiagram | undefined {
 
 /**
  * View id that shows `ids` best (falls back to the first view). Ids in `primary` (the injured tissue)
- * count three times as much as the others; ties go to the view with more primary ids, then view order.
+ * count three times as much as the others. Only ids drawn in the view's main figure score; ties go to the view
+ * with more primary ids, then to the one that also shows more ids in a locator inset, then view order.
  */
 export function bestView(d: RegionDiagram, ids: string[], primary: string[] = []): string {
   let best = d.views[0]?.id;
-  let bestScore = -1;
-  let bestP = -1;
+  let bestKey = [-1, -1, -1];
   for (const v of d.views) {
-    const parts = (d.parts?.[v.id] ?? []) as string[];
+    const parts = mainParts(d, v.id);
+    const all = (d.parts?.[v.id] ?? []) as string[];
     const p = ids.filter((id) => primary.includes(id) && parts.includes(id)).length;
     const n = ids.filter((id) => !primary.includes(id) && parts.includes(id)).length;
-    const score = 3 * p + n;
-    if (score > bestScore || (score === bestScore && p > bestP)) {
+    const key = [3 * p + n, p, ids.filter((id) => all.includes(id)).length];
+    const better = key.findIndex((x, i) => x !== bestKey[i]);
+    if (better >= 0 && key[better] > bestKey[better]) {
       best = v.id;
-      bestScore = score;
-      bestP = p;
+      bestKey = key;
     }
   }
   return best;
+}
+
+/** Ids a view draws in its main figure (not only in a small locator inset). */
+function mainParts(d: RegionDiagram, view: string): string[] {
+  const inset = (d.insetParts?.[view] ?? []) as string[];
+  return ((d.parts?.[view] ?? []) as string[]).filter((id) => !inset.includes(id));
 }
 
 /** Does this view draw any of the highlighted ids? */
@@ -63,11 +70,14 @@ export function findDiagramFor(id: string, prefer: RegionId[] = []): { region: R
   const pv = PREFERRED_VIEW[id as MuscleId | StructureId];
   if (pv && ((safeDiagram(pv.region)?.parts?.[pv.view] ?? []) as string[]).includes(id)) return pv;
   const order = [...prefer, ...(Object.keys(regionDiagrams) as RegionId[]).filter((r) => !prefer.includes(r))];
-  for (const r of order) {
-    const d = safeDiagram(r);
-    if (!d) continue;
-    const v = d.views.find((v) => ((d.parts?.[v.id] ?? []) as string[]).includes(id));
-    if (v) return { region: r, view: v.id };
+  // first a view that draws it in the main figure, then one that has it only in an inset
+  for (const pick of [mainParts, (d: RegionDiagram, v: string) => (d.parts?.[v] ?? []) as string[]]) {
+    for (const r of order) {
+      const d = safeDiagram(r);
+      if (!d) continue;
+      const v = d.views.find((v) => pick(d, v.id).includes(id));
+      if (v) return { region: r, view: v.id };
+    }
   }
   return null;
 }

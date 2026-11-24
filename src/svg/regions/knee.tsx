@@ -886,6 +886,8 @@ const diagram: RegionDiagram = {
     ],
     back: ['tibia', 'fibula', 'soleus', 'semimembranosus', 'sartorius', 'gracilis', 'semitendinosus', 'biceps-femoris', 'gastrocnemius'],
   },
+  // the ITB locator inset in the side view draws these; the knee figure is not where they are shown best
+  insetParts: { lateral: ['gluteus-medius', 'gluteus-maximus', 'tensor-fasciae-latae'] },
   spots: {
     front: ['knee-front', 'knee-below', 'knee-outer', 'knee-inner'],
     lateral: ['knee-outer', 'knee-front', 'knee-below'],
