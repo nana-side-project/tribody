@@ -289,14 +289,14 @@ export function muscle(S: Sheet): MuscleGeo {
 /* ═════════════════════════════════════ styles ═════════════════════════════════════ */
 
 const DARK = `
-  --k-amber: #f2b13e; --k-cart: #a8bccb; --k-labrum: #7f9fb8; --k-vivid: #ff6a55; --k-shade: #000; --k-shade-o: .2;
+  --k-amber: var(--involved, #f2b13e); --k-cart: #a8bccb; --k-labrum: #7f9fb8; --k-vivid: #ff6a55; --k-shade: #000; --k-shade-o: .2;
   --k-hi-o: .05; --k-mus-ink: color-mix(in srgb, var(--muscle) 52%, #000); --k-ten-ink: color-mix(in srgb, var(--tendon) 52%, #000);
   --k-bone-sh: #000; --k-bone-sh-o: .18; --k-body: color-mix(in srgb, var(--surface-2) 70%, var(--surface));
   --k-ctx: color-mix(in srgb, var(--muscle) 46%, var(--surface)); --k-cut: color-mix(in srgb, var(--muscle) 70%, #fff);
   --k-fat: color-mix(in srgb, var(--nerve) 42%, #6a6258);`;
 
 export const KIT_CSS = `
-.thk { --k-amber: #e0901a; --k-cart: #e1ebf2; --k-labrum: #a9c3d8; --k-vivid: #d8342a; --k-shade: #2b0805; --k-shade-o: .14;
+.thk { --k-amber: var(--involved, #e0901a); --k-cart: #e1ebf2; --k-labrum: #a9c3d8; --k-vivid: #d8342a; --k-shade: #2b0805; --k-shade-o: .14;
   --k-hi-o: .08; --k-mus-ink: color-mix(in srgb, var(--muscle) 60%, #2a0805);
   --k-ten-ink: color-mix(in srgb, var(--tendon) 60%, #5a4524); --k-bone-sh: #4a443d; --k-bone-sh-o: .1;
   --k-inj-ink: color-mix(in srgb, var(--injured) 70%, #000); --k-body: color-mix(in srgb, var(--surface-2) 55%, var(--surface));
@@ -358,6 +358,8 @@ export const KIT_CSS = `
 .thk .is-injured .hi { opacity: .12; }
 .thk-halo { pointer-events: none; opacity: .5; animation: thk-pulse 1.9s ease-in-out infinite; }
 .thk-halo * { fill: var(--injured) !important; stroke: var(--injured) !important; stroke-width: 5px !important; opacity: 1 !important; fill-opacity: 1 !important; }
+/* open texture lines must not be force-filled in the glow copy (they would fill into wedges on curved parts) */
+.thk .thk-halo :is(.fib, .fib-l, .ten-fib, .bone-ln, .nerve-ln, .seam, .raphe, .hi, .shade, .rim, .rimc, .rim-t, .ghost) { display: none !important; }
 @keyframes thk-pulse { 0%, 100% { opacity: .22; } 50% { opacity: .8; } }
 .thk .is-involved .mus { fill: color-mix(in srgb, var(--muscle) 72%, var(--k-amber)); }
 .thk .is-involved .ol { stroke: var(--k-amber); stroke-width: 1.7; }
@@ -388,15 +390,18 @@ export const KIT_CSS = `
 .thk-lab.is-dim { opacity: .3; }
 
 /* pain-spot hotspots */
+/* same marker as the upper-body kit (shoulder.tsx): white-ringed dot that reads on red muscle and grey bone in both themes */
 .thk-spot { cursor: pointer; outline: none; }
 .thk-spot .s-hit { fill: transparent; }
-.thk-spot .s-ring { fill: var(--accent); opacity: .25; transform-box: fill-box; transform-origin: center; animation: thk-ring 2.2s ease-out infinite; }
-.thk-spot .s-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2.2; }
-.thk-spot .s-sel { fill: none; stroke: var(--accent); stroke-width: 2.2; }
-.thk-spot.is-sel .s-dot { fill: var(--injured); }
-.thk-spot.is-sel .s-ring { fill: var(--injured); opacity: .3; }
-.thk-spot.is-sel .s-sel { stroke: var(--injured); }
-.thk-spot:focus-visible .s-sel { stroke: var(--text); stroke-width: 2.6; }
+.thk-spot .s-ring { fill: var(--accent); opacity: .3; transform-box: fill-box; transform-origin: center; animation: thk-ring 2.2s ease-out infinite; }
+.thk-spot .s-sh { fill: #000; opacity: .22; }
+.thk-spot .s-dot { fill: var(--accent); stroke: #fff; stroke-width: 2.6; }
+.thk-spot .s-core { fill: #fff; opacity: .55; }
+.thk-spot .s-sel { fill: none; stroke: var(--injured); stroke-width: 2.2; }
+.thk-spot.is-sel .s-dot { fill: var(--injured); stroke: #fff; }
+.thk-spot.is-sel .s-core { fill: #fff; opacity: .9; }
+.thk-spot.is-sel .s-ring { fill: var(--injured); opacity: .35; }
+.thk-spot:focus-visible .s-sel, .thk-spot:focus-visible .s-dot { stroke: var(--text); }
 @keyframes thk-ring { 0% { transform: scale(.55); opacity: .5; } 80%, 100% { transform: scale(1.5); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   .thk-halo { animation: none; opacity: .55; }
@@ -636,9 +641,11 @@ function SpotMark({ s, sel, onSel }: { s: Spot; sel: boolean; onSel?: (id: PainS
     >
       <title>{name}</title>
       <circle className="s-hit" r={24} />
-      <circle className="s-ring" r={sel ? 13 : 11} />
-      {sel && <circle className="s-sel" r={10.5} />}
-      <circle className="s-dot" r={sel ? 6.5 : 5.5} />
+      <circle className="s-ring" r={sel ? 15 : 12} />
+      {sel && <circle className="s-sel" r={12.5} />}
+      <circle className="s-sh" cx={0.6} cy={1.2} r={sel ? 8.6 : 7.6} />
+      <circle className="s-dot" r={sel ? 8 : 7} />
+      <circle className="s-core" r={sel ? 2.8 : 2} />
     </g>
   );
 }
@@ -1352,7 +1359,7 @@ function HipDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'greater-trochanter', t: '大転子', at: [246, 182], x: 264, y: 172 },
     { id: 'trochanteric-bursa', t: '大転子滑液包', at: [240, 202], x: 264, y: 204 },
     { t: '外旋筋群', at: [190, 198], x: 264, y: 236 },
-    { id: 'proximal-hamstring-tendon', t: 'ハムストリング腱', at: [134, 262], x: 258, y: 268 },
+    { id: 'proximal-hamstring-tendon', t: 'ハムストリング腱', at: [134, 262], x: 252, y: 268 },
     { id: 'sciatic-nerve', t: '坐骨神経', at: [164, 318], x: 264, y: 322 },
     { id: 'biceps-femoris', t: '大腿二頭筋', at: [184, 404], x: 264, y: 418 },
   ];
@@ -1368,7 +1375,7 @@ function HipDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       w={W}
       h={H}
       title="右のお尻の深層を後ろから見た図（大殿筋を取り除いたところ。左が体の中心）"
-      cap={['← 体の中心', '深層（大殿筋を除いた図）']}
+      cap={['← 体の中心', '右のお尻・深層（大殿筋を除く）']}
       labels={labels}
       spots={spots}
       fade={{ top: 20, bottom: 46 }}
@@ -1547,7 +1554,7 @@ function HipSide({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const labels: Lab[] = [
     { id: 'gluteus-medius', t: '中殿筋', at: [160, 104], x: 88, y: 70, a: 'end' },
     { id: 'gluteus-maximus', t: '大殿筋', at: [116, 196], x: 70, y: 150, a: 'end' },
-    { id: 'gluteal-tendons', t: '中・小殿筋の腱', at: [176, 204], x: 88, y: 196, a: 'end' },
+    { id: 'gluteal-tendons', t: '中・小殿筋の腱', at: [176, 204], x: 93, y: 196, a: 'end' },
     { id: 'greater-trochanter', t: '大転子', at: [186, 238], x: 70, y: 228, a: 'end' },
     { id: 'trochanteric-bursa', t: '大転子滑液包', at: [156, 236], x: 88, y: 262, a: 'end' },
     { id: 'iliotibial-band', t: '腸脛靱帯', at: [180, 340], x: 88, y: 330, a: 'end' },

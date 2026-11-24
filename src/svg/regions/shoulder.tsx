@@ -358,12 +358,12 @@ function geoOf(m: Field | Surf, o: { t0?: Num; t1?: Num; n?: number; seams?: num
 /* ══════════════════════════════════ styles ══════════════════════════════════ */
 
 const DARK_VARS = `
-  --rd-amber: #f2b13e; --rd-cart: #a9bdcc; --rd-vivid: #ff6a55; --rd-shade: #000; --rd-shade-o: .16;
+  --rd-amber: var(--involved, #f2b13e); --rd-cart: #a9bdcc; --rd-vivid: #ff6a55; --rd-shade: #000; --rd-shade-o: .16;
   --rd-hi-o: .05; --rd-mus-ink: color-mix(in srgb, var(--muscle) 55%, #000);
   --rd-ten-ink: color-mix(in srgb, var(--tendon) 55%, #000); --rd-bone-sh: #000; --rd-bone-sh-o: .16;`;
 
 export const KIT_CSS = `
-.tbu { --rd-amber: #e0901a; --rd-cart: #dfe9f1; --rd-vivid: #d8342a; --rd-shade: #2b0805; --rd-shade-o: .13;
+.tbu { --rd-amber: var(--involved, #e0901a); --rd-cart: #dfe9f1; --rd-vivid: #d8342a; --rd-shade: #2b0805; --rd-shade-o: .13;
   --rd-hi-o: .07; --rd-mus-ink: color-mix(in srgb, var(--muscle) 62%, #2a0805);
   --rd-ten-ink: color-mix(in srgb, var(--tendon) 62%, #5a4524); --rd-bone-sh: #4a443d; --rd-bone-sh-o: .1;
   --rd-inj-ink: color-mix(in srgb, var(--injured) 70%, #000);
@@ -385,7 +385,7 @@ export const KIT_CSS = `
 .tbu .ten, .tbu .lig { fill: var(--tendon); stroke: var(--rd-ten-ink); stroke-width: .7; stroke-linejoin: round; }
 .tbu .ten-fib { fill: none; stroke: var(--rd-ten-ink); stroke-width: .45; opacity: .5; }
 .tbu .cap { fill: var(--tendon); stroke: var(--rd-ten-ink); stroke-width: .7; opacity: .95; }
-.tbu .fascia { fill: var(--tendon); stroke: var(--rd-ten-ink); stroke-width: .8; opacity: .93; }
+.tbu .fascia { fill: var(--tendon); stroke: var(--rd-ten-ink); stroke-width: .8; }
 .tbu .bone { fill: var(--bone); stroke: var(--bone-ink); stroke-width: 1; stroke-linejoin: round; }
 .tbu .bone-ln { fill: none; stroke: var(--bone-ink); stroke-width: .7; opacity: .55; stroke-linecap: round; stroke-linejoin: round; }
 .tbu .bone-sh { fill: var(--rd-bone-sh); opacity: var(--rd-bone-sh-o); stroke: none; }
@@ -432,6 +432,8 @@ export const KIT_CSS = `
 .tbu .is-injured .hi { opacity: .12; }
 .tbu-halo { pointer-events: none; opacity: .5; animation: tbu-pulse 1.9s ease-in-out infinite; }
 .tbu-halo * { fill: var(--injured) !important; stroke: var(--injured) !important; stroke-width: 5px !important; opacity: 1 !important; }
+/* open texture lines must not be force-filled in the glow copy (they would fill into wedges on curved parts) */
+.tbu .tbu-halo :is(.fib, .fib-l, .ten-fib, .bone-ln, .seam, .hi, .shade, .lamella, .ghost) { display: none !important; }
 @keyframes tbu-pulse { 0%, 100% { opacity: .22; } 50% { opacity: .8; } }
 .tbu .is-involved .mus { fill: color-mix(in srgb, var(--muscle) 74%, var(--rd-amber)); }
 .tbu .is-involved .ol { stroke: var(--rd-amber); stroke-width: 1.7; }
@@ -1043,8 +1045,7 @@ const LABELS_BACK: Lab[] = [
   { id: 'trapezius', t: '僧帽筋', at: [140, 60], x: 168, y: 40 },
   { id: 'acromion', t: '肩峰', at: [240, 94], x: 268, y: 72 },
   { id: 'deltoid', t: '三角筋', at: [246, 160], x: 272, y: 150 },
-  { id: 'infraspinatus', t: '棘下筋', at: [176, 150], x: 272, y: 186 },
-  { id: 'teres-minor', t: '小円筋', at: [206, 170], x: 272, y: 206 },
+  { id: 'infraspinatus', t: '棘下筋', at: [146, 146], x: 272, y: 190 },
   { id: 'triceps-brachii', t: '上腕三頭筋', at: [242, 300], x: 272, y: 300 },
   { id: 'latissimus-dorsi', t: '広背筋', at: [120, 330], x: 40, y: 334, a: 'end' },
   { id: 'thoracic-spine', t: '胸椎', at: [MX, 254], x: 40, y: 258, a: 'end' },
@@ -1131,7 +1132,8 @@ const MF = {
   biShort: muscle({ o: PS('154,103 159,106'), i: ab(PS('124,410 138,410')), c: ab(PS('114,250 152,258'), 0.8), t0: 0.12, n: 6 }),
   brachialis: muscle({ o: ab(PS('104,232 112,236')), i: ab(PS('102,410 114,410')), c: ab(PS('88,320 112,320')), n: 4 }),
   triceps: muscle({ o: ab(PS('148,146 156,154')), i: ab(PS('138,410 150,410')), c: ab(PS('152,280 168,280')), n: 4 }),
-  lat: muscle({ o: PS('144,430 166,430'), i: ab(PS('138,158 147,172')), c: PS('138,280 172,296'), t1: 0.88, n: 7 }),
+  // lateral edge of the latissimus on the side of the chest: broad below (trunk), narrowing up into the posterior axillary fold
+  lat: muscle({ o: PS('142,430 160,431 182,432'), i: ab(PS('138,158 142,165 147,172')), c: PS('136,282 156,290 180,302'), t1: 0.88, n: 9 }),
   subscap: muscle({
     o: PS('228,88 229,130 227,170 224,206 220,230'),
     i: ab(PS('132,110 133,116 134,122 135,128 135,134')),

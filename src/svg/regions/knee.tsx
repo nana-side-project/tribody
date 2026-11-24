@@ -135,7 +135,7 @@ const ITB_KF: P[] = [[116, -30], [118, 60], [122, 140], [126, 200], [132, 240], 
 
 function KneeFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const labels: Lab[] = [
-    { id: 'vastus-lateralis', t: '外側広筋', at: [124, 60], x: 96, y: 56, a: 'end' },
+    { id: 'vastus-lateralis', t: '外側広筋', at: [136, 64], x: 96, y: 56, a: 'end' },
     { id: 'biceps-femoris', t: '大腿二頭筋', at: [107, 120], x: 96, y: 108, a: 'end' },
     { id: 'iliotibial-band', t: '腸脛靱帯', at: [124, 172], x: 96, y: 160, a: 'end' },
     { id: 'lateral-femoral-epicondyle', t: '大腿骨\n外側上顆', at: [121, 210], x: 96, y: 200, a: 'end' },
@@ -403,16 +403,17 @@ function KneeLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       <Part k={k} id="fibula">
         <path className="bone" d={KL.fibula} />
       </Part>
-      <Part k={k} id="lateral-femoral-epicondyle">
-        <path className="bone" d={sp([[156, 204], [164, 199], [173, 203], [175, 213], [170, 222], [160, 222], [155, 213]])} />
-      </Part>
       <Part k={k} id="meniscus">
         <path className="cart" d={KL.men} />
       </Part>
       <Ctxt k={k}>
-        <Ten c={[[164, 214], [160, 244], [155, 274]]} w={[8, 7, 7]} cls="lig" lines={1} />
+        <Ten c={[[165, 216], [160, 244], [155, 274]]} w={[8, 7, 7]} cls="lig" lines={1} />
         <path className="fat" d={KL.fat} />
       </Ctxt>
+      <Part k={k} id="lateral-femoral-epicondyle">
+        <path className="bone" d={sp([[156, 204], [164, 199], [173, 203], [175, 213], [170, 222], [160, 222], [155, 213]])} />
+        <path className="bone-ln" d={line([[160, 206], [166, 204], [171, 208]])} />
+      </Part>
       <Part k={k} id="gastrocnemius">
         <M g={KLM.gas} />
       </Part>
@@ -488,8 +489,8 @@ const KMM = {
   rf: muscle({ r: [[[114, -30], [138, -30]], [[116, 50], [136, 50]], [[122, 100], [134, 100]]], n: 4 }),
   vm: muscle({
     r: [
-      [[196, -30], [207, 50], [215, 118], [213, 164], [200, 190], [180, 198]],
-      [[146, 34], [146, 104], [148, 146], [151, 170], [154, 186], [156, 196]],
+      [[196, -30], [207, 46], [214, 110], [212, 152], [200, 178], [182, 192], [164, 198]],
+      [[146, 34], [146, 100], [148, 138], [150, 160], [153, 178], [157, 190], [160, 197]],
     ],
     t1: 0.92,
     n: 15,
@@ -784,7 +785,6 @@ function KneeBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { t: '足底筋', at: [208, 200], x: 264, y: 196 },
     { id: 'fibula', t: '腓骨', at: [250, 300], x: 268, y: 286 },
     { id: 'gastrocnemius', t: '腓腹筋・外側頭', at: [212, 330], x: 264, y: 336 },
-    { id: 'tibia', t: '脛骨', at: [204, 420], x: 264, y: 416 },
   ];
   return (
     <Frame

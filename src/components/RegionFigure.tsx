@@ -1,7 +1,7 @@
 // Wrapper around a region diagram (src/svg/regions): view tabs, best-view selection, graceful fallback.
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { MuscleId, PainSpotId, RegionId, StructureId } from '../data';
-import { getRegionDiagram, regionDiagrams } from '../svg/regions';
+import { PREFERRED_VIEW, getRegionDiagram, regionDiagrams } from '../svg/regions';
 import type { Highlights, RegionDiagram } from '../svg/types';
 import { regionName } from '../lib/labels';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -40,6 +40,9 @@ function viewWithSpot(d: RegionDiagram, spot: string): string | undefined {
 
 /** Find a region diagram (preferring `regions` order) with a view whose parts include `id`. */
 export function findDiagramFor(id: string, prefer: RegionId[] = []): { region: RegionId; view: string } | null {
+  // the illustration owners' choice of the view that shows this part best
+  const pv = PREFERRED_VIEW[id as MuscleId | StructureId];
+  if (pv && ((safeDiagram(pv.region)?.parts?.[pv.view] ?? []) as string[]).includes(id)) return pv;
   const order = [...prefer, ...(Object.keys(regionDiagrams) as RegionId[]).filter((r) => !prefer.includes(r))];
   for (const r of order) {
     const d = safeDiagram(r);

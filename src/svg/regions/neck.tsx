@@ -84,6 +84,7 @@ const NMB = {
     t1: [1, 1, 1, 1, 1, 1, 0.9, 0.82],
     n: 22,
   }),
+  trapGhostR: muscle({ o: TRAP_R.o, i: TRAP_R.i, c: TRAP_R.c, n: 2 }),
   levator: muscle({
     o: PS('214,48 200,62 199,77 199,92'),
     i: PS('213,182 210,190 207,198 205,206'),
@@ -114,10 +115,13 @@ function BackView({ k }: { k: Ctx }) {
       </Part>
       {/* right half: deep layer (trapezius removed) */}
       <g transform={SH_R}>
-        <ShoulderBackLayers k={k} deep skip={['ribs', 'spine', 'levator']} />
+        <ShoulderBackLayers k={k} deep skip={['ribs', 'spine', 'levator', 'trapGhost']} />
       </g>
       <Part k={k} id="levator-scapulae">
         <M g={NMB.levator} />
+      </Part>
+      <Part k={k} id="trapezius">
+        <path className="ghost-mus" d={NMB.trapGhostR.body} />
       </Part>
       {/* left half: superficial layer */}
       <g transform={SH_L}>

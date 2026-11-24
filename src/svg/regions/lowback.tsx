@@ -74,7 +74,8 @@ const LB = {
     o: PS('208,252 222,238 238,222 254,204'),
     i: PS('204,-24 218,-24 234,-24 248,-24'),
     c: PS('196,116 216,104 240,96 270,104'),
-    t0: [0.3, 0.24, 0.18, 0.1],
+    // muscle–aponeurosis junction: fleshy fibres reach lower medially (longissimus) than laterally (iliocostalis)
+    t0: [0.31, 0.2, 0.15, 0.13, 0.1],
     seams: [0.56],
     n: 16,
   }),
@@ -153,7 +154,7 @@ function BackView({ k, uid }: { k: Ctx; uid: string }) {
 }
 
 const LABELS_BACK: Lab[] = [
-  { id: 'lumbar-spine', t: '腰椎', at: [MX + 3, 86], x: 214, y: 28 },
+  { id: 'lumbar-spine', t: '腰椎', at: [MX + 3, 86], x: 304, y: 50 },
   { id: 'latissimus-dorsi', t: '広背筋', at: [86, 44], x: 58, y: 48, a: 'end' },
   { id: 'thoracolumbar-fascia', t: '胸腰筋膜', at: [140, 128], x: 58, y: 116, a: 'end' },
   { id: 'obliques', t: '腹斜筋', at: [94, 160], x: 58, y: 166, a: 'end' },
