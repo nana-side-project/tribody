@@ -137,7 +137,8 @@ export class StrandMesh {
   private sampler: CurveSampler;
   private writer: TubeWriter;
   private haloWriter: TubeWriter | null = null;
-  private radii: Float32Array;
+  /** ring radii of the last write() (zones on this strand read them) */
+  readonly radii: Float32Array;
   private haloRadii: Float32Array;
   private shape: Float32Array; // 0..1 belly shape per ring
   private mix: Float32Array; // 0 tendon colour .. 1 belly colour
@@ -249,7 +250,9 @@ export class StrandMesh {
   }
 
   /** flat bands: world sheet normal of the last pose() */
-  private flatDir = new Vector3();
+  readonly flatDir = new Vector3();
+  /** flat bands: width / thickness ratio of the last write() (1 = round) */
+  flatScale = 1;
 
   /**
    * Write the tube geometry for the last pose().
@@ -274,6 +277,7 @@ export class StrandMesh {
       flatN = _flatN.copy(this.flatDir);
       flatScale = p.flat.width / 2 / Math.max(1e-4, p.radius * thick);
     }
+    this.flatScale = flatScale;
     this.writer.write(this.rings, this.radii, flatN, flatScale);
     const g = this.geom;
     g.attributes.position.needsUpdate = true;
@@ -325,6 +329,118 @@ export class StrandMesh {
   dispose() {
     this.geom.dispose();
     this.halo?.geometry.dispose();
+  }
+}
+
+const _sp = new Vector3();
+
+/** A lesion zone on a strand (the Achilles midportion, a tendon's insertion…): a slightly fatter tube over the
+ *  parent's centre line between two arc-length fractions, with rounded ends. It follows the parent in every pose:
+ *  call write() after the parent's pose() + write() of the same frame (it reads the parent's rings and radii). */
+export class SegmentMesh {
+  readonly mesh: Mesh;
+  halo: Mesh | null = null;
+  /** see-through copy (drawn only where something hides the zone) */
+  xray: Mesh | null = null;
+  readonly rings: Vector3[];
+  private radii: Float32Array;
+  private writer: StrandTubeWriter;
+  private haloWriter: StrandTubeWriter | null = null;
+  private xrayWriter: StrandTubeWriter | null = null;
+  private tmpRadii: Float32Array;
+
+  constructor(
+    readonly parent: StrandMesh,
+    /** arc-length fractions along the parent (0 = its first path point, 1 = its last) */
+    readonly range: [number, number],
+    material: Material,
+    /** radius multiplier over the parent's (the zone must sit just outside the parent's surface) */
+    readonly grow = 1.45,
+    readonly n = 14,
+  ) {
+    this.rings = Array.from({ length: n }, () => new Vector3());
+    this.radii = new Float32Array(n);
+    this.tmpRadii = new Float32Array(n);
+    const radial = parent.profile.flat ? 12 : 10;
+    this.writer = new StrandTubeWriter(n, radial);
+    this.mesh = new Mesh(this.writer.toGeometry(), material);
+    this.mesh.frustumCulled = false;
+    this.mesh.matrixAutoUpdate = false;
+  }
+
+  enableHalo(material: Material) {
+    if (this.halo) return;
+    this.haloWriter = new StrandTubeWriter(this.n, 10);
+    this.halo = new Mesh(this.haloWriter.toGeometry(), material);
+    this.halo.frustumCulled = false;
+    this.halo.matrixAutoUpdate = false;
+    this.halo.renderOrder = 5;
+  }
+
+  enableXray(material: Material) {
+    if (this.xray) return;
+    this.xrayWriter = new StrandTubeWriter(this.n, 10);
+    this.xray = new Mesh(this.xrayWriter.toGeometry(), material);
+    this.xray.frustumCulled = false;
+    this.xray.matrixAutoUpdate = false;
+    this.xray.renderOrder = 6;
+  }
+
+  /** Centre line only (framing / label pre-passes): reads the parent's posed rings. */
+  pose() {
+    const P = this.parent.rings;
+    const last = RINGS - 1;
+    const [a, b] = this.range;
+    for (let i = 0; i < this.n; i++) {
+      const u = (a + ((b - a) * i) / (this.n - 1)) * last;
+      const k = Math.min(last - 1, Math.max(0, Math.floor(u)));
+      const f = Math.min(1, Math.max(0, u - k));
+      this.rings[i].lerpVectors(P[k], P[k + 1], f);
+    }
+  }
+
+  /** Geometry for the current pose (after the parent's write()). */
+  write() {
+    this.pose();
+    const R = this.parent.radii;
+    const last = RINGS - 1;
+    const [a, b] = this.range;
+    for (let i = 0; i < this.n; i++) {
+      const u = (a + ((b - a) * i) / (this.n - 1)) * last;
+      const k = Math.min(last - 1, Math.max(0, Math.floor(u)));
+      const f = Math.min(1, Math.max(0, u - k));
+      const r = R[k] + (R[k + 1] - R[k]) * f;
+      // rounded ends (a capsule-like cuff on the tendon), never thinner than the parent in the middle
+      const s = (2 * i) / (this.n - 1) - 1;
+      const end = Math.sqrt(Math.max(0, 1 - Math.pow(Math.abs(s), 6)));
+      this.radii[i] = Math.max(0.0008, r * this.grow * (0.35 + 0.65 * end));
+    }
+    const flat = this.parent.profile.flat ? _sp.copy(this.parent.flatDir) : null;
+    const fs = flat ? this.parent.flatScale / 1.12 : 1;
+    this.writer.write(this.rings, this.radii, flat, fs);
+    const g = this.mesh.geometry;
+    g.attributes.position.needsUpdate = true;
+    g.attributes.normal.needsUpdate = true;
+    if (this.halo && this.haloWriter && this.halo.visible) {
+      for (let i = 0; i < this.n; i++) this.tmpRadii[i] = this.radii[i] * 1.7 + 0.004;
+      this.haloWriter.write(this.rings, this.tmpRadii, flat, flat ? fs * 0.85 : 1);
+      const hg = this.halo.geometry;
+      hg.attributes.position.needsUpdate = true;
+      hg.attributes.normal.needsUpdate = true;
+    }
+    if (this.xray && this.xrayWriter) {
+      for (let i = 0; i < this.n; i++) this.tmpRadii[i] = this.radii[i] * 1.06;
+      this.xrayWriter.write(this.rings, this.tmpRadii, flat, fs);
+      const xg = this.xray.geometry;
+      xg.attributes.position.needsUpdate = true;
+      xg.attributes.normal.needsUpdate = true;
+    }
+  }
+
+  dispose() {
+    this.mesh.geometry.dispose();
+    this.halo?.geometry.dispose();
+    this.xray?.geometry.dispose();
   }
 }
 

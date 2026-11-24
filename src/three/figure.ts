@@ -1,16 +1,18 @@
 // The mannequin: one Object3D per rig segment carrying its bone pieces and translucent skin volumes.
-import { BufferAttribute, BufferGeometry, Color, Group, Mesh, type MeshStandardMaterial, Object3D, type ShaderMaterial, SphereGeometry } from 'three';
+import { BufferAttribute, BufferGeometry, Color, DoubleSide, FrontSide, Group, Mesh, type MeshStandardMaterial, Object3D, type ShaderMaterial, SphereGeometry } from 'three';
 import { capsule, merge } from './geometry';
 import { colorOf, type Palette, rimMaterial, type RimUniforms, skinMaterials } from './materials';
 import { type RigState, SEGMENTS, SKIN_PRIMS, type Side } from './rig';
 import { buildSkeletonGeometry } from './skeleton';
+import { bonePieces } from './skeleton-parts';
 import { SkinLoft } from './skin-loft';
 
 type BoneMat = 'bone' | 'cartilage' | 'ink';
 /**
  * The bones are drawn as ONE merged mesh per segment + material (≈ 35 draw calls instead of 85 pieces). Each piece
- * keeps its contiguous index range, so a tinted piece is split off on demand: its triangles leave the merged index
- * (compacted, drawRange) and a part mesh sharing the same vertex buffers draws them with the tint material.
+ * keeps its contiguous index range, so a tinted or ghosted piece is split off on demand: its triangles leave the
+ * merged index (compacted, drawRange) and a part mesh sharing the same vertex buffers draws them with its own
+ * material (tint colour and / or see-through "ghost" look). Reset puts it back.
  */
 interface BoneGroup {
   segIdx: number;
@@ -84,7 +86,10 @@ export class Figure {
   /** part key → the merged groups that contain it */
   private parts = new Map<string, BoneInst[]>();
   private groups: BoneInst[] = [];
-  private tinted = new Map<string, MeshStandardMaterial>();
+  /** split-off pieces (tinted and / or ghosted), by part key */
+  private looks = new Map<string, PartLook>();
+  /** rim strength of ghosted pieces: stronger than the bones' (the outline carries the shape) */
+  private ghostEdge: { value: number };
   private skinMat: ShaderMaterial;
   private prepassMat;
   private skinMeshes: Mesh[] = [];
@@ -99,10 +104,11 @@ export class Figure {
     skinOpacity: number,
   ) {
     this.rim = { uInk: { value: new Color(pal.boneInk) }, uEdge: { value: pal.dark ? 0.3 : 0.42 } };
+    this.ghostEdge = { value: ghostEdge(pal) };
     this.boneMat = rimMaterial(pal.bone, pal.boneInk, 0.5, this.rim);
     this.cartMat = rimMaterial(pal.cartilage, pal.boneInk, 0.5, this.rim);
     this.cartMat.roughness = 0.6;
-    this.inkMat = rimMaterial(pal.dark ? '#3a3632' : '#8d857d', pal.boneInk, 0.2, this.rim);
+    this.inkMat = rimMaterial(this.inkColor(), pal.boneInk, 0.2, this.rim);
     this.segs = SEGMENTS.map((name) => {
       const o = new Object3D();
       o.name = name;
@@ -170,52 +176,174 @@ export class Figure {
     this.pal = pal;
     this.boneMat.color.set(pal.bone);
     this.cartMat.color.set(pal.cartilage);
-    this.inkMat.color.set(pal.dark ? '#3a3632' : '#8d857d');
+    this.inkMat.color.set(this.inkColor());
     this.rim.uInk.value.set(pal.boneInk);
     this.rim.uEdge.value = pal.dark ? 0.3 : 0.42;
+    this.ghostEdge.value = ghostEdge(pal);
+    for (const l of this.looks.values()) this.applyLook(l);
     (this.skinMat.uniforms.uColor.value as Color).set(pal.skin);
     (this.skinMat.uniforms.uRim.value as Color).set(pal.skinRim);
   }
 
-  /** Tint a bone piece (null colour = reset). The piece is split off its merged mesh while tinted. */
+  /**
+   * Tint a bone piece (null colour = reset). The piece is split off its merged mesh while tinted. `part` may be a
+   * group alias ('metatarsals', 'cuneiforms': every member is tinted). Cheap to call every frame (pulse).
+   */
   tint(part: string, side: Side | null, color: Color | null, emissive: number) {
-    const key = partKey(part, side);
-    const insts = this.parts.get(key);
-    if (!insts) return;
-    if (!color) {
-      const t = this.tinted.get(key);
-      if (!t) return;
-      for (const inst of insts) {
-        const m = inst.split.get(key);
-        if (m) m.removeFromParent();
-        inst.split.delete(key);
-        this.rebuildIndex(inst);
+    for (const p of bonePieces(part)) {
+      const key = partKey(p, side);
+      if (!color) {
+        const l = this.looks.get(key);
+        if (!l?.tint) continue;
+        l.tint = null;
+        this.settle(l);
+        continue;
       }
-      t.dispose();
-      this.tinted.delete(key);
-      return;
+      const l = this.look(key);
+      if (!l) continue;
+      l.tint = (l.tint ?? new Color()).copy(color);
+      l.emissive = emissive;
+      this.applyLook(l);
     }
-    let mat = this.tinted.get(key);
-    if (!mat) {
-      mat = rimMaterial(this.pal.bone, this.pal.boneInk, 0.45, this.rim);
-      this.tinted.set(key, mat);
-      for (const inst of insts) {
-        const m = this.partMesh(inst, key);
-        m.material = mat;
-        inst.split.set(key, m);
-        this.segs[inst.grp.segIdx].add(m);
-        this.rebuildIndex(inst);
-      }
-    }
-    mat.color.copy(colorOf(this.pal.bone)).lerp(color, 0.62);
-    mat.emissive.copy(color);
-    mat.emissiveIntensity = emissive;
   }
 
-  /** Meshes currently drawing a piece on its own (only while it is tinted). */
+  /**
+   * Draw a bone piece see-through (a "ghost"), e.g. the patella over the patellofemoral cartilage behind it:
+   * `opacity` 0..1 (null = back to solid; default GHOST_OPACITY 0.3). The piece is split off its merged mesh and
+   * drawn after the opaque anatomy without writing depth (front faces only, stronger rim), so whatever lies behind it
+   * shows through; it stays tintable — `tint()` on a ghosted piece colours the ghost, and resetting the tint keeps
+   * it ghosted (and vice versa). `part` may be a group alias. Unknown names are ignored.
+   */
+  ghost(part: string, side: Side | null, opacity: number | null = GHOST_OPACITY) {
+    for (const p of bonePieces(part)) {
+      const key = partKey(p, side);
+      if (opacity === null) {
+        const l = this.looks.get(key);
+        if (!l || l.ghost === null) continue;
+        l.ghost = null;
+        this.settle(l);
+        continue;
+      }
+      const l = this.look(key);
+      if (!l) continue;
+      l.ghost = Math.min(1, Math.max(0, opacity));
+      this.applyLook(l);
+    }
+  }
+
+  /** Make every ghosted piece solid again (tints are kept). */
+  clearGhosts() {
+    for (const l of [...this.looks.values()]) {
+      if (l.ghost === null) continue;
+      l.ghost = null;
+      this.settle(l);
+    }
+  }
+
+  /** Part keys (`patella_R`, `sacrum`…) currently drawn as ghosts. */
+  ghosted(): string[] {
+    return [...this.looks.values()].filter((l) => l.ghost !== null).map((l) => l.key);
+  }
+
+  /** Meshes currently drawing a piece on its own (only while it is tinted or ghosted). Group aliases expand. */
   partMeshes(part: string, side: Side | null): Mesh[] {
-    const key = partKey(part, side);
-    return (this.parts.get(key) ?? []).map((inst) => inst.split.get(key)).filter((m): m is Mesh => !!m);
+    const out: Mesh[] = [];
+    for (const p of bonePieces(part)) for (const m of this.looks.get(partKey(p, side))?.meshes ?? []) out.push(m.mesh);
+    return out;
+  }
+
+  /** The split-off look of a piece, splitting it off its merged meshes on first use (null: unknown part). */
+  private look(key: string): PartLook | null {
+    let l = this.looks.get(key);
+    if (l) return l;
+    const insts = this.parts.get(key);
+    if (!insts) return null;
+    l = { key, tint: null, emissive: 0, ghost: null, meshes: [] };
+    for (const inst of insts) {
+      const { mat } = this.partMaterial(inst.grp.mat, false);
+      const mesh = this.partMesh(inst, key);
+      mesh.material = mat;
+      inst.split.set(key, mesh);
+      this.segs[inst.grp.segIdx].add(mesh);
+      this.rebuildIndex(inst);
+      l.meshes.push({ inst, mesh, mat, rim: null });
+    }
+    this.looks.set(key, l);
+    return l;
+  }
+
+  /** After a reset: put the piece back into its merged meshes when it is neither tinted nor ghosted. */
+  private settle(l: PartLook) {
+    if (l.tint || l.ghost !== null) {
+      this.applyLook(l);
+      return;
+    }
+    for (const m of l.meshes) {
+      m.mesh.removeFromParent();
+      m.inst.split.delete(l.key);
+      this.rebuildIndex(m.inst);
+      m.mat.dispose();
+    }
+    this.looks.delete(l.key);
+  }
+
+  private partMaterial(mat: BoneMat, ghost: boolean): { mat: MeshStandardMaterial; rim: RimUniforms | null } {
+    if (!ghost) return { mat: rimMaterial(this.pal.bone, this.pal.boneInk, 0.45, this.rim), rim: null };
+    // own rim uniforms: the outline takes the tint colour, so an injured ghost still reads as the injured bone
+    const rim: RimUniforms = { uInk: { value: new Color(this.pal.boneInk) }, uEdge: this.ghostEdge };
+    const m = rimMaterial(this.pal.bone, this.pal.boneInk, 0.45, rim);
+    if (mat === 'cartilage') m.roughness = 0.6;
+    m.transparent = true;
+    m.depthWrite = false;
+    m.side = FrontSide;
+    // glass-like: the silhouette is more opaque than the face (fresnel alpha), so the shape stays readable at 0.3
+    const rimCompile = m.onBeforeCompile;
+    m.onBeforeCompile = (shader, renderer) => {
+      rimCompile.call(m, shader, renderer);
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <opaque_fragment>',
+        `diffuseColor.a = clamp(diffuseColor.a * (1.0 + 1.7 * smoothstep(0.45, 1.0, 1.0 - abs(dot(normalize(normal), normalize(vViewPosition))))), 0.0, 1.0);
+        #include <opaque_fragment>`,
+      );
+    };
+    m.customProgramCacheKey = () => 'tb-rim-ghost';
+    return { mat: m, rim };
+  }
+
+  /** Colours / opacity of a split-off piece from its state (tint lerps the bone colour 62 % toward the role colour). */
+  private applyLook(l: PartLook) {
+    const ghost = l.ghost !== null;
+    for (const m of l.meshes) {
+      if (!!m.rim !== ghost) {
+        // transparent ↔ opaque changes the program and the render list: a fresh material (rare: scene changes only)
+        m.mat.dispose();
+        const pm = this.partMaterial(m.inst.grp.mat, ghost);
+        m.mat = pm.mat;
+        m.rim = pm.rim;
+        m.mesh.material = m.mat;
+      }
+      const mat = m.mat;
+      if (l.tint) {
+        // a see-through bone shows less of its colour: a tinted ghost takes more of the tint so it still reads as
+        // the injured / involved bone
+        mat.color.copy(colorOf(this.pal.bone)).lerp(l.tint, m.rim ? 0.85 : 0.62);
+        mat.emissive.copy(l.tint);
+        mat.emissiveIntensity = l.emissive;
+      } else {
+        mat.color.copy(colorOf(m.inst.grp.mat === 'bone' ? this.pal.bone : m.inst.grp.mat === 'ink' ? this.inkColor() : this.pal.cartilage));
+        mat.emissive.setRGB(0, 0, 0);
+        mat.emissiveIntensity = 0;
+      }
+      if (m.rim) {
+        mat.opacity = l.ghost!;
+        m.rim.uInk.value.copy(colorOf(this.pal.boneInk));
+        if (l.tint) m.rim.uInk.value.lerp(l.tint, 0.75);
+      }
+    }
+  }
+
+  private inkColor() {
+    return this.pal.dark ? '#3a3632' : '#8d857d';
   }
 
   /** A mesh for one piece of a merged group, sharing its vertex buffers (cached per instance). */
@@ -261,7 +389,7 @@ export class Figure {
     this.inkMat.dispose();
     this.skinMat.dispose();
     this.prepassMat.dispose();
-    for (const m of this.tinted.values()) m.dispose();
+    for (const l of this.looks.values()) for (const m of l.meshes) m.mat.dispose();
     this.loft.dispose();
     // part geometries share the merged vertex buffers: drop them before the merged ones (double removal is harmless)
     for (const g of this.partGeos) g.dispose();
@@ -269,12 +397,26 @@ export class Figure {
   }
 }
 
+/** Default opacity of a ghosted bone piece. */
+export const GHOST_OPACITY = 0.3;
+const ghostEdge = (pal: Palette) => (pal.dark ? 0.5 : 0.62);
+
+/** A split-off piece: its tint and / or ghost state and the meshes (one per merged group containing it). */
+interface PartLook {
+  key: string;
+  tint: Color | null;
+  emissive: number;
+  ghost: number | null;
+  /** rim: own rim uniforms of a ghost material (null = solid) */
+  meshes: { inst: BoneInst; mesh: Mesh; mat: MeshStandardMaterial; rim: RimUniforms | null }[];
+}
+
 interface BoneInst {
   grp: BoneGroup;
   mesh: Mesh;
   /** the full merged index (the live index array is compacted while pieces are split off) */
   full: Uint16Array | Uint32Array;
-  /** split-off (tinted) pieces currently drawn on their own */
+  /** split-off (tinted / ghosted) pieces currently drawn on their own */
   split: Map<string, Mesh>;
   cache?: Map<string, Mesh>;
 }

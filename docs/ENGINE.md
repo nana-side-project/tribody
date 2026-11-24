@@ -245,6 +245,20 @@ Values outside are clamped (and logged once to the console):
     look stretched.
   Values for the scapula landmarks per pose: `node shots/eng-verify-motion/probe/run.mjs
   /home/user/forclaude/shots/qa3-fix-body/probe/girdle.ts`.
+- **The back skin drapes over the shoulder blades** (fin-body, rig.ts `scapulaSkinWeight` / `skinVertex`): the trunk-loft
+  vertices over the blade region (rings 1.2–1.415: back, flank, the side of the chest under the armpit) are pushed out
+  along their normal just far enough to stay 6 mm outside the nearby `BLADE_SAMPLES` (points on the blade riding the
+  scapula), minus what they already had at rest — so the rest shape is unchanged and nothing moves while the blade stays
+  under the soft tissue; never inward. The bone used to come 1–2 cm out of the skin whenever the girdle moved: shoulder
+  flexion 170 13.6 → 1.3 mm, protraction +25 9.9 → 1.6 mm, push-up plus 16.3 → 4.8, cat-cow 16.6 → 5.4, open book 20.6 →
+  7.9, wall slide 9.0 → 2.3, prone Y-T-W / side-lying 9–11 → ~1; over all 56 clips the scapula is now > 3 mm out of
+  the skin only in push-up plus, cat-cow and open book (it was 3–21 mm in 17 clips) (worst bone vertex outside the
+  visible skin: `node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/fin-body/probe/clipskin.ts
+  scapula,ribs 8`; per pose: `…/fin-body/probe/candeval.ts /home/user/forclaude/shots/fin-body/probe/c0.json`). The bulge reads as the lats / teres over the moving blade. The
+  superior border of the blade also sags 8 mm toward the scapular notch (skeleton.ts) — the straight border ran just
+  under the shoulder skin. Not covered: the costal cartilages in extreme trunk flexion (lumbar 45 + thorax 30: 10 mm out
+  at the front of the ribs; no clip goes that far) and the lower ribs in a 40° thoracic twist (13 mm, open book 11 mm):
+  the abdominal rings blend pelvis / lumbar / thorax and cut the corner.
 - **Patella** glides from the trochlea onto the condyles: its centre moves on an arc around the condyles and tilts
   ~0.6 × knee flexion. The tilt per knee angle (`PAT_TILT` in rig.ts) was solved so the **patellar tendon keeps
   its rest length** (apex → tibial tuberosity) at every knee angle — so `patella:*` landmarks stay on the femur and
@@ -297,6 +311,18 @@ The **exercise mat is 8 mm thick** (top at y 0.008) while `ground: true` puts th
 0–8 mm "above the floor" in the probes visually rests on the mat (the figure sinks into the soft mat); use
 `ground: 0.008` only when the figure should stand on top of it (half-kneeling).
 
+Since fin-body the **drawn back and chest ground the figure vertex for vertex**: the lofted trunk rings at the sacral level
+(0.9) and from the thoracolumbar junction to the upper back (1.15 … 1.448) are `GROUND_RINGS` in rig.ts — the same
+binding as the drawn loft (`loftBinding`, ring tables `LOFT_TRUNK` / `LOFT_ARM` / `LOFT_LEG` now live in rig.ts), and
+a triangle mesh's lowest point is one of its vertices, so it is exact (`lowestSkinY`, `forEachSkinBox`, `skinBounds`
+include them). The analytic trunk ellipsoids were 3–4 mm smaller than the drawn back of the ribcage, so every supine
+clip used to sink the upper back 2.7–4.0 mm (and the sacrum up to 2 mm) into the floor; supine figures now sit 2.7–4.0
+mm higher (BASE:SUPINE +3.8 mm, glute / single-leg bridge, adductor squeeze +2.8, hamstring bridge iso +2.7, dead bug
++3.2, hamstring stretch +3.9, figure-4 +4.0; BASE:PRONE +1.0 on the chest): the back of the ribcage touches at 0 and
+the head / sacrum / heels / hands that touched before are now 2–4 mm above the floor (inside the 8 mm mat). Probe:
+`node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/fin-body/probe/ringpen.ts` (lowest point of each
+trunk ring per clip; nothing below the floor any more).
+
 ---
 
 ## 5. Landmarks & attachment refs
@@ -332,7 +358,7 @@ The **exercise mat is 8 mm thick** (top at y 0.008) while `ground: true` puts th
 
 ### Landmark table
 
-269 landmarks. Coordinates are rest `[lat, y, z]` (m).
+271 landmarks. Coordinates are rest `[lat, y, z]` (m).
 
 #### `pelvis`
 
@@ -660,6 +686,8 @@ The **exercise mat is 8 mm thick** (top at y 0.008) while `ground: true` puts th
 | `met_head_3` | 0.095, 0.012, 0.134 | 第3中足骨頭 |
 | `met_head_5` | 0.125, 0.012, 0.114 | 第5中足骨頭（小趾球） |
 | `met_2_3_shaft` | 0.088, 0.030, 0.110 | 第2・3中足骨 骨幹（疲労骨折の好発部位） |
+| `met_2_neck` | 0.0805, 0.0245, 0.123 | 第2中足骨 頸部（骨幹遠位〜頸部：疲労骨折の好発部位; dorsal side of the bone, the `metatarsals` spot） |
+| `met_3_neck` | 0.0948, 0.0218, 0.1175 | 第3中足骨 頸部 |
 | `interspace_3_4` | 0.102, 0.012, 0.130 | 第3–4趾間（モートン病） |
 | `arch_mid` | 0.075, 0.028, 0.040 | 内側縦アーチ 中央（足底） |
 | `dorsum_mid` | 0.088, 0.062, 0.070 | 足背 中央 |
@@ -784,7 +812,13 @@ muscles 0.4–0.5 at the insertion.
 
 Belly colour: `--muscle` (vivid for primary) → deeper red when short, `--muscle-light` when long. Tendons
 `--tendon`. Roles (`Highlight3DRole`): `primary` vivid + slight emissive · `secondary` lighter · `injured`
-red-orange (`--injured`) with a pulsing glow halo · `involved` amber · `selected` brighter emissive.
+red-orange (`--injured`); **one** injured part per view pulses with a glow halo (the first injured part — the
+condition page lists the 'injured' tissue first — or a scene's `primary` / lesion zone, §7), every other injured part
+is the same red but steady, without halo · `involved` amber · `selected` brighter emissive, and while a part is
+`selected` every `secondary` muscle is **muted** (greyed, low saturation, ~50 % opacity; labels in 「+N」) and the selected
+muscle gets a see-through copy (~78 % opacity where something hides it), so a deep one (腸腰筋 on the hip page, 菱形筋
+behind the ribs on the shoulder page, 後脛骨筋 in the calf) shows through the superficial muscles and bones. Check:
+`/dev/engine.html?region=hip&sel=iliopsoas`.
 `injured` and `involved` keep their hue at every length (a stretched injured muscle stays red, a stretched involved
 one stays amber — never salmon / pink): only their lightness follows the length (shorter a little deeper, longer a
 little lighter in the light theme / more muted in the dark theme); thickness shows the rest.
@@ -815,7 +849,7 @@ Non-scope muscles are hidden (`?all=1` shows every rigged muscle faintly).
 | `bursa` | `at`, `radii: [lat, y, z]`, `off?` | soft blue ellipsoid oriented with `at`'s bone |
 | `cartilage`, `fatpad` | `at`, `radii`, `off?` | pale cushion (labrum, meniscus, disc, PF cartilage, heel fat pad) |
 | `spot` | `at`, `radius` | glow sphere on a bony point or joint (greater trochanter, joint line, medial tibial border, stress-fracture site). A spot is a **lesion marker**: drawn only when the structure is `injured` (then 1.45 × `radius`, the brightest red of the view) or when the structure has nothing else; on a merely `involved` structure (the tibia in shin splints) it is hidden, so it never reads as a focal injury |
-| `bone` | `parts: BonePartId[]` | tints whole bone pieces (injured without a spot: strong red; injured with a spot, or involved: lighter, so the spot / the injured soft tissue stays the strongest colour): `tibia`, `fibula`, `calcaneus`, `talus`, `navicular`, `metatarsals`, `patella`, `scapula`, `acromion`, `humeral_head`, `greater_trochanter`, `femoral_head`, `thoracic`, `cervical`, `lumbar`, `discs`, `sacrum`, `ilium`, `ischial_tuberosity`, `pubic_symphysis`, `lateral_epicondyle`, `medial_malleolus`, `lateral_malleolus` … (see `skeleton-parts.ts`) |
+| `bone` | `parts: BonePartId[]` | tints whole bone pieces (injured without a spot: strong red; injured with a spot, or involved: lighter, so the spot / the injured soft tissue stays the strongest colour): `tibia`, `fibula`, `calcaneus`, `talus`, `navicular`, `metatarsals`, `patella`, `scapula`, `acromion`, `humeral_head`, `greater_trochanter`, `femoral_head`, `thoracic`, `cervical`, `lumbar`, `discs`, `sacrum`, `ilium`, `ischial_tuberosity`, `pubic_symphysis`, `lateral_epicondyle`, `medial_malleolus`, `lateral_malleolus` … (see `skeleton-parts.ts`). The foot has one piece per ray — `metatarsal_1` … `metatarsal_5` — and per cuneiform — `cuneiform_medial` / `_intermediate` / `_lateral`; the group aliases `metatarsals` and `cuneiforms` still name all of them (`BONE_PART_GROUPS`), so a rig can tint one ray (`metatarsals` structure = rays 2–3 + the spot on `foot:met_2_neck`; `medial-arch` = calcaneus, talus, navicular, `cuneiform_medial`, `metatarsal_1`) |
 
 Mix parts freely (e.g. `greater-trochanter` = `bone` tint + `spot`). `labelAt?: AttachRef` sets the label
 anchor; `base`, `camera`, `focus` are used when the structure is shown on its own (highlights without a teaching
@@ -830,8 +864,9 @@ highlights mode the engine then uses a **scene** from `src/three/scenes.ts` (`CO
 
 What the app passes (src/pages): a condition page maps each `involved` part to `injured` (roles injured / irritated /
 compressed) or `involved` (the rest), in that order — the part whose role is `injured` comes first in the object, so it
-is the first injured part the engine sees. A region page passes its key muscles as `secondary` (muscle colour — amber
-means 「関係」 on condition pages) and the one the user taps in the chip row under the viewer as `selected`; when that
+is the first injured part the engine sees (its camera, its framing, and the view's one pulse). A region page passes its key muscles as `secondary` (muscle colour — amber
+means 「関係」 on condition pages) and the one the user taps in the chip row under the viewer as `selected` (the other key muscles are then muted and their labels wait in 「+N」, the selected one shows through
+whatever hides it); when that
 muscle lies outside the region's crop (its data names other regions, or `BELLY_ELSEWHERE` in RegionPage.tsx, e.g.
 大腿筋膜張筋 on the knee page) the page passes that muscle's first region as `focus` instead.
 
@@ -857,7 +892,21 @@ muscle lies outside the region's crop (its data names other regions, or `BELLY_E
 | `fade` | `{ id: opacity }` — translucent parts (e.g. gluteus maximus over the sciatic nerve). Never applied to an injured part |
 | `both` | parts drawn on both sides (central / bilateral problems: low back, neck) |
 | `roles` | role overrides for this scene (e.g. a nerve the text says is only rarely irritated → `involved`) |
+| `ghost` | see-through bone pieces `{ patella: 0.5 }` (`Figure.ghost`, opacity; sided parts on the scene's side, midline parts as one piece), cleared on every view. A ghosted injured bone stays red glass with a rim in the injured red, so the legend still holds. Used on `patellofemoral-pain`: the patella at 0.5 over the amber patellofemoral cartilage on its back (「お皿の裏」 in the text) — it only reads in a close crop (patella ≥ ~50 px on the card: knee frame, `minSize` 0.13); at 0.4 the glass reads salmon / orange rather than red, at 0.6 the cartilage fades. Tried and not used: acromion on swimmer's shoulder, humeral head on biceps tendinopathy (no visible gain: injured parts already have see-through copies, below) |
+| `structures` | per-view overrides of a structure rig (a rig cannot vary by condition): `{ [structureId]: { bones?, labelAt? } }` — `bones` = the bone pieces its `bone` part tints instead (Morton's neuroma: `metatarsals` → `['metatarsal_3', 'metatarsal_4']`, the rays around the nerve in the 3rd interspace, while the rig tints the stress-fracture rays 2–3), `labelAt` = its label anchor (the cartilage label of patellofemoral pain on the back of the ghosted patella, `patella:articular`) |
 | `minor` | context parts whose labels start collapsed in 「+N」 |
+| `primary` | the injured part or zone key that carries the view's ONE pulse + halo (default: the first zone, else the first injured part in the page's order). The other injured parts stay the same red, steady, without halo |
+| `sensitive` | non-damage condition (low back, cyclist's neck, cramps — the content's `anatomyNote` says nothing is damaged and the page's legend reads 「痛みやすい場所」): the red parts are steady, nothing pulses. Default: derived from the content (a condition with an `anatomyNote`), the same rule as the page |
+| `zones` | **lesion zones**: where in a part the problem sits. `{ on, range: [a, b], label }` draws an injured-red cuff over the arc-length fractions a…b of the part's strand (`strand`, default 0; `grow` radius × 1.45) — it follows the strand in every pose; `{ on, at, radius, label }` a spot at a point; neither on a structure with a `spot` part = that spot (the zone then replaces it). The zone carries the part's label (`label`) and the pulse; the rest of the part is drawn `partRole`: `'plain'` (its own colour, default), `'involved'` or `'injured'` (steady) |
+
+Zones in use: `achilles-midportion` `{ on: 'achilles-tendon', range: [0.655, 0.845], label: 'アキレス腱の中央部' }`
+(2–6 cm above the insertion; the footprint ends at rest y 0.045; a close-up of the heel cord from behind, so the zone
+reads as a stretch of the cream tendon between the calf muscles and the heel), `achilles-insertional` `range: [0.87, 1]`
+(「アキレス腱の付着部」, next to the steady-red retrocalcaneal bursa; posterolateral close-up, `minSize` 0.12, so the zone and
+the bursa read as two parts), `tibial-stress-fracture` / `metatarsal-stress-fracture`
+on the bone's own spot (「脛骨のひび」 / 「中足骨のひび」, `partRole: 'injured'`: the bone a steady light red). Fractions of a
+cord: `node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/fin-engine/probe/achilles.ts <structure-id>`
+prints the rest-pose y / z at each arc fraction.
 
 On top of the scene, every **injured** part in highlights mode gets a see-through copy wherever other anatomy hides
 it (same technique as nerves: drawn after the opaque anatomy with depth test GREATER, so only the hidden stretches
@@ -1003,10 +1052,9 @@ show, at ~55 % opacity) — an injured tendon or bursa under a superficial muscl
 - `partSides` — per-part override of `sides` for a part that works on the other side in a one-sided exercise:
   `partSides: { 'gluteus-medius': 'L' }` on the standing knee drive (the stance-leg gluteus medius holds the pelvis),
   `{ obliques: 'L' }` on the Copenhagen plank (the floor-side obliques hold the hips up). `'R' | 'L' | 'both'`, swapped
-  with `mirror` like `sides`. Compiled into `CompiledClip.partSides` (`Side[]` per id). **Not applied yet**: the engine
-  (engine.ts) still builds the scope and the labels from `cc.sides` only — it needs to use
-  `cc.partSides[id] ?? (both.has(id) ? ['R', 'L'] : sides)` per part in `anatomy.setScope` (today `ScopeOptions.both`)
-  and in `setupLabels`' `sidesOf`.
+  with `mirror` like `sides`. Compiled into `CompiledClip.partSides` (`Side[]` per id); the engine draws and labels each
+  part on `cc.partSides[id] ?? sides` (`ScopeOptions.sidesOf`; scenes' `both` goes through the same function). Check:
+  `node shots/fin-engine/tools/vis.mjs "exercise=ex-standing-knee-drive"` prints `gluteus-medius:L:secondary`.
 - `highlights` — used when the Exercise data (`primary` / `secondary` in src/data) is empty. When the data
   exists the viewer highlights `Exercise.primary` (primary) and `Exercise.secondary` (secondary); if **none** of
   those muscles is rigged yet, it falls back to the clip's `highlights`, so always set them.
@@ -1018,7 +1066,8 @@ show, at ~55 % opacity) — an injured tendon or bursa under a superficial muscl
 
 ### Labels (automatic)
 
-One floating name per highlighted part (max 10), placed by `labels.ts` in the **free space around the figure**:
+One floating name per highlighted part (10 laid out at most — the rest goes into 「+N」, see below), placed by
+`labels.ts` in the **free space around the figure**:
 the skin silhouette and the highlighted anatomy are rasterised to a coarse screen grid every frame, and each
 label picks the spot (left / right of its dot, the card margins, above / below) with the least body / anatomy
 overlap and the shortest, uncrossed leader line. The phase pill, legend, player bar and reset button are
@@ -1031,15 +1080,26 @@ measured from the DOM and are never covered; a dot under them moves to a visible
   the user orbits, that screen-space prior no longer applies), and positions glide (≈85 ms smoothing).
 - **「+N」 chip**: when the view opens, a pre-pass lays out ~12 sampled times of the clip; minor labels that would
   have to cover the highlighted anatomy (or the body while there is free space) in > 15 % of them collapse into a
-  small 「+N」 chip next to the labels. Tapping it shows all names (「−」 hides them again).
+  small 「+N」 chip next to the labels. Tapping it shows all names (「−」 hides them again). Nothing is ever dropped:
+  labels beyond the budget of 10 (a region page's 12–14 key muscles: 菱形筋・上腕二頭筋 on the shoulder page, the
+  hamstrings and 大腿直筋 on the hip page) go into the chip too (`LabelSpec.overflow`, any tier). The chip's accessible
+  name lists every collapsed name (「ほかに4つ：大腿直筋、大腿二頭筋、半腱様筋、半膜様筋（タップで表示）」; 10 and more:
+  「13個」), also while expanded (「ラベルを減らす（ほかに…）」). While a part is `selected` (region page chip) the
+  other key muscles' labels start in the chip as well — the view is about the selected one, the chip row under the
+  viewer names them all.
 - **Side**: with `sides: 'both'` each label goes on the side whose dot is in view and nearer the camera at
   `t = 0` (if neither dot is in view: the side with more of the part in view); with `'L'` (no mirror) on the left side.
 - **Partly visible parts**: when a label's dot (belly centre / `labelAt`) is off-view or under the phase pill / player
-  bar, the dot moves to the visible point of the part (its strand / cord control points, sampled in between) nearest
-  to it, so a close-up still names the tendon or muscle that runs out of the frame (the tibialis posterior tendon in
-  the short-foot close-up, the quadriceps in a patellar-tendon close-up). A minor part with nothing in view at all goes
-  into 「+N」; expanding the chip lists it as 「画面外：…」 next to the chip (a major part with nothing in view has no
-  label — scenes frame the injured parts, so this does not happen on condition pages).
+  bar, the dot moves onto the visible part of the part (its strand / cord control points, sampled in between): to the
+  **middle of its visible stretch** (the visible sample nearest to their centroid — not the card edge nearest the
+  off-view anchor, which read as a leader pointing off-screen), on the visible **belly** when ≥ 12 % of a muscle's belly
+  is in view (`altBelly`: the strand's tendon fractions are skipped, so 腓腹筋 does not point at the Achilles tendon),
+  else on its visible tendon. So a close-up still names the tendon or muscle that runs out of the frame (the tibialis
+  posterior tendon in the short-foot close-up, the pes anserinus muscles' tendons on the pes-anserine page). A minor
+  part **outside the crop** — its anchor off-view in most sampled frames and < 25 % of its samples in view, or nothing
+  in view at all — goes into 「+N」; expanding the chip lists it as 「画面外：…」 next to the chip instead of a floating
+  label (a major part with nothing in view has no label — scenes frame the injured parts, so this does not happen on
+  condition pages). Stats per label: `node shots/fin-engine/tools/lbl.mjs "condition=pes-anserine-pain"`.
 - **Scenes** (condition / region pages) can start context labels collapsed in 「+N」 (`minor`, see §7). The chip is
   only in the DOM while it has something to show (no hidden 「ほかに0つ」 button).
 - Writing a clip: nothing to do. Long Japanese names are shortened by `labelName()` (parenthetical notes dropped).
@@ -1064,7 +1124,10 @@ Dev server (your own port): `VITE_CACHE_DIR=node_modules/.vite-<PORT> npx vite -
 |---|---|
 | `?muscle=<id>` | muscle demo (rest → 収縮 → rest → ストレッチ) |
 | `?exercise=<id>` | exercise clip |
-| `?hl=id:role,id:role` | highlights (condition-page mode), e.g. `?hl=achilles-tendon:injured,gastrocnemius:involved`. Without a condition the generic view is used (with `&focus=<region>`: that region's scene). The harness has no `?condition=` yet: check a condition's teaching scene on its app page (`/#/condition/<id>`, tap 「3Dで見る」) |
+| `?hl=id:role,id:role` | highlights, e.g. `?hl=achilles-tendon:injured,gastrocnemius:involved`. Without a condition the generic view is used (with `&focus=<region>`: that region's scene) |
+| `?condition=<id>` | exactly what `/#/condition/<id>` shows in its 3D card (340 px): the condition's scene, its content highlights (roles injured / irritated / compressed → `injured`, the 'injured' tissue first; the rest `involved`, the page's own order — `conditionView()` mirrors `ConditionPage.tsx`), `focus` = its region; the card has the app's 1 px `.viewer-frame` border, so on a 390 px phone the viewer is 356 × 340 like the page's and a screenshot matches `/#/condition/<id>` pixel for pixel (checked on 10 views incl. two `&sel`, ≤ 0.1 % differing pixels). `&card=0` full page, `&h=` card height |
+| `?region=<id>[&sel=<muscle>]` | the region page's 3D card: key muscles `secondary`, `sel` = the tapped chip (`selected`), framed like the page (a selected muscle whose belly lies outside the crop frames its own first region — `regionView()` mirrors `RegionPage.tsx`) |
+| `&scene=<json>` | with `?condition` / `?region`: merge these fields into that teaching scene for this page load (a field set to `null` is removed) — try a camera, crop, ghost or override before editing `scenes.ts`, e.g. `?condition=patellofemoral-pain&scene={"ghost":{"patella":0.55},"minSize":0.1}` (URL-encode it in scripts) |
 | `?pose=<BASE_POSE>` | static base pose |
 | `?j=shoulder_R.flex:170,elbow_R.flex:90` | joint overrides on top of `?pose` (pose / highlights mode) — great for testing DOFs |
 | `?t=0..1` | **freeze** at a normalised time (deterministic screenshots) |
@@ -1079,7 +1142,8 @@ Dev server (your own port): `VITE_CACHE_DIR=node_modules/.vite-<PORT> npx vite -
 | `?coverage=1` | table of rigged / missing ids and the owning file |
 
 `window.__tribody = { ready, setTime(t), engine, engines, remounts, done }` is available for scripts
-(`engine.renders` counts rendered frames — playback renders ~30 per second, a static view with an injured glow ~20,
+(`engine.renders` counts rendered frames — playback renders ~30 per second, a static view with the pulsing injured glow
+~20, a static view whose red parts are all steady (a `sensitive` scene) none after the first frames,
 a static view without glow none after the first frames; `engine.isPlaying`, `engine.t`). `setTime(t)` is exact — at a key's
 `t` it shows that key's pose and label (only `t = 1` stays just before the wrap) — and labels snap to their new
 spots; otherwise give labels ~0.4 s to glide before a screenshot.
@@ -1131,9 +1195,9 @@ Screenshots (phone): `node scripts/shot.mjs "http://127.0.0.1:<PORT>/dev/engine.
 | `rig.ts` | DOFs, limits, rest origins, FK (`solveFK`, shoulder-girdle model in §3), skin shapes (`SKIN_SHAPES`: drawn shapes + the volumes behind the loft; all of them ground the figure), base poses |
 | `landmarks.ts` | landmark table, ref compilation (`compileRef`, `evalPoint`) |
 | `skeleton.ts`, `skeleton-parts.ts` | procedural bone geometry per highlightable piece (~47k triangles for both sides; tessellation follows size — `geometry.ts` defaults) |
-| `skin-loft.ts` | smooth CPU-skinned trunk / arm / leg skin (rings: centre, half-width `a`, front half-depth `b`, optional back half-depth `bb` and exponent `n`); `figure.ts` assembles bones + skin |
-| `strands.ts` | allocation-free animated tubes (muscle / cord), length ratios, halo; `pose()` (centre line, ratios — cheap) and `write()` (geometry; colours only when they changed) |
-| `anatomy.ts` | scope → visuals, roles, colours, markers, labels anchors, fades, see-through copies; `update()` (geometry + colours), `pose()` (pre-passes), `updatePulse()` (glow only) |
+| `skin-loft.ts` | smooth CPU-skinned trunk / arm / leg skin (rings: centre, half-width `a`, front half-depth `b`, optional back half-depth `bb` and exponent `n`; the ring tables and the per-vertex binding `loftBinding` / `skinVertex` are in rig.ts, shared with the grounding); `figure.ts` assembles bones + skin |
+| `strands.ts` | allocation-free animated tubes (muscle / cord), length ratios, halo; `pose()` (centre line, ratios — cheap) and `write()` (geometry; colours only when they changed); `SegmentMesh` = a lesion zone over an arc range of a strand (reads the parent's rings / radii after its write) |
+| `anatomy.ts` | scope → visuals, roles, colours, markers, labels anchors, fades, see-through copies, lesion zones; the one pulsing part (`ScopeOptions.pulse`), muted secondaries while something is selected, per-part sides (`ScopeOptions.sidesOf`); `update()` (geometry + colours), `pose()` (pre-passes), `updatePulse()` (glow only) |
 | `scenes.ts` | teaching scenes for condition / region pages (§7) |
 | `clip.ts` | clip compilation, easing, holds, labels, ground/anchor, muscle demo builder |
 | `props.ts`, `labels.ts`, `camera.ts`, `materials.ts`, `geometry.ts` | as named |
@@ -1141,10 +1205,22 @@ Screenshots (phone): `node scripts/shot.mjs "http://127.0.0.1:<PORT>/dev/engine.
 | `data-access.ts` | lazy, guarded access to `src/data` (content can never crash the viewer) |
 | `AnatomyViewer.tsx`, `viewer.css` | React wrapper + Japanese player UI |
 
-Bones (`figure.ts`): one merged mesh per segment + material (~31 draw calls instead of 85 pieces). Each piece keeps its
+Bones (`figure.ts`): one merged mesh per segment + material (~31 draw calls instead of 97 pieces). Each piece keeps its
 index range; `Figure.tint(part, …)` splits a piece off on demand (its triangles leave the merged index — compacted,
 `drawRange` — and a part mesh sharing the merged vertex buffers draws them with the tint material) and puts it back on
-reset. `partMeshes(part, side)` returns the split-off meshes (only while tinted). Probes: bone triangles per part
+reset. Every method takes a piece or a group alias (`metatarsals`, `cuneiforms`: all members):
+
+| `Figure` method | |
+|---|---|
+| `tint(part, side, color \| null, emissive)` | tint (null = reset); cheap enough for the pulse |
+| `ghost(part, side, opacity \| null = GHOST_OPACITY)` | draw the piece **see-through** (`GHOST_OPACITY` 0.3; null = solid again): split off like a tint, drawn after the opaque anatomy without depth writes, front faces only, with a fresnel alpha (the silhouette ~2.5× more opaque than the face) and a stronger rim, so whatever lies behind it shows (the patellofemoral cartilage behind the patella). It stays tintable: a tinted ghost takes 85 % of the tint colour and its rim turns the tint colour; resetting the tint keeps the ghost and vice versa |
+| `clearGhosts()` | every ghost solid again (tints kept) — the engine calls it on every view |
+| `ghosted()` | part keys currently ghosted (`patella_R`, `sacrum`…) |
+| `partMeshes(part, side)` | the split-off meshes (only while tinted or ghosted) |
+
+`side` is `'R' | 'L'` for sided pieces and `null` for midline ones (`isMidlinePart`). Scenes use it through `ghost:
+{ patella: 0.4 }` (§7). State test: `node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/fin-body/probe/figtest.ts`.
+Probes: bone triangles per part
 `shots/qa3-fix-body/probe/tris.ts`; bone vertices outside the visible skin per pose `shots/qa3-fix-body/probe/skin.ts`
 (run with `node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/qa3-fix-body/probe/<file>`).
 
@@ -1161,7 +1237,8 @@ without three's console error. Shader error checks (synchronous program logs) ru
 
 Loop (`engine.loop`): work only when something changed, and stop when nothing does —
 playback poses + renders at most every ~33 ms (30 fps) unless the camera is moving (drag, damping, reset tween:
-display rate); a static view with an injured part only updates the glow (`anatomy.updatePulse`: emissive, halo,
+display rate); a static view with a pulsing part (`anatomy.hasPulse`: the one pulsing injured part or zone) only
+updates the glow (`anatomy.updatePulse`: emissive, halo,
 bone tint — no geometry, no label layout) every ~48 ms; labels are re-solved only when the pose or the camera
 changed, while they glide, or when the label set / UI changed; otherwise the loop idles (no rAF) until OrbitControls'
 events, `play()`, `setTime()`, a resize, a theme change or the 「+N」 chip wake it (`kick()`). Pre-passes over

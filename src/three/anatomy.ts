@@ -18,13 +18,13 @@ import {
 import type { MuscleId, StructureId } from '../data/registry';
 import { MUSCLES, STRUCTURES } from '../data/registry';
 import type { Highlight3DRole } from './contract';
-import { type CompiledPoint, evalPoint, pointSeg, tryCompile } from './landmarks';
+import { type AttachRef, type CompiledPoint, evalPoint, pointSeg, tryCompile } from './landmarks';
 import { colorOf, haloMaterial, type Palette, solid, strandMaterial } from './materials';
 import type { RigState, Side } from './rig';
 import { MUSCLE_RIGS, STRUCTURE_RIGS } from './rig-data';
 import type { StructurePart } from './rig-data/types';
-import { isMidlinePart } from './skeleton-parts';
-import { RINGS, StrandMesh } from './strands';
+import { type BonePartId, isMidlinePart } from './skeleton-parts';
+import { RINGS, SegmentMesh, StrandMesh } from './strands';
 
 export type PartId = MuscleId | StructureId;
 export type Role = Highlight3DRole | 'ghost';
@@ -58,6 +58,12 @@ interface Blob {
 
 interface Visual {
   id: PartId;
+  /** injured: this part carries the view's one pulsing glow (+ halo); other injured parts are steady red */
+  pulse: boolean;
+  /** secondary drawn muted (something else is 'selected') */
+  muted: boolean;
+  /** a lesion zone on this part carries its label (see Zone) */
+  noLabel: boolean;
   side: Side;
   role: Role;
   kind: 'muscle' | 'structure';
@@ -79,6 +85,42 @@ interface Visual {
   xrayColor: Color;
 }
 
+/** A lesion zone drawn on a part (scenes.ts `zones`): an injured-red cuff over a stretch of one of the part's strands
+ *  (`range`, arc-length fractions) or a spot at a point (`at`). It replaces the part's label and may carry the view's
+ *  pulse. */
+export interface ZoneSpec {
+  /** unique key (label / pulse target) */
+  key: string;
+  /** the part the lesion lies in */
+  on: PartId;
+  /** which strand / cord of the part (default 0) */
+  strand?: number;
+  /** arc-length fractions along that strand, 0 = its first path point … 1 = its last */
+  range?: [number, number];
+  /** cuff radius multiplier over the strand's (default 1.45) */
+  grow?: number;
+  /** or a spot at a point (radius m). Neither range nor at: the structure's own spot part (its focal lesion marker,
+   *  e.g. the tibia's stress-fracture site), which the zone then replaces */
+  at?: AttachRef;
+  radius?: number;
+}
+
+interface Zone {
+  spec: ZoneSpec;
+  side: Side;
+  pulse: boolean;
+  seg: SegmentMesh | null;
+  blob: Mesh | null;
+  blobHalo: Mesh | null;
+  blobXray: Mesh | null;
+  cp: CompiledPoint | null;
+  segIdx: number;
+  /** point zone radius (m) */
+  radius: number;
+  material: MeshStandardMaterial;
+  haloMat: ShaderMaterial | null;
+}
+
 export interface ScopeOptions {
   markers: boolean;
   ghosts: boolean;
@@ -86,9 +128,31 @@ export interface ScopeOptions {
   fade?: Partial<Record<PartId, number>>;
   /** injured parts get a see-through copy wherever other anatomy hides them (condition pages) */
   xrayInjured?: boolean;
-  /** these parts are drawn on both sides whatever `sides` says (bilateral problems in a scene) */
-  both?: ReadonlySet<string>;
+  /** sides per part (default: `sides`): a scene's bilateral parts, a clip's `partSides` */
+  sidesOf?: (id: PartId) => Side[];
+  /** the ONE injured part (or zone key) that pulses with a halo; the other injured parts are steady red.
+   *  undefined = the first injured part of the scope; null = nothing pulses (a 'sensitive' scene) */
+  pulse?: string | null;
+  /** lesion zones (scenes.ts) */
+  zones?: ZoneSpec[];
+  /** per-view overrides of structure rigs (scenes.ts `structures`): the bone pieces its `bone` part tints and its
+   *  label anchor (Morton's neuroma: the 3rd / 4th metatarsals around the nerve; the `metatarsals` rig itself tints the
+   *  stress-fracture rays 2–3) */
+  structures?: Partial<Record<StructureId, StructureOverride>>;
 }
+
+/** A structure rig as one view needs it (a rig cannot vary by condition). */
+export interface StructureOverride {
+  /** bone pieces / group aliases tinted instead of the rig's `bone` part(s) */
+  bones?: readonly BonePartId[];
+  /** label anchor instead of the rig's `labelAt` */
+  labelAt?: AttachRef;
+}
+
+/** emissive level of a steady (non-pulsing) injured part: about the pulse's mean, so it reads as the same red */
+const STEADY = 0.45;
+/** opacity of the secondary muscles while one is 'selected' (region pages) */
+const MUTED_OPACITY = 0.5;
 
 const _v = new Vector3();
 const _q = new Quaternion();
@@ -112,7 +176,10 @@ export class AnatomyLayer {
   /** see-through copies: vertex-coloured strands / plain blobs, drawn only where they are behind something */
   private xrayStrandMat: MeshBasicMaterial;
   private xrayNerveMat: MeshBasicMaterial;
+  /** the selected muscle's copy: stronger (it is what the user tapped, often behind the ribs / pelvis) */
+  private xraySelectedMat: MeshBasicMaterial;
   private pulse = 0;
+  private zones: Zone[] = [];
   missing: PartId[] = [];
 
   constructor(
@@ -124,28 +191,44 @@ export class AnatomyLayer {
     this.insertionMat = solid(pal.insertion, { roughness: 0.35, emissive: pal.insertion, emissiveIntensity: 0.35 });
     this.xrayStrandMat = xrayHidden(0.55);
     this.xrayNerveMat = xrayHidden(0.5);
+    this.xraySelectedMat = xrayHidden(0.78);
   }
 
   /** Replace the displayed set. */
   setScope(scope: Partial<Record<PartId, Highlight3DRole>>, sides: Side[], opts: ScopeOptions) {
     this.clear();
     this.missing = [];
-    for (const [id, role] of Object.entries(scope) as [PartId, Highlight3DRole][]) {
-      if (!role) continue;
+    const entries = (Object.entries(scope) as [PartId, Highlight3DRole][]).filter(([, r]) => !!r);
+    // one pulse per view: the scene's / caller's choice, else the first injured part (content order)
+    const pulseKey = opts.pulse === undefined ? (entries.find(([, r]) => r === 'injured')?.[0] ?? null) : opts.pulse;
+    // something selected (region page chip): the other key muscles step back (muted, translucent)
+    const muted = entries.some(([, r]) => r === 'selected');
+    // a zone is the part's lesion marker: the part's own spots give way to it
+    const zoned = new Set<string>((opts.zones ?? []).map((z) => z.on));
+    for (const [id, role] of entries) {
       let any = false;
       // an injured part is never faded (it is what the view is about)
       const fade = role === 'injured' ? undefined : opts.fade?.[id];
-      const op = typeof fade === 'number' && fade < 1 ? Math.max(0.05, fade) : 1;
-      for (const side of opts.both?.has(id) ? (['R', 'L'] as Side[]) : sides) {
-        const v = isMuscleId(id) ? this.buildMuscle(id, side, role, opts.markers, op) : this.buildStructure(id as StructureId, side, role, op);
+      let op = typeof fade === 'number' && fade < 1 ? Math.max(0.05, fade) : 1;
+      const mute = muted && role === 'secondary';
+      if (mute) op = Math.min(op, MUTED_OPACITY);
+      const pulse = role === 'injured' && pulseKey === id;
+      for (const side of opts.sidesOf?.(id) ?? sides) {
+        const v = isMuscleId(id)
+          ? this.buildMuscle(id, side, role, opts.markers, op, pulse)
+          : this.buildStructure(id as StructureId, side, role, op, pulse, zoned.has(id), opts.structures?.[id as StructureId]);
         if (v) {
-          if (v.partType === 'nerve' || (opts.xrayInjured && role === 'injured')) this.addXray(v);
+          v.muted = mute;
+          // see-through copies: nerves always; injured parts on condition pages; the selected muscle (a deep one would
+          // otherwise be lost under the superficial muscles / bones)
+          if (v.partType === 'nerve' || (opts.xrayInjured && role === 'injured') || role === 'selected') this.addXray(v);
           this.visuals.push(v);
           any = true;
         }
       }
       if (!any) this.missing.push(id);
     }
+    for (const z of opts.zones ?? []) this.buildZone(z, pulseKey === z.key, !!opts.xrayInjured);
     if (opts.ghosts) {
       for (const id of Object.keys(MUSCLE_RIGS) as MuscleId[]) {
         if (scope[id]) continue;
@@ -161,7 +244,129 @@ export class AnatomyLayer {
     return this.visuals.some((v) => v.role !== 'ghost');
   }
   get hasInjured() {
-    return this.visuals.some((v) => v.role === 'injured');
+    return this.visuals.some((v) => v.role === 'injured') || this.zones.length > 0;
+  }
+  /** something glows with the (animated) injured pulse */
+  get hasPulse() {
+    return this.visuals.some((v) => v.pulse) || this.zones.some((z) => z.pulse);
+  }
+
+  /** Lesion zone on an already built part (each side it is drawn on). */
+  private buildZone(z: ZoneSpec, pulse: boolean, xray: boolean) {
+    for (const v of this.visuals) {
+      if (v.id !== z.on || v.role === 'ghost') continue;
+      const material = solid(this.pal.injured, { roughness: 0.42, emissive: this.pal.injured, emissiveIntensity: STEADY });
+      const zone: Zone = {
+        spec: z,
+        side: v.side,
+        pulse,
+        seg: null,
+        blob: null,
+        blobHalo: null,
+        blobXray: null,
+        cp: null,
+        segIdx: 0,
+        radius: z.radius ?? 0.006,
+        material,
+        haloMat: null,
+      };
+      if (pulse) zone.haloMat = haloMaterial(this.pal.injured);
+      if (z.range) {
+        const parent = v.strands[z.strand ?? 0];
+        if (!parent) {
+          material.dispose();
+          zone.haloMat?.dispose();
+          console.warn(`[tribody] zone ${z.key}: ${z.on} has no strand ${z.strand ?? 0}`);
+          continue;
+        }
+        const seg = new SegmentMesh(parent, z.range, material, z.grow ?? 1.45);
+        seg.mesh.renderOrder = 5;
+        this.group.add(seg.mesh);
+        if (zone.haloMat) {
+          seg.enableHalo(zone.haloMat);
+          this.group.add(seg.halo!);
+        }
+        if (xray) {
+          seg.enableXray(new MeshBasicMaterial({ color: colorOf(this.pal.injured), transparent: true, opacity: 0.55, depthTest: true, depthFunc: GreaterDepth, depthWrite: false }));
+          this.group.add(seg.xray!);
+        }
+        zone.seg = seg;
+      } else if (z.at || v.kind === 'structure') {
+        // a point zone: `at`, else the structure's own spot (its rig's focal lesion marker)
+        const spot = z.at ? null : STRUCTURE_RIGS[v.id as StructureId]?.parts.find((p) => p.type === 'spot');
+        const at = z.at ?? (spot && 'at' in spot ? spot.at : null);
+        if (!at) {
+          material.dispose();
+          zone.haloMat?.dispose();
+          console.warn(`[tribody] zone ${z.key}: no range / at and ${z.on} has no spot`);
+          continue;
+        }
+        if (spot && spot.type === 'spot' && z.radius === undefined) zone.radius = spot.radius * INJURED_SPOT_SCALE;
+        const cp = tryCompile(at, v.side, `zone ${z.key}`);
+        if (!cp) {
+          material.dispose();
+          zone.haloMat?.dispose();
+          continue;
+        }
+        zone.cp = cp;
+        zone.segIdx = pointSeg(cp);
+        zone.blob = new Mesh(this.blobGeo, material);
+        zone.blob.renderOrder = 5;
+        this.group.add(zone.blob);
+        if (zone.haloMat) {
+          zone.blobHalo = new Mesh(this.blobGeo, zone.haloMat);
+          zone.blobHalo.renderOrder = 5;
+          this.group.add(zone.blobHalo);
+        }
+        if (xray) {
+          zone.blobXray = new Mesh(
+            this.blobGeo,
+            new MeshBasicMaterial({ color: colorOf(this.pal.injured), transparent: true, opacity: 0.55, depthTest: true, depthFunc: GreaterDepth, depthWrite: false }),
+          );
+          zone.blobXray.renderOrder = 6;
+          this.group.add(zone.blobXray);
+        }
+      } else {
+        material.dispose();
+        zone.haloMat?.dispose();
+        continue;
+      }
+      v.noLabel = true;
+      this.zones.push(zone);
+    }
+  }
+
+  private placeZone(z: Zone, state: RigState, geometry: boolean) {
+    if (z.seg) {
+      if (geometry) z.seg.write();
+      else z.seg.pose();
+    } else if (z.blob && z.cp) {
+      evalPoint(z.cp, state, _v);
+      const r = z.radius;
+      z.blob.position.copy(_v);
+      z.blob.scale.setScalar(r);
+      if (z.blobHalo) {
+        z.blobHalo.position.copy(_v);
+        z.blobHalo.scale.setScalar(r * 1.75 + 0.004);
+      }
+      if (z.blobXray) {
+        z.blobXray.position.copy(_v);
+        z.blobXray.scale.setScalar(r * XRAY_GROW);
+      }
+    }
+  }
+
+  private zoneEmissive(z: Zone) {
+    const e = z.pulse ? 0.2 + 0.45 * this.pulse : STEADY;
+    z.material.emissiveIntensity = e;
+    if (z.haloMat) z.haloMat.uniforms.uIntensity.value = 0.3 + 0.45 * this.pulse;
+  }
+
+  /** centre of a zone (label anchor) */
+  private zoneCentre(z: Zone, out: Vector3) {
+    if (z.seg) return out.copy(z.seg.rings[Math.floor(z.seg.rings.length / 2)]);
+    if (z.blob) return out.copy(z.blob.position);
+    return null;
   }
 
   private makeMaterial(role: Role, opacity: number): MeshStandardMaterial {
@@ -170,9 +375,12 @@ export class AnatomyLayer {
     return strandMaterial();
   }
 
-  private newVisual(id: PartId, side: Side, role: Role, kind: Visual['kind'], material: MeshStandardMaterial): Visual {
+  private newVisual(id: PartId, side: Side, role: Role, kind: Visual['kind'], material: MeshStandardMaterial, pulse = false): Visual {
     return {
       id,
+      pulse: role === 'injured' && pulse,
+      muted: false,
+      noLabel: false,
       side,
       role,
       kind,
@@ -191,11 +399,11 @@ export class AnatomyLayer {
     };
   }
 
-  private buildMuscle(id: MuscleId, side: Side, role: Role, markers: boolean, opacity: number): Visual | null {
+  private buildMuscle(id: MuscleId, side: Side, role: Role, markers: boolean, opacity: number, pulse = false): Visual | null {
     const rig = MUSCLE_RIGS[id];
     if (!rig || !rig.strands?.length) return null;
     const material = this.makeMaterial(role, opacity);
-    const v = this.newVisual(id, side, role, 'muscle', material);
+    const v = this.newVisual(id, side, role, 'muscle', material, pulse);
     for (const [i, s] of rig.strands.entries()) {
       const cps = s.path.map((r, k) => tryCompile(r, side, `${id} strand ${s.name ?? i} point ${k}`));
       if (cps.some((c) => !c) || cps.length < 2) continue;
@@ -209,7 +417,8 @@ export class AnatomyLayer {
       material.dispose();
       return null;
     }
-    if (role === 'injured') this.addHalo(v, this.pal.injured);
+    // the halo is the view's ONE pulse: other injured parts are steady red without it
+    if (v.pulse) this.addHalo(v, this.pal.injured);
     if (markers) this.addMarkers(v);
     return v;
   }
@@ -227,7 +436,7 @@ export class AnatomyLayer {
    *  its visible parts look exactly as before. */
   private addXray(v: Visual) {
     const nerve = v.partType === 'nerve';
-    const mat = nerve ? this.xrayNerveMat : this.xrayStrandMat;
+    const mat = nerve ? this.xrayNerveMat : v.role === 'selected' ? this.xraySelectedMat : this.xrayStrandMat;
     for (const s of v.strands) {
       const p = s.profile;
       const sm = new StrandMesh(s.ctrl, { ...p, radius: p.radius * XRAY_GROW, flat: p.flat && { ...p.flat, width: p.flat.width * XRAY_GROW } }, mat, v.side);
@@ -261,12 +470,21 @@ export class AnatomyLayer {
     }
   }
 
-  private buildStructure(id: StructureId, side: Side, role: Role, opacity: number): Visual | null {
+  private buildStructure(
+    id: StructureId,
+    side: Side,
+    role: Role,
+    opacity: number,
+    pulse = false,
+    zoned = false,
+    over?: StructureOverride,
+  ): Visual | null {
     const rig = STRUCTURE_RIGS[id];
     if (!rig || !rig.parts?.length) return null;
-    const v = this.newVisual(id, side, role, 'structure', null!);
+    const v = this.newVisual(id, side, role, 'structure', null!, pulse);
     v.tendon = new Color();
-    v.labelCp = rig.labelAt ? tryCompile(rig.labelAt, side, `${id} labelAt`) : null;
+    const labelAt = over?.labelAt ?? rig.labelAt;
+    v.labelCp = labelAt ? tryCompile(labelAt, side, `${id} labelAt`) : null;
     const firstType = rig.parts[0].type;
     v.partType = firstType;
     const baseColor = this.structureColor(firstType);
@@ -285,9 +503,11 @@ export class AnatomyLayer {
     // a focal spot (fracture site, impingement point) is a lesion marker: shown when the structure is the injured
     // tissue; on a merely involved structure (e.g. the tibia in shin splints) it would read as a focal injury
     const hasOther = rig.parts.some((p) => p.type !== 'spot');
-    const showSpots = role === 'injured' || !hasOther;
-    v.hasSpot = showSpots && rig.parts.some((p) => p.type === 'spot');
-    const needHalo = role === 'injured' || (firstType === 'spot' && showSpots);
+    // (a lesion zone on this structure is its focal marker instead: the bone tint stays as light as with a spot)
+    const showSpots = (role === 'injured' || !hasOther) && !zoned;
+    v.hasSpot = (showSpots || (zoned && role === 'injured')) && rig.parts.some((p) => p.type === 'spot');
+    // injured: only the pulsing part has a halo; a spot-only structure in another role keeps its soft static glow
+    const needHalo = role === 'injured' ? v.pulse : firstType === 'spot' && showSpots;
     if (needHalo) v.haloMat = haloMaterial(role === 'injured' ? this.pal.injured : this.roleColor(role, baseColor));
     for (const [i, part] of rig.parts.entries()) {
       if ('path' in part) {
@@ -303,7 +523,7 @@ export class AnatomyLayer {
         this.group.add(sm.mesh);
         v.strands.push(sm);
       } else if ('parts' in part) {
-        for (const p of part.parts) v.bones.push({ part: p, side: isMidlinePart(p) ? null : side });
+        for (const p of over?.bones ?? part.parts) v.bones.push({ part: p, side: isMidlinePart(p) ? null : side });
       } else {
         if (part.type === 'spot' && !showSpots) continue;
         const cp = tryCompile(part.at, side, `${id} part ${i}`);
@@ -374,8 +594,15 @@ export class AnatomyLayer {
   }
 
   /** Belly colour for a muscle by role and length ratio. */
-  private muscleColor(role: Role, ratio: number, out: Color): Color {
+  private muscleColor(role: Role, ratio: number, out: Color, muted = false): Color {
     const P = this.pal;
+    if (muted) {
+      // a key muscle in the background while another one is selected: greyed, low-saturation version of its colour
+      out.copy(colorOf(P.muscle)).lerp(colorOf(P.muscleLight), 0.5);
+      out.getHSL(_hsl, SRGBColorSpace);
+      const l = P.dark ? _hsl.l * 0.75 + 0.25 * 0.36 : _hsl.l * 0.55 + 0.45 * 0.8;
+      return out.setHSL(_hsl.h, _hsl.s * 0.32, l, SRGBColorSpace);
+    }
     switch (role) {
       case 'injured':
         // stays red whatever the length: shorter a little deeper, longer a little lighter (thickness shows the rest)
@@ -435,7 +662,8 @@ export class AnatomyLayer {
   }
 
   private boneEmissive(v: Visual) {
-    if (v.role === 'injured') return v.hasSpot ? 0.06 + 0.12 * this.pulse : 0.14 + 0.4 * this.pulse;
+    const p = v.pulse ? this.pulse : STEADY;
+    if (v.role === 'injured') return v.hasSpot ? 0.06 + 0.12 * p : 0.14 + 0.4 * p;
     return v.role === 'involved' ? 0.06 : 0.05;
   }
 
@@ -449,10 +677,13 @@ export class AnatomyLayer {
         for (const s of v.strands) {
           // measure first: the colour follows the CURRENT belly ratio (not the previous frame's / a pre-pass sample)
           s.pose(state);
-          this.muscleColor(role, s.bellyRatio, v.belly);
+          this.muscleColor(role, s.bellyRatio, v.belly, v.muted);
           s.write(v.belly, v.tendon, emph);
         }
-        if (v.xray.length) v.xrayColor.copy(colorOf(this.pal.injured));
+        if (v.xray.length) {
+          if (role === 'selected') v.xrayColor.copy(colorOf(this.pal.muscle)).lerp(colorOf('#c8382f'), this.pal.dark ? 0.1 : 0.22);
+          else v.xrayColor.copy(colorOf(this.pal.injured));
+        }
         this.muscleEmissive(v);
       } else {
         const type = v.partType!;
@@ -506,17 +737,23 @@ export class AnatomyLayer {
         mk.mesh.position.copy(s.rings[mk.end === 0 ? 0 : RINGS - 1]);
       }
     }
+    // zones last: they read their part's freshly written rings / radii
+    for (const z of this.zones) {
+      this.placeZone(z, state, true);
+      this.zoneEmissive(z);
+    }
   }
 
   /** Only the injured glow pulse (no geometry): emissive intensities, halo strength and bone tints. */
   updatePulse(time: number) {
     this.pulse = 0.5 + 0.5 * Math.sin(time * 3.2);
     for (const v of this.visuals) {
-      if (v.role !== 'injured') continue;
+      if (!v.pulse) continue;
       if (v.kind === 'muscle') this.muscleEmissive(v);
       else this.structureEmissive(v);
       if (v.haloMat) v.haloMat.uniforms.uIntensity.value = 0.3 + 0.45 * this.pulse;
     }
+    for (const z of this.zones) if (z.pulse) this.zoneEmissive(z);
   }
 
   private muscleEmissive(v: Visual) {
@@ -524,7 +761,7 @@ export class AnatomyLayer {
     const role = v.role;
     if (role === 'injured') {
       m.emissive.copy(colorOf(this.pal.injured));
-      m.emissiveIntensity = 0.18 + 0.4 * this.pulse;
+      m.emissiveIntensity = 0.18 + 0.4 * (v.pulse ? this.pulse : STEADY);
     } else if (role === 'primary' || role === 'selected') {
       m.emissive.copy(colorOf(this.pal.muscle));
       m.emissiveIntensity = role === 'selected' ? 0.32 : 0.1;
@@ -538,7 +775,7 @@ export class AnatomyLayer {
   private structureEmissive(v: Visual) {
     if (v.role !== 'injured') return;
     const m = v.material;
-    const e = 0.15 + 0.45 * this.pulse;
+    const e = 0.15 + 0.45 * (v.pulse ? this.pulse : STEADY);
     if (m) {
       m.emissive.copy(colorOf(this.pal.injured));
       m.emissiveIntensity = e;
@@ -581,12 +818,14 @@ export class AnatomyLayer {
       for (const s of v.strands) s.pose(state);
       if (v.blobs.length) this.placeBlobs(v, state);
     }
+    for (const z of this.zones) this.placeZone(z, state, false);
   }
 
   /** Label anchors (world) for visuals in scope (one per id+side). */
   labelAnchors(state: RigState, cb: (key: string, id: PartId, role: Role, p: Vector3) => void) {
+    for (const z of this.zones) if (this.zoneCentre(z, _v)) cb(`${z.spec.on}:${z.side}`, z.spec.on, 'injured', _v);
     for (const v of this.visuals) {
-      if (v.role === 'ghost') continue;
+      if (v.role === 'ghost' || v.noLabel) continue;
       if (v.labelCp) {
         evalPoint(v.labelCp, state, _v);
       } else if (v.strands.length) {
@@ -632,6 +871,11 @@ export class AnatomyLayer {
       for (const s of v.strands) for (let k = 0; k < RINGS; k += 6) out.push(s.rings[k].clone());
       for (const b of v.blobs) out.push(b.mesh.position.clone());
     }
+    for (const z of this.zones) {
+      if (only && !only.has(z.spec.on) && !only.has(z.spec.key)) continue;
+      if (z.seg) for (const p of z.seg.rings) out.push(p.clone());
+      else if (z.blob) out.push(z.blob.position.clone());
+    }
   }
 
   boneScope(): { part: string; side: Side | null }[] {
@@ -660,6 +904,25 @@ export class AnatomyLayer {
       v.haloMat?.dispose();
     }
     this.visuals = [];
+    for (const z of this.zones) {
+      if (z.seg) {
+        this.group.remove(z.seg.mesh);
+        if (z.seg.halo) this.group.remove(z.seg.halo);
+        if (z.seg.xray) {
+          this.group.remove(z.seg.xray);
+          (z.seg.xray.material as Material).dispose();
+        }
+        z.seg.dispose();
+      }
+      for (const m of [z.blob, z.blobHalo]) if (m) this.group.remove(m);
+      if (z.blobXray) {
+        this.group.remove(z.blobXray);
+        (z.blobXray.material as Material).dispose();
+      }
+      z.material.dispose();
+      z.haloMat?.dispose();
+    }
+    this.zones = [];
   }
 
   dispose() {
@@ -670,6 +933,7 @@ export class AnatomyLayer {
     this.insertionMat.dispose();
     this.xrayStrandMat.dispose();
     this.xrayNerveMat.dispose();
+    this.xraySelectedMat.dispose();
   }
 }
 

@@ -3,10 +3,10 @@
 import { type BufferGeometry, Quaternion, SphereGeometry, Vector3 } from 'three';
 import { capsule, deg, ellipsoid, M, merge, mirrorX, R, slab, sphere, tube, CurveSampler } from './geometry';
 import { type BaseSeg, type SegName, type Side, segName, segRestOrigin } from './rig';
-import type { BonePartId } from './skeleton-parts';
+import type { BonePieceId } from './skeleton-parts';
 
 export interface BonePieceDef {
-  part: BonePartId;
+  part: BonePieceId;
   seg: BaseSeg;
   /** 'bone' | 'cartilage' material */
   mat: 'bone' | 'cartilage' | 'ink';
@@ -196,12 +196,24 @@ function scapulaGrid(): Vector3[][] {
       const p = new Vector3().lerpVectors(med, lat, v);
       // slightly concave anteriorly (posterior surface convex)
       p.z -= Math.sin(Math.PI * v) * 0.006 * (1 - u * 0.6);
+      // the superior border sags toward the scapular notch / neck: a straight border ran just under the shoulder skin
+      // and came out of it whenever the girdle moved (fin-body B4)
+      p.y -= 0.008 * Math.sin(Math.PI * Math.min(1, Math.max(0, (v - 0.4) / 0.6))) * (1 - u) ** 3;
       row.push(p);
     }
     grid.push(row);
   }
   return grid;
 }
+
+/** Metatarsals per ray: base → head (rest, right side), shaft radius. */
+const METATARSALS: [BonePieceId, Vector3, Vector3, number][] = [
+  ['metatarsal_1', R(0.066, 0.034, 0.087), R(0.064, 0.016, 0.137), 0.0082],
+  ['metatarsal_2', R(0.08, 0.04, 0.084), R(0.08, 0.014, 0.139), 0.0052],
+  ['metatarsal_3', R(0.094, 0.037, 0.082), R(0.095, 0.013, 0.131), 0.005],
+  ['metatarsal_4', R(0.107, 0.032, 0.072), R(0.11, 0.013, 0.122), 0.005],
+  ['metatarsal_5', R(0.124, 0.025, 0.06), R(0.125, 0.012, 0.112), 0.0055],
+];
 
 export const BONE_PIECES: BonePieceDef[] = [
   // ── head
@@ -545,37 +557,24 @@ export const BONE_PIECES: BonePieceDef[] = [
   },
   { part: 'navicular', seg: 'foot', mat: 'bone', build: () => [ellipsoid(R(0.069, 0.05, 0.055), [0.013, 0.012, 0.008]), sphere(R(0.062, 0.047, 0.056), 0.0055)] },
   { part: 'cuboid', seg: 'foot', mat: 'bone', build: () => [ellipsoid(R(0.112, 0.03, 0.048), [0.014, 0.012, 0.016])] },
-  {
-    part: 'cuneiforms',
-    seg: 'foot',
-    mat: 'bone',
-    build: () => [
-      ellipsoid(R(0.066, 0.038, 0.074), [0.009, 0.014, 0.01]),
-      ellipsoid(R(0.08, 0.045, 0.073), [0.007, 0.011, 0.009]),
-      ellipsoid(R(0.094, 0.042, 0.071), [0.007, 0.011, 0.009]),
-    ],
-  },
-  {
-    part: 'metatarsals',
-    seg: 'foot',
-    mat: 'bone',
-    build: () => {
-      const mt: [Vector3, Vector3, number][] = [
-        [R(0.066, 0.034, 0.087), R(0.064, 0.016, 0.137), 0.0082],
-        [R(0.08, 0.04, 0.084), R(0.08, 0.014, 0.139), 0.0052],
-        [R(0.094, 0.037, 0.082), R(0.095, 0.013, 0.131), 0.005],
-        [R(0.107, 0.032, 0.072), R(0.11, 0.013, 0.122), 0.005],
-        [R(0.124, 0.025, 0.06), R(0.125, 0.012, 0.112), 0.0055],
-      ];
-      const g: BufferGeometry[] = [];
-      for (const [a, b, r] of mt) {
-        g.push(capsule(a, b, r, r * 0.85, 6, 1));
-        g.push(sphere(b, r * 1.25, 8, 6));
-      }
-      g.push(sphere(R(0.127, 0.022, 0.06), 0.0062)); // 5th metatarsal tuberosity
-      return g;
-    },
-  },
+  // cuneiforms (medial → lateral) and the five metatarsals, one piece per ray, so a structure can tint a single ray
+  // (2nd/3rd metatarsal stress fracture, the 1st ray of the medial arch); the group aliases 'cuneiforms' /
+  // 'metatarsals' (skeleton-parts.ts) still name all of them
+  { part: 'cuneiform_medial', seg: 'foot', mat: 'bone', build: () => [ellipsoid(R(0.066, 0.038, 0.074), [0.009, 0.014, 0.01])] },
+  { part: 'cuneiform_intermediate', seg: 'foot', mat: 'bone', build: () => [ellipsoid(R(0.08, 0.045, 0.073), [0.007, 0.011, 0.009])] },
+  { part: 'cuneiform_lateral', seg: 'foot', mat: 'bone', build: () => [ellipsoid(R(0.094, 0.042, 0.071), [0.007, 0.011, 0.009])] },
+  ...METATARSALS.map(
+    ([part, a, b, r]): BonePieceDef => ({
+      part,
+      seg: 'foot',
+      mat: 'bone',
+      build: () => [
+        capsule(a, b, r, r * 0.85, 6, 1),
+        sphere(b, r * 1.25, 8, 6),
+        ...(part === 'metatarsal_5' ? [sphere(R(0.127, 0.022, 0.06), 0.0062)] : []), // 5th metatarsal tuberosity
+      ],
+    }),
+  ),
   {
     part: 'phalanges',
     seg: 'toes',
@@ -592,7 +591,7 @@ export const BONE_PIECES: BonePieceDef[] = [
 ];
 
 export interface BuiltPiece {
-  part: BonePartId;
+  part: BonePieceId;
   side: Side | null;
   seg: SegName;
   mat: 'bone' | 'cartilage' | 'ink';

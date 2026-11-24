@@ -17,10 +17,10 @@ import {
   WebGLRenderer,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { dataReady, getExerciseSafe as getExercise, getMuscleSafe as getMuscle, loadData } from './data-access';
+import { dataReady, getConditionSafe, getExerciseSafe as getExercise, getMuscleSafe as getMuscle, loadData } from './data-access';
 import type { ConditionId, ExerciseId, MuscleId, RegionId, StructureId } from '../data/registry';
 import { STRUCTURES } from '../data/registry';
-import { AnatomyLayer, isMuscleId, labelName, type PartId } from './anatomy';
+import { AnatomyLayer, isMuscleId, labelName, type PartId, type ZoneSpec } from './anatomy';
 import { CAMERA_PRESETS, framePoints, PRESET_DIRS, REGION_CAMERA, regionMinSize, regionPoints } from './camera';
 import { CONDITION_SCENES, REGION_SCENES, type Scene3D } from './scenes';
 import {
@@ -57,6 +57,7 @@ import {
   solveFK,
 } from './rig';
 import { MUSCLE_RIGS, STRUCTURE_RIGS } from './rig-data';
+import { isMidlinePart } from './skeleton-parts';
 
 export interface ViewSpec {
   muscle?: MuscleId;
@@ -471,6 +472,10 @@ export class Engine {
     let cameraSpec: CameraSpec | undefined;
     let focus: RegionId | undefined = spec.focus;
     let scene: Scene3D | null = null;
+    /** highlights mode: lesion zones, their labels, and the part / zone that carries the one pulse */
+    const zones: ZoneSpec[] = [];
+    const zoneLabels = new Map<string, string>();
+    let pulse: string | null | undefined = undefined;
     if (spec.muscle) {
       this.mode = 'muscle';
       const rig = MUSCLE_RIGS[spec.muscle];
@@ -530,6 +535,21 @@ export class Engine {
       focus ??= camRig?.focus;
       // nothing rigged yet: still frame the right body region (structure registry region / muscle data)
       if (!camRig && ids.length) focus ??= isMuscleId(ids[0]) ? getMuscle(ids[0])?.regions?.[0] : STRUCTURE_REGION.get(ids[0]);
+      // lesion zones (where in the part the problem sits): the zone is the injured red, the rest of the part takes
+      // the zone's partRole (its own colour by default); framing treats the part as injured
+      for (const [i, z] of (scene?.zones ?? []).entries()) {
+        if (!scope[z.on]) continue;
+        const key = z.key ?? `zone${i}:${z.on}`;
+        zones.push({ ...z, key });
+        zoneLabels.set(z.on, z.label);
+        scope[z.on] = z.partRole === 'injured' ? 'injured' : z.partRole === 'involved' ? 'involved' : 'secondary';
+      }
+      // one pulse per view. A non-damage condition (the content says nothing is damaged, the page's legend reads
+      // 「痛みやすい場所」) pulses nothing: steady red marks where it hurts, not a lesion
+      const sensitive = scene?.sensitive ?? (spec.condition ? !!getConditionSafe(spec.condition)?.anatomyNote : false);
+      if (sensitive) pulse = null;
+      else if (scene?.primary) pulse = scene.primary;
+      else if (zones.length) pulse = zones[0].key;
     } else {
       this.mode = 'pose';
       clipSrc = staticClip(spec.pose ?? 'STAND');
@@ -539,7 +559,11 @@ export class Engine {
     if ((spec.joints || spec.root) && this.mode !== 'exercise' && this.mode !== 'muscle')
       clipSrc = { ...clipSrc, pose: { joints: { ...clipSrc.pose?.joints, ...spec.joints }, root: spec.root ?? clipSrc.pose?.root } };
     this.scene3d = scene;
-    this.injuredIds = new Set(Object.keys(scope).filter((id) => scope[id as PartId] === 'injured'));
+    // see-through bone pieces of the scene (cleared on every view)
+    this.figure.clearGhosts();
+    for (const [part, op] of Object.entries(scene?.ghost ?? {}) as [string, number][])
+      if (typeof op === 'number') this.figure.ghost(part, isMidlinePart(part) ? null : 'R', op);
+    this.injuredIds = new Set([...Object.keys(scope).filter((id) => scope[id as PartId] === 'injured'), ...zones.map((z) => z.on)]);
 
     const cc = compileClip(clipSrc);
     this.clip = cc;
@@ -549,13 +573,20 @@ export class Engine {
     else if (this.mode === 'muscle' && spec.muscle && MUSCLE_RIGS[spec.muscle]) focus = cc.focus ?? spec.focus;
     else focus ??= cc.focus;
     const scopeSides = this.mode === 'highlights' || this.mode === 'muscle' ? [cc.side] : cc.sides;
+    // sides per part: a scene's bilateral parts; an exercise clip's partSides (the stance-leg gluteus medius of a
+    // knee drive, the floor-side obliques of a Copenhagen plank)
     const both = new Set<string>(scene?.both ?? []);
+    const partSides = this.mode === 'exercise' ? cc.partSides : {};
+    const sidesOf = (id: string): Side[] => partSides[id] ?? (both.has(id) ? ['R', 'L'] : scopeSides);
     this.anatomy.setScope(scope, scopeSides, {
       markers,
       ghosts: !!spec.all,
       fade: scene?.fade,
       xrayInjured: this.mode === 'highlights',
-      both,
+      sidesOf,
+      pulse,
+      zones,
+      structures: scene?.structures,
     });
     this.ctxPts = this.mode === 'muscle' && spec.muscle ? this.muscleContext(spec.muscle, cc.side) : [];
     if (this.mode === 'highlights' && Object.keys(scope).length && !this.anatomy.hasVisuals) this.note = '3Dモデルは準備中です';
@@ -594,7 +625,9 @@ export class Engine {
     this.controls.update();
 
     // labels: one per highlighted part, on the side actually highlighted (both sides → the side nearer the camera)
-    this.setupLabels(scope, scopeSides, st0, both, new Set<string>(scene?.minor ?? []));
+    // (the label order takes the part a pulsing zone lies on)
+    const pulsePart = pulse === undefined ? undefined : (zones.find((z) => z.key === pulse)?.on ?? pulse);
+    this.setupLabels(scope, sidesOf, st0, new Set<string>(scene?.minor ?? []), zoneLabels, pulsePart);
     this.labels.visible = spec.labels;
     this.planLabels();
     // floor disc follows the reference bounds
@@ -654,26 +687,32 @@ export class Engine {
   /** Label items (one per part, on the highlighted side nearest the home camera) + the overlap mask's cords. */
   private setupLabels(
     scope: Partial<Record<PartId, Highlight3DRole>>,
-    sides: Side[],
+    sidesOf: (id: string) => Side[],
     st0: RigState,
-    both: ReadonlySet<string> = new Set(),
     minor: ReadonlySet<string> = new Set(),
+    zoneLabels: ReadonlyMap<string, string> = new Map(),
+    /** the part carrying the view's pulse (undefined: the first injured part) — its label goes first */
+    pulse?: string | null,
   ) {
-    const sidesOf = (id: string): Side[] => (both.has(id) ? ['R', 'L'] : sides);
     // highlighted anatomy as polylines per part & side: the overlap mask (labels avoid covering it) and each label's
     // fallback anchor points (used when its main anchor is off-view or under the player UI)
     const cords: MaskCord[] = [];
     const polys = new Map<string, CompiledPoint[][]>();
+    /** per polyline: the muscle belly's arc range (tendon fractions excluded); null for cords / blobs */
+    const bellies = new Map<string, ([number, number] | null)[]>();
     for (const [id, role] of Object.entries(scope) as [PartId, Highlight3DRole][]) {
       if (!role) continue;
       for (const side of sidesOf(id)) {
         const pl: CompiledPoint[][] = [];
+        const bl: ([number, number] | null)[] = [];
         if (isMuscleId(id)) {
           for (const st of MUSCLE_RIGS[id]?.strands ?? []) {
             const cps = st.path.map((r) => quietCompile(r, side));
             if (!cps.every(Boolean)) continue;
             cords.push({ cps: cps as CompiledPoint[], r: st.radius * 1.15 + (st.flat ? st.flat.width * 0.4 : 0) });
             pl.push(cps as CompiledPoint[]);
+            const [t0, t1] = st.tendon ?? [0, 0];
+            bl.push(t0 > 0.02 || t1 > 0.02 ? [t0, 1 - t1] : null);
           }
         } else {
           for (const part of STRUCTURE_RIGS[id as StructureId]?.parts ?? []) {
@@ -691,13 +730,16 @@ export class Engine {
             }
           }
         }
-        if (pl.length) polys.set(`${id}:${side}`, pl);
+        if (pl.length) {
+          polys.set(`${id}:${side}`, pl);
+          if (bl.some(Boolean)) bellies.set(`${id}:${side}`, bl);
+        }
       }
     }
     this.labels.setCords(cords);
 
     const sideOf = new Map<string, Side>();
-    if (sides.length > 1 || both.size) {
+    if (Object.keys(scope).some((id) => sidesOf(id).length > 1)) {
       this.anatomy.pose(st0);
       const score = new Map<string, number>();
       const cam = this.camera;
@@ -727,21 +769,31 @@ export class Engine {
       this.needsPose = true;
     }
     const items: (LabelSpec & { order: number })[] = [];
-    for (const [id, role] of Object.entries(scope) as [PartId, Highlight3DRole][]) {
-      if (!role) continue;
-      const key = `${id}:${sideOf.get(id) ?? sides[0]}`;
+    // the pulsing part first (undefined: the first injured part, as in the anatomy layer)
+    const pulseId = pulse === undefined ? (Object.keys(scope) as PartId[]).find((id) => scope[id] === 'injured') : pulse;
+    // a selected part (region page chip): the muted key muscles' labels wait in 「+N」 (the chip row names them all)
+    const selected = Object.values(scope).includes('selected');
+    for (const [id, role0] of Object.entries(scope) as [PartId, Highlight3DRole][]) {
+      if (!role0) continue;
+      const zone = zoneLabels.get(id);
+      // a lesion zone carries the part's label: injured red, major
+      const role: Highlight3DRole = zone ? 'injured' : role0;
+      const key = `${id}:${sideOf.get(id) ?? sidesOf(id)[0]}`;
       items.push({
         key,
-        text: labelName(id),
+        text: zone ?? labelName(id),
         color: this.swatch(id, role),
         tier: MINOR_ROLES.has(role) ? 1 : 0,
         alt: polys.get(key),
-        collapse: MINOR_ROLES.has(role) && minor.has(id),
-        order: ROLE_ORDER.indexOf(role),
+        altBelly: bellies.get(key),
+        collapse: MINOR_ROLES.has(role) && (minor.has(id) || (selected && role === 'secondary')),
+        order: id === pulseId ? -1 : ROLE_ORDER.indexOf(role),
       });
     }
     items.sort((a, b) => a.order - b.order);
-    this.labels.setItems(items.slice(0, MAX_LABELS).map(({ order: _o, ...it }) => it));
+    // more parts than labels fit (a region page's 12–14 key muscles): the rest goes into 「+N」 (named there), never
+    // silently dropped
+    this.labels.setItems(items.map(({ order: _o, ...it }, i) => (i < MAX_LABELS ? it : { ...it, overflow: true })));
   }
 
   /** Pre-pass over the clip with the home camera: decides which minor labels collapse into 「+N」. */
@@ -1118,7 +1170,7 @@ export class Engine {
     }
     // damping momentum (and the lookAt of a tween step); true when the camera moved
     if (this.controls.update()) cam = true;
-    const pulsing = this.anatomy.hasInjured && !this.reducedMotion;
+    const pulsing = this.anatomy.hasPulse && !this.reducedMotion;
     const since = now - this.lastFrame;
     let due = this.needsRender || this.needsPose || cam;
     if (!due && this.playing) due = since >= PLAY_FRAME_MS;

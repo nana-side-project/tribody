@@ -680,6 +680,394 @@ export const SKIN_PRIMS: SkinPrim[] = (() => {
   return out;
 })();
 
+// ───────────────────────────────────────────── lofted skin rings (drawn by skin-loft.ts)
+
+export interface LoftRingDef {
+  /** rest centre, lateral-positive */
+  c: Vec3;
+  /** half-width (x) and half-depth (z, front half; also the back half unless `bb` is given) */
+  a: number;
+  b: number;
+  w: [BaseSeg, number][];
+  /** back half-depth (z−) when the ring is not front/back symmetric */
+  bb?: number;
+  /** superellipse exponent of this ring (default: the chain's) — > 2 = boxier corners (pelvis, shoulders) */
+  n?: number;
+}
+export interface LoftChainDef {
+  rings: LoftRingDef[];
+  /** superellipse exponent (2 = ellipse) */
+  n: number;
+  sided: boolean;
+}
+
+const ring = (c: Vec3, a: number, b: number, w: [BaseSeg, number][], o: { bb?: number; n?: number } = {}): LoftRingDef => ({ c, a, b, w, ...o });
+
+// Ring sizes cover the bones with a few mm of "soft tissue" (probe: shots/qa3-fix-body/probe/skin.ts): iliac crest &
+// ASIS (boxier pelvis rings, n 2.8), lower ribs, lumbar / thoracic spinous processes (deeper back, `bb`), sternum and
+// clavicles (deeper front at the top). The back (supine / wall contact) and the waist (where the towel clips squeeze a
+// towel against the trunk) changed only ~3 mm: there the bones were made a little smaller instead.
+export const LOFT_TRUNK: LoftChainDef = {
+  n: 2.35,
+  sided: false,
+  rings: [
+    ring([0, 0.818, -0.012], 0.02, 0.018, [['pelvis', 1]]),
+    ring([0, 0.832, -0.012], 0.085, 0.06, [['pelvis', 1]]),
+    ring([0, 0.862, -0.018], 0.138, 0.092, [['pelvis', 1]]),
+    ring([0, 0.9, -0.02], 0.158, 0.106, [['pelvis', 1]]),
+    ring([0, 0.95, -0.014], 0.162, 0.112, [['pelvis', 1]], { bb: 0.104 }),
+    ring([0, 1.0, -0.008], 0.155, 0.108, [['pelvis', 0.8], ['lumbar', 0.2]], { bb: 0.097, n: 2.8 }),
+    ring([0, 1.05, -0.004], 0.156, 0.094, [['pelvis', 0.65], ['lumbar', 0.35]], { bb: 0.102, n: 2.8 }),
+    ring([0, 1.075, -0.004], 0.154, 0.093, [['pelvis', 0.4], ['lumbar', 0.6]], { bb: 0.103, n: 2.6 }),
+    ring([0, 1.11, -0.004], 0.134, 0.094, [['pelvis', 0.08], ['lumbar', 0.92]], { bb: 0.104 }),
+    ring([0, 1.15, -0.006], 0.136, 0.1, [['lumbar', 0.4], ['thorax', 0.6]], { bb: 0.103 }),
+    ring([0, 1.2, -0.008], 0.153, 0.115, [['lumbar', 0.05], ['thorax', 0.95]], { bb: 0.11 }),
+    ring([0, 1.26, -0.008], 0.156, 0.117, [['thorax', 1]], { bb: 0.117 }),
+    ring([0, 1.32, -0.01], 0.153, 0.118, [['thorax', 1]], { bb: 0.118 }),
+    ring([0, 1.375, -0.016], 0.149, 0.119, [['thorax', 1]], { bb: 0.11 }),
+    ring([0, 1.415, -0.02], 0.14, 0.111, [['thorax', 1]], { bb: 0.098 }),
+    ring([0, 1.448, -0.024], 0.098, 0.09, [['thorax', 0.7], ['neck', 0.3]], { bb: 0.078 }),
+    ring([0, 1.475, -0.026], 0.06, 0.058, [['thorax', 0.25], ['neck', 0.75]]),
+    ring([0, 1.53, -0.018], 0.05, 0.052, [['neck', 1]]),
+    ring([0, 1.58, -0.01], 0.05, 0.053, [['neck', 0.5], ['head', 0.5]]),
+    ring([0, 1.61, -0.005], 0.046, 0.05, [['head', 1]]),
+  ],
+};
+
+export const LOFT_ARM: LoftChainDef = {
+  n: 2,
+  sided: true,
+  rings: [
+    ring([0.178, 1.448, -0.006], 0.012, 0.012, [['humerus', 1]]),
+    ring([0.18, 1.437, -0.006], 0.036, 0.038, [['humerus', 1]]),
+    ring([0.183, 1.41, -0.006], 0.054, 0.052, [['humerus', 1]]),
+    ring([0.187, 1.37, -0.006], 0.053, 0.05, [['humerus', 1]]),
+    ring([0.19, 1.31, -0.008], 0.047, 0.046, [['humerus', 1]]),
+    ring([0.192, 1.23, -0.01], 0.043, 0.045, [['humerus', 1]]),
+    ring([0.193, 1.16, -0.013], 0.041, 0.042, [['humerus', 1]]),
+    // elbow: wide enough for both epicondyles (the medial one used to stick out ~1 cm)
+    ring([0.191, 1.095, -0.015], 0.045, 0.039, [['humerus', 0.55], ['forearm', 0.45]]),
+    ring([0.202, 1.04, -0.012], 0.04, 0.037, [['humerus', 0.1], ['forearm', 0.9]]),
+    ring([0.214, 0.97, -0.008], 0.034, 0.03, [['forearm', 1]]),
+    ring([0.228, 0.9, -0.003], 0.03, 0.022, [['forearm', 1]]),
+    // wrist: radial styloid + ulnar head
+    ring([0.238, 0.848, -0.001], 0.034, 0.019, [['forearm', 0.6], ['hand', 0.4]]),
+    ring([0.241, 0.825, 0.002], 0.031, 0.016, [['hand', 1]]),
+  ],
+};
+
+export const LOFT_LEG: LoftChainDef = {
+  n: 2,
+  sided: true,
+  rings: [
+    ring([0.098, 0.95, -0.012], 0.05, 0.055, [['femur', 1]]),
+    ring([0.097, 0.9, -0.008], 0.082, 0.082, [['femur', 1]]),
+    ring([0.096, 0.84, -0.004], 0.084, 0.083, [['femur', 1]]),
+    ring([0.094, 0.76, 0.0], 0.077, 0.076, [['femur', 1]]),
+    ring([0.092, 0.67, 0.002], 0.068, 0.066, [['femur', 1]]),
+    ring([0.09, 0.59, 0.003], 0.057, 0.056, [['femur', 1]]),
+    ring([0.09, 0.535, 0.005], 0.052, 0.052, [['femur', 0.85], ['tibia', 0.15]]),
+    ring([0.089, 0.495, 0.006], 0.051, 0.053, [['femur', 0.45], ['tibia', 0.55]]),
+    ring([0.088, 0.45, -0.003], 0.05, 0.052, [['femur', 0.05], ['tibia', 0.95]]),
+    ring([0.088, 0.39, -0.014], 0.048, 0.057, [['tibia', 1]]),
+    ring([0.088, 0.32, -0.017], 0.046, 0.054, [['tibia', 1]]),
+    // lower leg & ankle: fibula, both malleoli and the Achilles tendon inside (deeper back `bb`)
+    ring([0.09, 0.24, -0.012], 0.04, 0.043, [['tibia', 1]], { bb: 0.052 }),
+    ring([0.092, 0.165, -0.012], 0.038, 0.034, [['tibia', 1]], { bb: 0.05 }),
+    ring([0.092, 0.11, -0.016], 0.037, 0.038, [['tibia', 0.85], ['foot', 0.15]], { bb: 0.044 }),
+    ring([0.091, 0.085, -0.014], 0.04, 0.038, [['tibia', 0.6], ['foot', 0.4]], { bb: 0.04 }),
+  ],
+};
+
+/** Vertices per lofted ring (+1 seam duplicate in the drawn mesh). */
+export const LOFT_AROUND = 36;
+
+/** Rest world position of vertex `j` of a lofted ring (the drawn skin, skin-loft.ts, and the grounding use this). */
+export function loftRingPoint(def: LoftChainDef, r: LoftRingDef, j: number, side: Side | null, out: Vector3): Vector3 {
+  const t = (j / LOFT_AROUND) * Math.PI * 2;
+  const c = Math.cos(t);
+  const s = Math.sin(t);
+  const e = 2 / (r.n ?? def.n);
+  const x = r.a * Math.sign(c) * Math.pow(Math.abs(c), e);
+  const z = (s < 0 ? (r.bb ?? r.b) : r.b) * Math.sign(s) * Math.pow(Math.abs(s), e);
+  // ring centre in world rest coords; mirror lateral offsets for the side
+  return out.set((side === 'R' ? -1 : 1) * r.c[0] + (side === 'R' ? -x : x), r.c[1], r.c[2] + z);
+}
+
+/**
+ * The back skin over the shoulder blades drapes over the blade (per-vertex, like a real back): the scapula glides
+ * 3–6 cm over the ribcage (protraction, upward rotation in arm elevation) and lifts off it, and with a thorax-only back
+ * its borders came 1–2 cm out of the skin (push-up plus, wall slide, lat stretch, cat-cow, dead bug…). The trunk-loft
+ * vertices over the blade region (rings 1.2–1.415: back, flank, the side of the chest under the armpit) are pushed
+ * out along their normal just far enough to stay BLADE_MARGIN outside every nearby blade sample point (BLADE_SAMPLES,
+ * riding the scapula), with a smooth falloff by the sample's distance along the skin. Never inward, never sideways;
+ * nothing moves at rest or while the blade stays under the soft tissue. Weight: SCAP_SKIN × region (scapulaSkinWeight).
+ */
+export const SCAP_SKIN = 1;
+const smooth = (e0: number, e1: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
+  return t * t * (3 - 2 * t);
+};
+/** Region share of a trunk-loft vertex at rest [lat, y, z]: 0 on the spine, the front of the chest and below the blade. */
+export function scapulaSkinWeight(lat: number, y: number, z: number): number {
+  // back and flank; in front only the side of the chest under the armpit (the girdle carries it forward in protraction)
+  const zw = z < 0 ? 1 : smooth(0.1, 0.13, lat) * (1 - smooth(0.03, 0.08, z));
+  return SCAP_SKIN * smooth(1.17, 1.24, y) * smooth(0.035, 0.07, lat) * zw;
+}
+/** Skin kept outside a moving blade sample point (m). */
+const BLADE_MARGIN = 0.006;
+/** Upper bound of a drape push (a sample within the falloff radius, plus the margin). */
+const MAX_DRAPE = 0.075;
+/** Falloff of a sample's push with its distance along the skin: horizontal / vertical radius (rings are ~5.5 cm apart). */
+const BLADE_RH = 0.04;
+const BLADE_RV = 0.06;
+/**
+ * Blade sample points (rest, lateral-positive) on the posterior surface of the scapula: a barycentric grid over the
+ * triangle superior angle – inferior angle – lateral angle (= skeleton.ts), plus the spine's root and the neck.
+ */
+export const BLADE_SAMPLES: Vec3[] = (() => {
+  const A: Vec3 = [0.077, 1.435, -0.09];
+  const B: Vec3 = [0.086, 1.236, -0.104];
+  const C: Vec3 = [0.144, 1.396, -0.032];
+  const out: Vec3[] = [];
+  const N = 4;
+  for (let i = 0; i <= N; i++)
+    for (let j = 0; j <= N - i; j++) {
+      const a = i / N;
+      const b = j / N;
+      const c = 1 - a - b;
+      out.push([A[0] * a + B[0] * b + C[0] * c, A[1] * a + B[1] * b + C[1] * c, A[2] * a + B[2] * b + C[2] * c]);
+    }
+  out.push([0.12, 1.413, -0.096], [0.132, 1.398, -0.048]);
+  return out;
+})();
+const NB = BLADE_SAMPLES.length;
+/** Blade sample points in their scapula frames (R then L), and their world positions for the current state. */
+const BLADE_LOCAL = new Float32Array(2 * NB * 3);
+for (const [k, s] of (['R', 'L'] as Side[]).entries()) {
+  const o = segRestOrigin(segName('scapula', s));
+  BLADE_SAMPLES.forEach((p, i) => {
+    const w = restWorld(p, s).sub(o);
+    BLADE_LOCAL.set([w.x, w.y, w.z], (k * NB + i) * 3);
+  });
+}
+const _bw = new Vector3();
+/** World positions of the blade samples (R then L) for `state` into `out` (2 · NB · 3). Allocation-free. */
+export function bladeSamplesWorld(state: RigState, out: Float32Array): Float32Array {
+  for (let k = 0; k < 2; k++) {
+    const si = SEG_INDEX[k ? 'scapula_L' : 'scapula_R'];
+    for (let i = 0; i < NB; i++) {
+      const o = (k * NB + i) * 3;
+      _bw.set(BLADE_LOCAL[o], BLADE_LOCAL[o + 1], BLADE_LOCAL[o + 2]).applyQuaternion(state.quat[si]).add(state.pos[si]);
+      out[o] = _bw.x;
+      out[o + 1] = _bw.y;
+      out[o + 2] = _bw.z;
+    }
+  }
+  return out;
+}
+export const newBladeSamples = () => new Float32Array(2 * NB * 3);
+
+/** How a lofted skin vertex is skinned: rest point, the one or two segments it follows and the second one's weight. */
+export interface LoftBinding {
+  p: Vector3;
+  segA: SegName;
+  segB: SegName;
+  w: number;
+  /** drape: 0 none; 1 = back skin over the shoulder blade (base = thorax only, drapes over that side's blade samples) */
+  drape: 0 | 1;
+  /** drape weight (region falloff) */
+  dw: number;
+  /** rest outward normal (in segA's frame) */
+  n: Vector3;
+  /** drape push at rest (already part of the drawn rest shape) */
+  push0: number;
+}
+const _l0 = new Vector3();
+const _l1 = new Vector3();
+const _l2 = new Vector3();
+/** Binding of vertex `j` of ring `ri` (drawn loft and grounding share it, so they always agree). */
+export function loftBinding(def: LoftChainDef, ri: number, j: number, side: Side | null, out: LoftBinding): LoftBinding {
+  const r = def.rings[ri];
+  loftRingPoint(def, r, j, side, out.p);
+  const wsum = r.w.reduce((a, x) => a + x[1], 0);
+  out.segA = segName(r.w[0][0], side);
+  out.segB = segName((r.w[1] ?? r.w[0])[0], side);
+  out.w = r.w[1] ? r.w[1][1] / wsum : 0;
+  out.drape = 0;
+  out.dw = 0;
+  out.push0 = 0;
+  if (def !== LOFT_TRUNK || ri === 0 || ri === def.rings.length - 1) return out;
+  const th = r.w.find((x) => x[0] === 'thorax');
+  const ws = th && th[1] / wsum >= 0.95 ? scapulaSkinWeight(Math.abs(out.p.x), out.p.y, out.p.z) : 0;
+  if (ws <= 0.001) return out;
+  // (ring 1.2 drops its 5 % lumbar share over the blade)
+  out.segA = 'thorax';
+  out.segB = 'thorax';
+  out.w = 0;
+  out.drape = 1;
+  out.dw = ws;
+  // rest surface normal of the drawn loft here (around tangent × ring-to-ring tangent), pointing outward
+  const ta = loftRingPoint(def, r, (j + 1) % LOFT_AROUND, side, _l0).sub(loftRingPoint(def, r, (j + LOFT_AROUND - 1) % LOFT_AROUND, side, _l1));
+  const tu = loftRingPoint(def, def.rings[ri + 1], j, side, _l1).sub(loftRingPoint(def, def.rings[ri - 1], j, side, _l2));
+  out.n.crossVectors(ta, tu).normalize();
+  if (out.n.dot(_l0.set(out.p.x, 0, out.p.z - r.c[2])) < 0) out.n.negate();
+  out.push0 = drapeOf(out.p.x < 0, out.p, out.n, _l1.set(0, 1, 0), SAMPLES_REST);
+  return out;
+}
+export const newLoftBinding = (): LoftBinding => ({ p: new Vector3(), segA: 'thorax', segB: 'thorax', w: 0, drape: 0, dw: 0, n: new Vector3(), push0: 0 });
+
+/**
+ * How far (m) a skin point at `a` with outward normal `n` must move out along `n` to stay `margin` outside the
+ * samples `s[k0 … k1)` near it (`up` = trunk axis, for the anisotropic falloff along the skin).
+ */
+function drapePush(a: Vector3, n: Vector3, up: Vector3, s: Float32Array, k0: number, k1: number, margin: number): number {
+  let push = 0;
+  for (let k = k0; k < k1; k++) {
+    const dx = s[k * 3] - a.x;
+    const dy = s[k * 3 + 1] - a.y;
+    const dz = s[k * 3 + 2] - a.z;
+    const dn = dx * n.x + dy * n.y + dz * n.z;
+    const h = dn + margin;
+    if (h <= push) continue;
+    // distance along the skin: vertical (trunk axis) and horizontal parts of the tangential offset
+    const tx = dx - dn * n.x;
+    const ty = dy - dn * n.y;
+    const tz = dz - dn * n.z;
+    const tv = tx * up.x + ty * up.y + tz * up.z;
+    const th2 = Math.max(0, tx * tx + ty * ty + tz * tz - tv * tv);
+    const q = Math.sqrt(th2 / (BLADE_RH * BLADE_RH) + (tv * tv) / (BLADE_RV * BLADE_RV));
+    if (q >= 1) continue;
+    const f = 1 - smooth(0.4, 1, q);
+    if (h * f > push) push = h * f;
+  }
+  return push;
+}
+/** The drape push of a vertex over that side's blade samples. */
+function drapeOf(right: boolean, a: Vector3, n: Vector3, up: Vector3, s: Float32Array): number {
+  return drapePush(a, n, up, s, right ? 0 : NB, right ? NB : 2 * NB, BLADE_MARGIN);
+}
+/** Blade samples at rest (world, R then L) — the reference for each vertex's rest push (`push0`). */
+const SAMPLES_REST = (() => {
+  const out = newBladeSamples();
+  BLADE_SAMPLES.forEach((p, i) => {
+    for (const [k, s] of (['R', 'L'] as Side[]).entries()) out.set(restWorld(p, s).toArray(), (k * NB + i) * 3);
+  });
+  return out;
+})();
+
+const _sn = new Vector3();
+const _su = new Vector3();
+/**
+ * World position of a lofted skin vertex (offset `o` = 3 × vertex into the per-vertex arrays): the linear blend of its
+ * position on segment A and on segment B; a draped vertex (`drape` 1, rest normal `nrm` in segment A's frame,
+ * `push0` = its push at rest, which the drawn rest shape already contains, `samples` = bladeSamplesWorld of this
+ * state) is then pushed out along its normal by dw × (drape push − rest push), never inward. Allocation-free.
+ */
+export function skinVertex(
+  state: RigState,
+  ia: number,
+  la: Float32Array,
+  ib: number,
+  lb: Float32Array,
+  w: number,
+  drape: number,
+  dw: number,
+  nrm: Float32Array | null,
+  push0: Float32Array | null,
+  samples: Float32Array | null,
+  o: number,
+  out: Vector3,
+): Vector3 {
+  out.set(la[o], la[o + 1], la[o + 2]).applyQuaternion(state.quat[ia]).add(state.pos[ia]);
+  if (w > 0) out.lerp(_sn.set(lb[o], lb[o + 1], lb[o + 2]).applyQuaternion(state.quat[ib]).add(state.pos[ib]), w);
+  if (!drape || !nrm || !push0 || !samples) return out;
+  _sn.set(nrm[o], nrm[o + 1], nrm[o + 2]).applyQuaternion(state.quat[ia]);
+  _su.set(0, 1, 0).applyQuaternion(state.quat[ia]);
+  // blade side: a blade-draped vertex is bound to the thorax (origin on the midline), so its local x is its rest x
+  const push = Math.min(MAX_DRAPE, drapeOf(la[o] < 0, out, _sn, _su, samples) - push0[o / 3]);
+  return push > 0 ? out.addScaledVector(_sn, dw * push) : out;
+}
+
+/**
+ * Trunk rings that also GROUND the figure, vertex for vertex (LOFT_TRUNK indices): the drawn back and chest — sacral
+ * level (0.9) and the ribcage from the thoracolumbar junction to the upper back (1.15 … 1.448). The analytic trunk
+ * volumes (`loft: true` ellipsoids) are smaller than the drawn skin at the back of the ribcage, so supine figures used to
+ * sink 2.7–4 mm (and the sacrum ~2 mm) into the floor. The drawn loft is a triangle mesh, so its lowest point is
+ * always one of these vertices: exact, and cheap (one rotated y per vertex in lowestSkinY).
+ */
+export const GROUND_RINGS: readonly number[] = [3, 9, 10, 11, 12, 13, 14, 15];
+
+/** Ground-ring vertices compiled into segment-local offsets (one or two segments each, exactly like the drawn loft). */
+const GR = (() => {
+  const n = GROUND_RINGS.length * LOFT_AROUND;
+  const out = {
+    n,
+    rings: GROUND_RINGS.length,
+    segA: new Int16Array(n),
+    segB: new Int16Array(n),
+    w: new Float32Array(n),
+    la: new Float32Array(n * 3),
+    lb: new Float32Array(n * 3),
+    drape: new Uint8Array(n),
+    dw: new Float32Array(n),
+    nrm: new Float32Array(n * 3),
+    push0: new Float32Array(n),
+    samples: newBladeSamples(),
+  };
+  const b = newLoftBinding();
+  const oA = new Vector3();
+  const oB = new Vector3();
+  GROUND_RINGS.forEach((ri, k) => {
+    for (let j = 0; j < LOFT_AROUND; j++) {
+      const v = k * LOFT_AROUND + j;
+      loftBinding(LOFT_TRUNK, ri, j, null, b);
+      segRestOrigin(b.segA, oA);
+      segRestOrigin(b.segB, oB);
+      out.segA[v] = SEG_INDEX[b.segA];
+      out.segB[v] = SEG_INDEX[b.segB];
+      out.w[v] = b.w;
+      out.la.set([b.p.x - oA.x, b.p.y - oA.y, b.p.z - oA.z], v * 3);
+      out.lb.set([b.p.x - oB.x, b.p.y - oB.y, b.p.z - oB.z], v * 3);
+      out.drape[v] = b.drape;
+      out.dw[v] = b.dw;
+      out.nrm.set([b.n.x, b.n.y, b.n.z], v * 3);
+      out.push0[v] = b.push0;
+    }
+  });
+  return out;
+})();
+
+/** World y of a segment-local point (rotated y component only — allocation-free). */
+function worldY(state: RigState, seg: number, l: Float32Array, o: number) {
+  const q = state.quat[seg];
+  const vx = l[o], vy = l[o + 1], vz = l[o + 2];
+  // v' = v + 2w(q×v) + 2 q×(q×v), y component
+  const tx = 2 * (q.y * vz - q.z * vy);
+  const ty = 2 * (q.z * vx - q.x * vz);
+  const tz = 2 * (q.x * vy - q.y * vx);
+  return vy + q.w * ty + (q.z * tx - q.x * tz) + state.pos[seg].y;
+}
+const _gv = new Vector3();
+/** World position of ground-ring vertex v into `out`. */
+function groundVertex(state: RigState, v: number, out: Vector3) {
+  return skinVertex(state, GR.segA[v], GR.la, GR.segB[v], GR.lb, GR.w[v], GR.drape[v], GR.dw[v], GR.nrm, GR.push0, GR.samples, v * 3, out);
+}
+/** World AABB of ground ring k into _box. */
+function ringBox(state: RigState, k: number) {
+  _box[0] = _box[1] = _box[2] = Infinity;
+  _box[3] = _box[4] = _box[5] = -Infinity;
+  for (let j = 0; j < LOFT_AROUND; j++) {
+    groundVertex(state, k * LOFT_AROUND + j, _gv);
+    if (_gv.x < _box[0]) _box[0] = _gv.x;
+    if (_gv.y < _box[1]) _box[1] = _gv.y;
+    if (_gv.z < _box[2]) _box[2] = _gv.z;
+    if (_gv.x > _box[3]) _box[3] = _gv.x;
+    if (_gv.y > _box[4]) _box[4] = _gv.y;
+    if (_gv.z > _box[5]) _box[5] = _gv.z;
+  }
+}
+
 const _m4 = new Matrix4();
 const _wa = new Vector3();
 const _wb = new Vector3();
@@ -730,6 +1118,11 @@ export function forEachSkinBox(
     primBox(state, p);
     cb(_box[0], _box[1], _box[2], _box[3], _box[4], _box[5], p.segIdx);
   }
+  bladeSamplesWorld(state, GR.samples);
+  for (let k = 0; k < GR.rings; k++) {
+    ringBox(state, k);
+    cb(_box[0], _box[1], _box[2], _box[3], _box[4], _box[5], GR.segA[k * LOFT_AROUND]);
+  }
 }
 
 /** Lowest skin point (world y). Allocation-free (runs every frame for grounding). */
@@ -738,6 +1131,20 @@ export function lowestSkinY(state: RigState): number {
   for (const p of SKIN_PRIMS) {
     primBox(state, p);
     if (_box[1] < m) m = _box[1];
+  }
+  // the drawn back / chest (GROUND_RINGS), vertex for vertex; a draped vertex (over the shoulder blade) only needs its
+  // drape when it is within the largest possible push of the lowest point so far (standing: never)
+  let samples = false;
+  for (let v = 0; v < GR.n; v++) {
+    let y = worldY(state, GR.segA[v], GR.la, v * 3);
+    const w = GR.w[v];
+    if (w > 0) y += (worldY(state, GR.segB[v], GR.lb, v * 3) - y) * w;
+    if (GR.drape[v] && y - MAX_DRAPE < m) {
+      if (!samples) bladeSamplesWorld(state, GR.samples);
+      samples = true;
+      y = groundVertex(state, v, _gv).y;
+    }
+    if (y < m) m = y;
   }
   return m;
 }
@@ -749,8 +1156,11 @@ export interface Bounds {
 export function skinBounds(state: RigState, out: Bounds = { min: new Vector3(), max: new Vector3() }): Bounds {
   out.min.set(Infinity, Infinity, Infinity);
   out.max.set(-Infinity, -Infinity, -Infinity);
-  for (const p of SKIN_PRIMS) {
-    primBox(state, p);
+  const np = SKIN_PRIMS.length;
+  bladeSamplesWorld(state, GR.samples);
+  for (let i = 0; i < np + GR.rings; i++) {
+    if (i < np) primBox(state, SKIN_PRIMS[i]);
+    else ringBox(state, i - np);
     if (_box[0] < out.min.x) out.min.x = _box[0];
     if (_box[1] < out.min.y) out.min.y = _box[1];
     if (_box[2] < out.min.z) out.min.z = _box[2];

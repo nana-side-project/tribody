@@ -584,9 +584,10 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       { kind: 'band', from: [-0.055, 0.5, 0.648], to: { bone: 'femur', rest: [0.028, 0.515, -0.045] } },
     ],
     camera: { dir: [-1, 0.2, 0.35] },
-    // knee close-up: frame from the lower chest to the feet plus the band's anchor on the post (not the 2 m post and
-    // the head), so the knee and the band fill the card while the trunk's lean (no arching back) stays visible
-    frame: ['thorax:xiphoid', 'toes:toe_tips', 'foot:calcaneus_post', 'toes_L:toe_tips', 'foot_L:calcaneus_post', { bone: 'pelvis', rest: [0.085, 0.5, 0.66] }],
+    // knee close-up, hips down (fin-clips): from the hip joint to the feet plus the band's anchor on the post (not the
+    // 2 m post): the thigh, the knee and the band fill the card. A crop from the lower chest showed the upper trunk
+    // without the head, which the engine widens to the whole figure (the vasti were ~40 % smaller)
+    frame: ['femur:greater_trochanter', 'pelvis:ischial_tuberosity', 'toes:toe_tips', 'foot:calcaneus_post', 'toes_L:toe_tips', 'foot_L:calcaneus_post', { bone: 'pelvis', rest: [0.085, 0.5, 0.66] }],
     sides: 'R',
     highlights: { 'vastus-medialis': 'primary', 'vastus-lateralis': 'primary', 'rectus-femoris': 'secondary' },
   },

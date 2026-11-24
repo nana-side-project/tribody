@@ -778,8 +778,10 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
     camera: { position: [0.132, 0.21, 0.307], target: [-0.066, 0.048, 0.055] },
     focus: 'foot',
   },
-  // medial longitudinal arch: the bones of the arch (calcaneus → talus → navicular → cuneiforms → metatarsals) plus
-  // the spring (plantar calcaneonavicular) ligament, the sling under the talar head at the apex of the arch.
+  // medial longitudinal arch: the medial column — calcaneus (posterior pillar) → talus → navicular (keystone) → medial
+  // cuneiform → 1st metatarsal (the 1st ray, anterior pillar under the ball of the big toe) — plus the spring (plantar
+  // calcaneonavicular) ligament, the sling under the talar head at the apex of the arch. (The lateral rays and
+  // cuneiforms belong to the lower lateral arch / transverse arch; tinting all five metatarsals hid the arch's shape.)
   'medial-arch': {
     id: 'medial-arch',
     parts: [
@@ -793,20 +795,22 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
         radius: 0.0018,
         flat: { width: 0.009, normal: 'inferior' },
       },
-      { type: 'bone', parts: ['calcaneus', 'talus', 'navicular', 'cuneiforms', 'metatarsals'] },
+      { type: 'bone', parts: ['calcaneus', 'talus', 'navicular', 'cuneiform_medial', 'metatarsal_1'] },
     ],
     labelAt: { bone: 'foot', rest: [0.064, 0.042, 0.046] },
     camera: { position: [0.1563, 0.0931, 0.3799], target: [-0.075, 0.03, 0.035] },
     focus: 'foot',
   },
-  // metatarsals: the five long bones. Spot = the classic runner's stress-fracture site (2nd/3rd MT shaft–neck).
+  // metatarsals: the runner's stress fracture sits in the 2nd (and 3rd) metatarsal — distal shaft / neck, where the
+  // long thin bone bends at push-off while its base is locked between the cuneiforms. Only those two rays are tinted
+  // (all five used to light up) and the spot is on the 2nd metatarsal neck, on its dorsal side (the 足の甲 view).
   metatarsals: {
     id: 'metatarsals',
     parts: [
-      { type: 'bone', parts: ['metatarsals'] },
-      { type: 'spot', at: 'foot:met_2_3_shaft', radius: 0.0065 },
+      { type: 'bone', parts: ['metatarsal_2', 'metatarsal_3'] },
+      { type: 'spot', at: 'foot:met_2_neck', radius: 0.0055 },
     ],
-    labelAt: 'foot:met_2_3_shaft',
+    labelAt: 'foot:met_2_neck',
     camera: { position: [-0.2185, 0.325, 0.249], target: [-0.095, 0.025, 0.09] },
     focus: 'foot',
   },

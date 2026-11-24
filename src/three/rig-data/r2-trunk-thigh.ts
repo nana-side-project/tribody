@@ -443,7 +443,9 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '内腹斜筋（鼠径靱帯→恥骨稜）',
         path: [
           { bone: 'pelvis', rest: [0.121, 1.0, 0.045] },
-          { bone: 'pelvis', rest: [0.072, 0.98, 0.071] },
+          // fin-body: the arch over the inguinal canal lies in the lower abdominal wall (rides it like the other wall
+          // points); with all three points on the pelvis the strand never changed length (demo ratio 1.000)
+          abWall([0.072, 0.98, 0.071]),
           { ref: 'pelvis:pubic_crest', off: [0.006, 0.006, 0.008] },
         ],
         radius: 0.0032,
@@ -483,7 +485,12 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '上部（肋軟骨内面→白線）',
         path: [
           { bone: 'thorax', rest: [0.103, 1.165, 0.055] },
-          abWall([0.062, 1.172, 0.072]),
+          // fin-body: the via rides the thorax like both ends (it was a lumbar / thorax wall blend that slid ~17 mm
+          // sideways along the band in the twist, kinking it). Costal cartilages → linea alba just below the xiphoid
+          // is one rigid ribcage span, so this band keeps its length in the twist demo (its real action — drawing the
+          // upper abdominal wall in — has no skeletal motion); a lagging linea alba would make it LENGTHEN in the
+          // same-side twist, the opposite of the label.
+          { bone: 'thorax', rest: [0.062, 1.172, 0.072] },
           // linea alba just below the xiphoid (rides the thorax like the costal origin)
           { ref: 'thorax:xiphoid', off: [0.006, -0.064, -0.023] },
         ],
@@ -543,7 +550,9 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '最下部（鼠径靱帯→恥骨稜）',
         path: [
           { bone: 'pelvis', rest: [0.097, 0.97, 0.067] },
-          { bone: 'pelvis', rest: [0.06, 0.94, 0.074] },
+          // fin-body: arching over the cord in the lower abdominal wall (wall blend) — all-pelvis points never changed
+          // length; the conjoint tendon then turns down to the pubic crest
+          abWall([0.062, 0.975, 0.073]),
           { ref: 'pelvis:pubic_crest', off: [0.0, 0.004, 0.004] },
         ],
         radius: 0.0022,

@@ -28,8 +28,13 @@ export interface LabelSpec {
    *  off-view or under the player UI, the dot moves to the visible point of these nearest to it, so a part that is
    *  only partly in view (a tendon in a foot close-up, the quadriceps in a knee close-up) still gets its name. */
   alt?: CompiledPoint[][];
+  /** per `alt` polyline: the arc-length range of the muscle belly (fractions; omitted = all of it). The fallback dot
+   *  prefers the visible belly over a visible tendon (腓腹筋 must not point at the Achilles tendon). */
+  altBelly?: ([number, number] | null)[];
   /** minor context part of a scene: starts collapsed in 「+N」 whatever the pre-pass finds */
   collapse?: boolean;
+  /** beyond the label budget (any tier): always in 「+N」, named in its accessible name and the expanded list */
+  overflow?: boolean;
 }
 
 /** A highlighted part for the overlap mask: polyline through control points (world) with a radius (m). */
@@ -85,8 +90,15 @@ interface Item extends LabelSpec {
   /** pre-pass statistics */
   bad: number;
   seen: number;
-  /** nothing of the part was in view in the pre-pass: listed by name in the expanded 「+N」 (画面外) */
+  /** nothing of the part was in view in the pre-pass, or only a sliver of a minor context part at the edge of the
+   *  crop (no label pointing off-screen): listed by name in the expanded 「+N」 (画面外) */
   offview: boolean;
+  /** pre-pass: frames whose main anchor was in view, and the summed visible share of the part's points */
+  mainIn: number;
+  visSum: number;
+  /** last altAnchor(): share of the part's sampled points in view, and of its belly samples (muscles) */
+  visFrac: number;
+  bellyFrac: number;
   /** pre-pass positions → home (medoid): a soft prior that keeps the layout consistent over the clip */
   hist: number[];
   hx: number;
@@ -98,6 +110,11 @@ interface Item extends LabelSpec {
   /** fallback anchor: control points evaluated per frame (preallocated) and the sample used last frame */
   altW: Vector3[];
   altK: number;
+  /** fallback anchor: screen positions of the samples (NaN = not visible), preallocated */
+  altSX: Float32Array;
+  altSY: Float32Array;
+  /** fallback anchor: 1 = the sample lies on a muscle belly */
+  altBF: Uint8Array;
 }
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -123,6 +140,10 @@ const ALT_SUB = 4;
 const ALT_STICK = 24;
 /** fallback dots stay this far inside the view / clear of the UI (px) */
 const ALT_MARGIN = 10;
+/** a minor part whose anchor is off-view and of which less than this share is in view is "outside the crop" */
+const OFF_FRAME_SHARE = 0.25;
+/** fallback dot on the visible belly when at least this share of the belly samples is in view */
+const ALT_BELLY_MIN = 0.12;
 
 const _p = new Vector3();
 const _a = new Vector3();
@@ -549,6 +570,10 @@ export class LabelLayer {
           bad: 0,
           seen: 0,
           offview: false,
+          mainIn: 0,
+          visSum: 0,
+          visFrac: 0,
+          bellyFrac: 0,
           hist: [],
           hx: 0,
           hy: 0,
@@ -557,14 +582,26 @@ export class LabelLayer {
           committed: false,
           altW: [],
           altK: -1,
+          altSX: new Float32Array(0),
+          altSY: new Float32Array(0),
+          altBF: new Uint8Array(0),
         };
         this.fill(it);
       }
       it.alt = s.alt;
+      it.altBelly = s.altBelly;
       it.collapse = s.collapse;
+      it.overflow = s.overflow;
       let nAlt = 0;
       for (const pl of s.alt ?? []) nAlt += pl.length;
       while (it.altW.length < nAlt) it.altW.push(new Vector3());
+      let nS = 0;
+      for (const pl of s.alt ?? []) nS += Math.max(0, pl.length - 1) * ALT_SUB + 1;
+      if (it.altSX.length < nS) {
+        it.altSX = new Float32Array(nS);
+        it.altSY = new Float32Array(nS);
+        it.altBF = new Uint8Array(nS);
+      }
       it.altK = -1;
       it.has = false;
       it.placed = false;
@@ -644,7 +681,9 @@ export class LabelLayer {
       .map((i) => i.text)
       .join('、');
     this.chip.setAttribute('aria-expanded', String(this.expanded));
-    this.chip.setAttribute('aria-label', this.expanded ? 'ラベルを減らす' : `ほかに${n}つ：${names}（タップで表示）`);
+    // 「つ」 counts to 9 only: 10 and more are 「個」
+    const count = n < 10 ? `${n}つ` : `${n}個`;
+    this.chip.setAttribute('aria-label', this.expanded ? `ラベルを減らす（ほかに${count}：${names}）` : `ほかに${count}：${names}（タップで表示）`);
     this.chip.title = this.expanded ? 'ラベルを減らす' : names;
     const off = this.items.filter((i) => i.collapsed && i.offview).map((i) => i.text);
     this.off.textContent = off.length ? `画面外：${off.join('・')}` : '';
@@ -703,7 +742,7 @@ export class LabelLayer {
     for (const it of this.items) {
       it.inVis = false;
       if (!it.has) continue;
-      if (it.collapsed && !includeCollapsed) continue;
+      if (it.collapsed && (!includeCollapsed || it.offview)) continue;
       _p.copy(it.world).project(camera);
       const front = _p.z < 1;
       const sx = ((_p.x + 1) / 2) * W;
@@ -714,10 +753,12 @@ export class LabelLayer {
         it.sy = sy;
         it.altK = -1;
         it.inVis = true;
+        it.visFrac = 1;
         continue;
       }
+      it.visFrac = 0;
       // otherwise: the visible point of the part nearest to where the anchor would be
-      if (it.alt && this.altAnchor(it, camera, W, H, zones, state, front ? sx : W / 2, front ? sy : H / 2)) it.inVis = true;
+      if (it.alt && this.altAnchor(it, camera, W, H, zones, state)) it.inVis = true;
     }
     for (let tier = 0; tier <= 1; tier++) for (const it of this.items) if (it.inVis && it.tier === tier) vis.push(it);
   }
@@ -727,29 +768,50 @@ export class LabelLayer {
     return false;
   }
 
-  /** Fallback anchor on the part's polylines (allocation-free). Sets it.sx / it.sy; false if nothing is visible. */
-  private altAnchor(it: Item, camera: PerspectiveCamera, W: number, H: number, zones: Rect[], state: RigState, gx: number, gy: number) {
-    const tx = Math.min(W, Math.max(0, gx));
-    const ty = Math.min(H, Math.max(0, gy));
+  /** Fallback anchor on the part's polylines (allocation-free). Sets it.sx / it.sy; false if nothing is visible.
+   *  The dot goes to the MIDDLE of the part's visible stretch (the visible sample nearest to their centroid), not to the
+   *  card edge nearest the off-view anchor (a leader ending at the edge reads as pointing off-screen); a muscle's
+   *  visible belly is preferred over its visible tendon. it.visFrac / it.bellyFrac = visible share of all samples / of
+   *  the belly samples. */
+  private altAnchor(it: Item, camera: PerspectiveCamera, W: number, H: number, zones: Rect[], state: RigState) {
     const pts = it.altW;
     let n = 0;
     for (const pl of it.alt!) for (const cp of pl) evalPoint(cp, state, pts[n++]);
-    let best = -1,
-      bd = Infinity,
-      bx = 0,
-      by = 0,
-      keepD = Infinity,
-      kx = 0,
-      ky = 0;
+    const SX = it.altSX;
+    const SY = it.altSY;
+    const BF = it.altBF;
     let k = 0;
     let base = 0;
+    let nVis = 0;
+    let nBelly = 0;
+    let nBellyVis = 0;
+    let cx = 0;
+    let cy = 0;
+    let bx = 0;
+    let by = 0;
     const M = ALT_MARGIN;
-    for (const pl of it.alt!) {
+    for (let li = 0; li < it.alt!.length; li++) {
+      const pl = it.alt![li];
       const segs = Math.max(0, pl.length - 1);
       const ns = segs * ALT_SUB + 1;
+      const bel = it.altBelly?.[li];
+      let L = 0;
+      if (bel) for (let i = 0; i < segs; i++) L += pts[base + i].distanceTo(pts[base + i + 1]);
+      let acc = 0;
       for (let s = 0; s < ns; s++, k++) {
+        SX[k] = NaN;
         const i = Math.min(segs, Math.floor(s / ALT_SUB));
         const u = i < segs ? (s - i * ALT_SUB) / ALT_SUB : 0;
+        // belly sample? (arc fraction along the polyline within the belly range, a little slack)
+        let belly = true;
+        if (bel && L > 1e-6) {
+          const segL = i < segs ? pts[base + i].distanceTo(pts[base + i + 1]) : 0;
+          const f = (acc + u * segL) / L;
+          belly = f >= bel[0] - 0.03 && f <= bel[1] + 0.03;
+          if (u + 1 / ALT_SUB > 0.999 && i < segs) acc += segL;
+        }
+        BF[k] = belly ? 1 : 0;
+        if (belly) nBelly++;
         if (u > 0) _p.lerpVectors(pts[base + i], pts[base + i + 1], u);
         else _p.copy(pts[base + i]);
         _p.project(camera);
@@ -757,34 +819,47 @@ export class LabelLayer {
         const x = ((_p.x + 1) / 2) * W;
         const y = ((1 - _p.y) / 2) * H;
         if (x < M || x > W - M || y < M || y > H - M || this.underUi(x, y, zones, 4)) continue;
-        const d = Math.hypot(x - tx, y - ty);
-        if (d < bd) {
-          bd = d;
-          best = k;
-          bx = x;
-          by = y;
-        }
-        if (k === it.altK) {
-          keepD = d;
-          kx = x;
-          ky = y;
+        SX[k] = x;
+        SY[k] = y;
+        cx += x;
+        cy += y;
+        nVis++;
+        if (belly) {
+          bx += x;
+          by += y;
+          nBellyVis++;
         }
       }
       base += pl.length;
     }
-    if (best < 0) {
+    it.visFrac = k > 0 ? nVis / k : 0;
+    it.bellyFrac = nBelly > 0 ? nBellyVis / nBelly : 0;
+    if (!nVis) {
       it.altK = -1;
       return false;
     }
-    // stay on last frame's sample unless another one is clearly nearer (no hopping along the strand)
-    if (keepD < Infinity && keepD <= bd + ALT_STICK) {
-      it.sx = kx;
-      it.sy = ky;
-    } else {
-      it.altK = best;
-      it.sx = bx;
-      it.sy = by;
+    // the belly when a fair part of it is in view; else the middle of what is visible (e.g. only the tendon)
+    const useBelly = nBellyVis > 0 && nBellyVis >= ALT_BELLY_MIN * nBelly;
+    const tx = useBelly ? bx / nBellyVis : cx / nVis;
+    const ty = useBelly ? by / nBellyVis : cy / nVis;
+    let best = -1,
+      bd = Infinity,
+      keepD = Infinity;
+    for (let j = 0; j < k; j++) {
+      const x = SX[j];
+      if (x !== x) continue; // NaN: not visible
+      if (useBelly && !BF[j]) continue;
+      const d = Math.hypot(x - tx, SY[j] - ty);
+      if (d < bd) {
+        bd = d;
+        best = j;
+      }
+      if (j === it.altK) keepD = d;
     }
+    // stay on last frame's sample unless another one is clearly better (no hopping along the strand)
+    if (!(keepD < Infinity && keepD <= bd + ALT_STICK)) it.altK = best;
+    it.sx = SX[it.altK];
+    it.sy = SY[it.altK];
     return true;
   }
 
@@ -940,6 +1015,8 @@ export class LabelLayer {
     for (const it of this.items) {
       it.bad = 0;
       it.seen = 0;
+      it.mainIn = 0;
+      it.visSum = 0;
       it.offview = false;
       it.collapsed = false;
       it.hist.length = 0;
@@ -961,6 +1038,8 @@ export class LabelLayer {
     this.solve(W, H, zones, false, true);
     for (const it of this.vis) {
       it.seen++;
+      if (it.altK < 0) it.mainIn++;
+      it.visSum += it.visFrac;
       if (!it.tier) continue;
       // skipped by solve() (no good spot this frame), or only reachable with a very long leader → bad
       if (!it.committed || !it.ok || it.lead > Math.max(190, 0.6 * W)) it.bad++;
@@ -986,10 +1065,13 @@ export class LabelLayer {
           it.hasHome = true;
         }
       }
-      // minor labels: collapsed when they land badly too often, when the scene says so, or when nothing of the part
-      // is ever in view (then the expanded chip names it as 画面外 instead of dropping it silently)
-      it.offview = it.seen === 0;
-      it.collapsed = it.tier === 1 && (it.offview || !!it.collapse || it.bad / it.seen > 0.15);
+      // minor labels: collapsed when they land badly too often, when the scene says so, or when the part is outside
+      // the crop — nothing of it in view, or its anchor off-view and only a sliver of it at the edge (a leader
+      // pointing off-screen); the expanded chip names those as 画面外 instead of dropping them silently. Labels
+      // beyond the budget (overflow) always collapse, whatever their tier.
+      const offFrame = it.tier === 1 && it.seen > 0 && it.mainIn / it.seen < 0.5 && it.visSum / it.seen < OFF_FRAME_SHARE;
+      it.offview = it.seen === 0 || offFrame;
+      it.collapsed = !!it.overflow || (it.tier === 1 && (it.offview || !!it.collapse || it.bad / it.seen > 0.15));
       if (it.collapsed) n++;
       it.placed = false;
       it.has = false;

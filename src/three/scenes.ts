@@ -4,12 +4,13 @@
 // Used when `<AnatomyViewer highlights condition=…>` (condition page) or `highlights` + `focus` without a condition
 // (region page). Exercise and muscle pages never use them. Values were tried in the harness: see docs/ENGINE.md
 // § Condition & region scenes.
-import type { ConditionId, RegionId } from '../data/registry';
+import type { ConditionId, RegionId, StructureId } from '../data/registry';
 import type { Highlight3DRole } from './contract';
-import type { PartId } from './anatomy';
+import type { PartId, StructureOverride, ZoneSpec } from './anatomy';
 import type { AttachRef } from './landmarks';
 import type { BasePoseName, CameraPresetName, Pose } from './rig';
 import { REGION_POINTS } from './camera';
+import type { BonePartId } from './skeleton-parts';
 
 export interface Scene3D {
   /** base pose (default: the injured structure rig's base, else STAND) */
@@ -30,10 +31,38 @@ export interface Scene3D {
   both?: PartId[];
   /** translucent parts (opacity) — superficial tissue that would hide the injured part */
   fade?: Partial<Record<PartId, number>>;
+  /** see-through bone pieces (`Figure.ghost`, opacity 0..1): a bone in front of the tissue the view is about (the
+   *  patella over the patellofemoral cartilage). Bone part names as in skeleton-parts.ts (sided parts: the scene's
+   *  side; midline parts: the one piece). A ghosted injured bone keeps its red tint (rim in the tint colour). */
+  ghost?: Partial<Record<BonePartId, number>>;
+  /** per-view overrides of structure rigs (a rig cannot vary by condition): `bones` = the bone pieces its `bone` part
+   *  tints instead, `labelAt` = its label anchor. The `metatarsals` rig tints the stress-fracture rays 2–3; Morton's
+   *  neuroma needs rays 3–4 around the nerve. */
+  structures?: Partial<Record<StructureId, StructureOverride>>;
   /** role overrides for this scene (e.g. a nerve the text says is only rarely irritated) */
   roles?: Partial<Record<PartId, Highlight3DRole>>;
   /** context parts whose labels start collapsed in 「+N」 */
   minor?: PartId[];
+  /** the injured part (or zone key) that carries the view's ONE pulse + halo. Default: the first zone, else the first
+   *  injured part (content order: the condition page lists the 'injured' tissue first). The other injured parts are
+   *  steady red (same hue, no halo). */
+  primary?: PartId | string;
+  /** non-damage condition (the content's anatomyNote says no tissue is damaged: low back, neck, cramps): the red
+   *  marks where it hurts / cramps (the page's legend 「痛みやすい場所」), not a lesion — steady red, nothing pulses.
+   *  Default: from the content (a condition with an anatomyNote), like the page's own legend. */
+  sensitive?: boolean;
+  /** lesion zones: where in a part the problem sits (the Achilles midportion vs its insertion). The zone is drawn
+   *  injured red over that stretch, carries the part's label (`label`) and the pulse; the rest of the part takes
+   *  `partRole` ('plain' = its own colour, default). */
+  zones?: SceneZone[];
+}
+
+export interface SceneZone extends Omit<ZoneSpec, 'key'> {
+  /** label shown for the part (replaces its name), e.g. 'アキレス腱の中央部' */
+  label: string;
+  /** how the rest of the part is drawn: its own colour ('plain', default), amber ('involved') or red ('injured') */
+  partRole?: 'plain' | 'involved' | 'injured';
+  key?: string;
 }
 
 const THIGH_PULL_LEFT_LEG: Pose['joints'] = { hip_L: { flex: 25 }, knee_L: { flex: 30 } };
@@ -81,6 +110,8 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     minSize: 0.3,
     both: ['trapezius', 'levator-scapulae'],
     minor: ['pectoralis-minor', 'thoracic-spine'],
+    // fatigue / stiffness, nothing damaged (content's anatomyNote): steady red where it hurts, no pulse
+    sensitive: true,
   },
 
   // ── hip
@@ -138,9 +169,18 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
 
   // ── knee
   'patellofemoral-pain': {
-    // seated, knee bent (rig base SIT_CHAIR + its anterolateral close-up); the hand lifted off the thigh
-    camera: 'rig',
+    // seated, knee bent (rig base SIT_CHAIR: the more the knee bends under load, the higher the patellofemoral
+    // pressure); the hand lifted off the thigh. Close-up of the knee from front-lateral, above: the quadriceps converge
+    // on the patella, which is drawn see-through (red glass, rim in the injured red) so the amber patellofemoral
+    // cartilage on its back — 「お皿の裏」 in the text — shows through it
     joints: { shoulder_R: { abd: 18 }, elbow_R: { flex: 15 } },
+    camera: { dir: [-0.75, 0.4, 0.55] },
+    frame: ['patella:center', 'patella:base', 'patella:apex', 'femur:trochlear_groove', 'femur:lateral_epicondyle', 'femur:medial_epicondyle', 'tibia:tibial_tuberosity'],
+    minSize: 0.13,
+    ghost: { patella: 0.5 },
+    // the cartilage label on what shows through the glass (the back of the patella), not on the trochlea under the
+    // quadriceps tendon (its rig anchor)
+    structures: { 'patellofemoral-cartilage': { labelAt: { ref: 'patella:articular', off: [0, -0.01, 0] } } },
     minor: ['gluteus-medius', 'gluteus-maximus'],
   },
   'itb-syndrome': {
@@ -179,26 +219,48 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     // one point of bone is the message (vs the diffuse strip of shin splints): the irritated periosteum strip in amber
     // so the fracture spot is the only red
     roles: { 'medial-tibial-border': 'involved' },
+    // the tibia rig's spot (posteromedial, distal third: where most of these crack) is the pulsing lesion and carries
+    // the label; the rest of the bone a steady light red
+    zones: [{ on: 'tibia', label: '脛骨のひび', partRole: 'injured' }],
   },
   'muscle-cramps': {
-    // the cramp position: calf short, foot pointed
+    // the cramp position: calf short, foot pointed. The right leg is lifted (knee bent, which shortens the gastrocnemius
+    // further) so the pointed toes stay off the floor: standing on them lifted the whole figure, the left foot floated
     base: 'STAND',
-    joints: { ankle_R: { dorsi: -35 }, toes_R: { ext: -15 }, knee_R: { flex: 10 }, hip_R: { flex: 10 } },
-    camera: { dir: [0.45, 0.2, -1] },
-    frame: ['femur:medial_condyle_post', 'femur:lateral_condyle_post', 'tibia:fibular_head', 'tibia:medial_malleolus', 'foot:calcaneus_post', 'toes:toe_tips'],
-    minSize: 0.3,
+    joints: { ankle_R: { dorsi: -35 }, toes_R: { ext: -15 }, knee_R: { flex: 55 }, hip_R: { flex: 20 } },
+    camera: { dir: [0.2, 0.25, -1] },
+    frame: ['femur:medial_condyle_post', 'femur:lateral_condyle_post', 'tibia:fibular_head', 'tibia:medial_malleolus', 'foot:calcaneus_post', 'foot:met_head_1'],
+    minSize: 0.24,
     minor: ['biceps-femoris'],
+    // a cramp is a strong temporary contraction, the fibres are not damaged (content's anatomyNote): steady red marks the
+    // muscle that cramps, no pulse
+    sensitive: true,
   },
 
   // ── ankle / foot
-  'achilles-midportion': { camera: 'rig' },
+  'achilles-midportion': {
+    // close-up of the right heel cord from behind (slightly medial), the left leg forward out of the view: the whole
+    // tendon from the calf muscles down to the heel, so the red zone reads as a stretch OF it
+    base: 'STAND',
+    joints: { hip_L: { flex: 20 }, knee_L: { flex: 25 } },
+    camera: { dir: [0.15, 0.15, -1] },
+    frame: ['foot:calcaneus_post', 'foot:calcaneus_plantar', 'tibia:medial_malleolus', 'tibia:lateral_malleolus', 'tibia:medial_border_dist', 'tibia:distal_post', 'tibia:fibula_post_mid'],
+    minSize: 0.2,
+    // the problem sits 2–6 cm above the insertion (the insertion footprint ends at rest y 0.045; arc 0.655–0.845 of the
+    // tendon's main cord = rest y 0.105–0.065): that stretch is the red zone, the rest of the tendon its own cream
+    zones: [{ on: 'achilles-tendon', range: [0.655, 0.845], label: 'アキレス腱の中央部' }],
+  },
   'achilles-insertional': {
     // dorsiflexion presses the tendon onto the bursa and the heel bone (lateral view; the bursa shows through)
     base: 'STAND',
     joints: { ankle_R: { dorsi: 15 }, knee_R: { flex: 15 } },
-    camera: { dir: [-1, 0.15, -0.35] },
+    // (posterolateral: the insertion zone and the bursa in front of it side by side, not one blob)
+    camera: { dir: [-1, 0.15, -0.6] },
     frame: ['foot:calcaneus_post', 'foot:calcaneus_post_sup', 'tibia:lateral_malleolus', 'foot:calcaneus_plantar', 'tibia:distal_post'],
-    minSize: 0.16,
+    minSize: 0.12,
+    // the problem sits where the tendon meets the heel bone (arc 0.87–1 of the main cord = rest y 0.06 down to the
+    // insertion footprint), next to the retrocalcaneal bursa (steady red)
+    zones: [{ on: 'achilles-tendon', range: [0.87, 1], label: 'アキレス腱の付着部' }],
   },
   'ankle-sprain': {
     // the injury position: inversion + plantarflexion, foot off the floor
@@ -231,10 +293,15 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     camera: { dir: [-0.25, 1, 0.45] },
     frame: ['foot:calcaneus_post', 'foot:met_head_1', 'foot:met_head_5', 'toes:toe_tips', 'foot:navicular_tuberosity'],
     minSize: 0.2,
+    // the metatarsals rig's spot (2nd / 3rd shaft–neck, the classic runner's site) is the pulsing lesion with the label
+    zones: [{ on: 'metatarsals', label: '中足骨のひび', partRole: 'injured' }],
   },
   'mortons-neuroma': {
     // toe extension squeezes the nerve between the metatarsal heads
     base: 'LONG_SIT',
+    // the nerve runs between the 3rd and 4th metatarsal heads: those two rays are the amber context (the metatarsals
+    // rig itself tints the stress-fracture rays 2–3)
+    structures: { metatarsals: { bones: ['metatarsal_3', 'metatarsal_4'], labelAt: 'foot:met_3_neck' } },
     joints: { toes_R: { ext: 25 } },
     camera: { dir: [-0.15, 0.1, 1] },
     frame: ['foot:met_head_1', 'foot:met_head_5', 'toes:toe_tips', 'foot:interspace_3_4', 'foot:arch_mid'],
@@ -258,6 +325,8 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     minSize: 0.4,
     both: ['erector-spinae', 'multifidus', 'quadratus-lumborum', 'thoracolumbar-fascia'],
     minor: ['iliopsoas', 'gluteus-maximus'],
+    // non-specific low back pain: sensitised, not damaged (content's anatomyNote): steady red, no pulse
+    sensitive: true,
   },
 };
 
