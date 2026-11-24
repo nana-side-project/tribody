@@ -169,7 +169,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         shoulder: { flex: 80 },
       },
     },
-    camera: { dir: [-1, 0.22, -0.5] },
+    camera: { dir: [-0.9, 0.22, -0.65] },
     focus: 'lowback',
   },
 
@@ -1017,9 +1017,9 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
     id: 'patella',
     parts: [{ type: 'bone', parts: ['patella'] }],
     labelAt: { ref: 'patella:center', off: [0.0, 0.004, 0.002] },
-    // right-front, from slightly above: reads both standing and seated (the patellofemoral-pain view is seated,
-    // from the patellofemoral cartilage's base)
-    camera: { dir: [-1, 0.32, 0.42] },
+    // Only shown on the patellofemoral-pain page, which is seated (base of the patellofemoral cartilage): close-up of
+    // the right knee from the front-right, above, with the quadriceps running back along the thigh
+    camera: { position: [-0.62, 0.92, 0.8], target: [-0.12, 0.5, 0.32] },
     focus: 'knee',
   },
   // 膝蓋腱 (refined sample) — broad, flat tendon from the apex of the patella to the tibial tuberosity.
@@ -1134,6 +1134,8 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
       { type: 'bone', parts: ['lateral_epicondyle'] },
     ],
     labelAt: { bone: 'femur', rest: [0.136, 0.517, -0.004] },
+    // lateral view (auto-framed): on the ITB-syndrome page the band's course from the hip down over the epicondyle
+    // stays in view
     camera: { dir: [-1, 0.15, 0.25] },
     focus: 'knee',
   },

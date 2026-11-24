@@ -789,9 +789,24 @@ Flat `normal` is a bone-frame direction: `lateral | medial | anterior | posterio
 
 - `t` in 0..1, increasing. Each key's pose = **base ⊕ clip.pose ⊕ key.pose** — keys are **not cumulative**
   (a key without `pose` returns to base + clip.pose). Unspecified DOFs come from base.
-- Between keys the engine eases (sine in-out) every DOF and the root.
+- Between keys the engine eases (sine in-out) every DOF and the root: **every normal key is a velocity stop**.
 - `hold` (seconds): the key's pose is held for that long before moving on (taken from the time until the
   next key). Repeating the same pose on two keys is an equivalent, more explicit way to hold.
+- `pass: true` — a **pass-through key**: the motion goes through this pose *without stopping*. A run of pass keys
+  between two normal keys is one smooth (C1) curve per DOF and root value, eased only at the two normal keys.
+  Use it for solved mid poses that keep a contact (back on the wall halfway down a wall sit, the hand on its path
+  in a row, the knee on the bench in a Copenhagen plank) — previously such a mid key made the movement stop and
+  go. The curve is a cubic Hermite spline whose tangents are the 3-point (Catmull–Rom) slopes, limited like a
+  monotone spline: a DOF that turns at the pass key stops there (0 slope) and no DOF ever overshoots its key
+  values, so limits and contacts between keys are no worse than at the keys. Rules: `hold` is ignored on a pass
+  key (warning); in `'pingpong'` clips the first / last key cannot pass; `label` works as usual; in `'loop'` clips
+  the first and last keys may pass (the curve wraps around). Clips without pass keys are bit-identical to before.
+
+  ```ts
+  { t: 0, label: 'ゆっくりしゃがむ（3秒）' },
+  { t: 0.15, pose: WALL_MID, pass: true },   // solved: back still on the wall — no stop here
+  { t: 0.3, pose: WALL_BOTTOM, hold: 2 },
+  ```
 - `label` (Japanese, short, 動作の指示): shown from that key until the next labelled key, e.g. 「ゆっくり持ち上げる」
   「1秒キープ」「ゆっくり戻す（3秒）」. Also sent to `onPhase`.
 - `loop: 'loop'` — if the last key's `t` < 1 the engine eases back to the first key over the remaining

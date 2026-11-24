@@ -19,9 +19,14 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { mix: [{ bone: 'tibia', rest: [0.06, 0.47, -0.03] }, 'femur:medial_condyle_post'], t: 1 },
           { bone: 'tibia', rest: [0.072, 0.43, -0.046] },
           { bone: 'tibia', rest: [0.074, 0.33, -0.055] },
-          // heel cord: hugs the inside of the (thin) ankle skin, then straight to the calcaneal tuberosity
+          // heel cord (r4 verify): the mannequin's ankle skin is thin (back surface z ≈ −0.04 at y 0.10–0.15), so the
+          // tendon hugs the inside of it down to y 0.125 (a straight cord would float 1–2 cm behind the leg), then
+          // passes BEHIND the posterosuperior calcaneus / retrocalcaneal bursa to the tuberosity — the same line as the
+          // achilles-tendon structure. Limitation: in deep plantarflexion (≥ 45°, prone / supine bases) the heel rises
+          // to the level of the lowest tibia via and the cord bends there.
           { bone: 'tibia', rest: [0.087, 0.2, -0.0445] },
           { bone: 'tibia', rest: [0.09, 0.125, -0.0355] },
+          { bone: 'foot', rest: [0.09, 0.054, -0.0755] }, // behind the posterosuperior calcaneus (retrocalcaneal bursa in front)
           { ref: 'foot:calcaneus_post', off: [0, 0.004, -0.003] },
         ],
         radius: 0.011,
@@ -36,6 +41,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { bone: 'tibia', rest: [0.106, 0.34, -0.052] },
           { bone: 'tibia', rest: [0.093, 0.2, -0.0445] },
           { bone: 'tibia', rest: [0.09, 0.125, -0.0355] },
+          { bone: 'foot', rest: [0.09, 0.054, -0.0755] }, // behind the posterosuperior calcaneus (retrocalcaneal bursa in front)
           { ref: 'foot:calcaneus_post', off: [0, 0.004, -0.003] },
         ],
         radius: 0.0095,
@@ -47,7 +53,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     // heel raise on the step edge (toes stay flat: toe extension = plantarflexion), as in ex-calf-raise-straight
     actionPose: { joints: { ankle: { dorsi: -34 }, toes: { ext: 34 } } },
     // heel drop with straight knees (≈30° is about the loaded end range with the knee straight)
-    stretchPose: { joints: { ankle: { dorsi: 32 }, toes: { ext: -32 } } },
+    stretchPose: { joints: { ankle: { dorsi: 30 }, toes: { ext: -30 } } },
     camera: 'isoBack',
     focus: 'calf',
   },
@@ -63,6 +69,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { bone: 'tibia', rest: [0.112, 0.33, -0.044] },
           { bone: 'tibia', rest: [0.098, 0.2, -0.0385] },
           { bone: 'tibia', rest: [0.09, 0.125, -0.0345] },
+          { bone: 'foot', rest: [0.09, 0.054, -0.0755] },
           { ref: 'foot:calcaneus_post', off: [0, 0.004, -0.003] },
         ],
         radius: 0.0155,
@@ -75,6 +82,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { bone: 'tibia', rest: [0.092, 0.3, -0.046] },
           { bone: 'tibia', rest: [0.09, 0.19, -0.0395] },
           { bone: 'tibia', rest: [0.09, 0.125, -0.0345] },
+          { bone: 'foot', rest: [0.09, 0.054, -0.0755] },
           { ref: 'foot:calcaneus_post', off: [0, 0.004, -0.003] },
         ],
         radius: 0.014,
@@ -87,6 +95,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { bone: 'tibia', rest: [0.072, 0.32, -0.04] },
           { bone: 'tibia', rest: [0.082, 0.2, -0.0385] },
           { bone: 'tibia', rest: [0.09, 0.125, -0.0345] },
+          { bone: 'foot', rest: [0.09, 0.054, -0.0755] },
           { ref: 'foot:calcaneus_post', off: [0, 0.004, -0.003] },
         ],
         radius: 0.0155,
@@ -385,16 +394,17 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
   // flexor digitorum brevis: medial process of the calcaneal tuberosity + central plantar aponeurosis → belly in the
   // middle of the sole → 4 tendons under the MT heads → sides of the middle phalanges of toes 2–5. The toes are one
   // segment (no PIP joint), so the demo shows MTP flexion / extension. Prone, knee bent, sole up.
+  // Layering: the belly lies DEEP (dorsal) to the plantar aponeurosis (y ≈ 0.0145 / 0.0115 vs. fascia ≈ 0.007 / 0.0045).
   'flexor-digitorum-brevis': {
     id: 'flexor-digitorum-brevis',
     strands: [
       {
         name: '第2趾',
         path: [
-          { ref: 'foot:calcaneus_plantar_medial', off: [0.004, 0.004, -0.004] },
-          { bone: 'foot', rest: [0.083, 0.008, 0.02] },
-          { bone: 'foot', rest: [0.082, 0.009, 0.085] },
-          { bone: 'foot', rest: [0.08, 0.003, 0.132] },
+          { ref: 'foot:calcaneus_plantar_medial', off: [0.004, 0.007, 0.008] },
+          { bone: 'foot', rest: [0.083, 0.0145, 0.02] },
+          { bone: 'foot', rest: [0.082, 0.0115, 0.085] },
+          { bone: 'foot', rest: [0.08, 0.0045, 0.132] },
           { bone: 'toes', rest: [0.0805, 0.004, 0.151] },
           { bone: 'toes', rest: [0.081, 0.0055, 0.166] },
         ],
@@ -404,10 +414,10 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
       {
         name: '第3趾',
         path: [
-          { ref: 'foot:calcaneus_plantar_medial', off: [0.006, 0.004, -0.004] },
-          { bone: 'foot', rest: [0.09, 0.007, 0.02] },
-          { bone: 'foot', rest: [0.095, 0.009, 0.085] },
-          { bone: 'foot', rest: [0.095, 0.003, 0.126] },
+          { ref: 'foot:calcaneus_plantar_medial', off: [0.006, 0.007, 0.008] },
+          { bone: 'foot', rest: [0.09, 0.0145, 0.02] },
+          { bone: 'foot', rest: [0.095, 0.0115, 0.085] },
+          { bone: 'foot', rest: [0.095, 0.0045, 0.126] },
           { bone: 'toes', rest: [0.0955, 0.004, 0.143] },
           { bone: 'toes', rest: [0.096, 0.005, 0.158] },
         ],
@@ -417,10 +427,10 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
       {
         name: '第4趾',
         path: [
-          { ref: 'foot:calcaneus_plantar_medial', off: [0.008, 0.004, -0.004] },
-          { bone: 'foot', rest: [0.097, 0.007, 0.02] },
-          { bone: 'foot', rest: [0.108, 0.009, 0.085] },
-          { bone: 'foot', rest: [0.11, 0.003, 0.118] },
+          { ref: 'foot:calcaneus_plantar_medial', off: [0.008, 0.007, 0.008] },
+          { bone: 'foot', rest: [0.097, 0.0145, 0.02] },
+          { bone: 'foot', rest: [0.108, 0.0115, 0.085] },
+          { bone: 'foot', rest: [0.11, 0.0045, 0.118] },
           { bone: 'toes', rest: [0.1105, 0.004, 0.133] },
           { bone: 'toes', rest: [0.111, 0.005, 0.148] },
         ],
@@ -430,10 +440,10 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
       {
         name: '第5趾',
         path: [
-          { ref: 'foot:calcaneus_plantar_medial', off: [0.01, 0.004, -0.004] },
-          { bone: 'foot', rest: [0.104, 0.008, 0.02] },
-          { bone: 'foot', rest: [0.121, 0.009, 0.085] },
-          { bone: 'foot', rest: [0.125, 0.003, 0.108] },
+          { ref: 'foot:calcaneus_plantar_medial', off: [0.01, 0.007, 0.008] },
+          { bone: 'foot', rest: [0.104, 0.0145, 0.02] },
+          { bone: 'foot', rest: [0.121, 0.0115, 0.085] },
+          { bone: 'foot', rest: [0.125, 0.0045, 0.108] },
           { bone: 'toes', rest: [0.1255, 0.003, 0.127] },
           { bone: 'toes', rest: [0.126, 0.005, 0.136] },
         ],
@@ -518,8 +528,8 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
           // same line as the gastrocnemius / soleus tendons: just inside the (thin) ankle skin, then down to the heel
           { bone: 'tibia', rest: [0.09, 0.25, -0.0505] },
           { bone: 'tibia', rest: [0.09, 0.18, -0.041] },
-          { bone: 'tibia', rest: [0.09, 0.13, -0.0365] },
-          { bone: 'foot', rest: [0.09, 0.06, -0.0745] }, // behind the posterosuperior calcaneus (bursa in between)
+          { bone: 'tibia', rest: [0.09, 0.125, -0.0355] },
+          { bone: 'foot', rest: [0.09, 0.054, -0.0755] }, // behind the posterosuperior calcaneus (bursa in between)
           { bone: 'foot', rest: [0.09, 0.031, -0.0765] },
         ],
         radius: 0.0034,

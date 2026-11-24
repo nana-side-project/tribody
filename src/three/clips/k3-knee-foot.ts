@@ -27,6 +27,21 @@ const SQUAT_BOTTOM = {
     forearm: { sup: -150 },
   },
 };
+// Pass-through keys at 25 / 50 / 75 % of the way down (eng-motion): trunk, spine, arms and knees as the straight
+// blend; hips and ankles re-solved so both feet stay exactly where they are (the plain blend slid the left foot up
+// to 2.6 cm sideways). Used on the way down and up as `pass` keys, so the squat stays one smooth 3 s movement.
+const SQUAT_DOWN_25 = {
+  root: { rot: [10.1, 0, 0] as [number, number, number] },
+  joints: { lumbar: { flex: 1.5 }, neck: { flex: -4 }, head: { flex: -1.5 }, shoulder: { flex: 31.5, abd: 3 }, elbow: { flex: 8.5 }, forearm: { sup: -52.5 }, hip: { flex: 32.44, abd: 8.39, rot: 13.15 }, knee: { flex: 30.5 }, ankle: { dorsi: 6.77, inv: 2.64 } },
+};
+const SQUAT_DOWN_50 = {
+  root: { rot: [20.2, 0, 0] as [number, number, number] },
+  joints: { lumbar: { flex: 3 }, neck: { flex: -8 }, head: { flex: -3 }, shoulder: { flex: 63, abd: -1 }, elbow: { flex: 7 }, forearm: { sup: -85 }, hip: { flex: 64.99, abd: 11.77, rot: 9.99 }, knee: { flex: 61 }, ankle: { dorsi: 14.97, inv: 1.24 } },
+};
+const SQUAT_DOWN_75 = {
+  root: { rot: [30.3, 0, 0] as [number, number, number] },
+  joints: { lumbar: { flex: 4.5 }, neck: { flex: -12 }, head: { flex: -4.5 }, shoulder: { flex: 94.5, abd: -5 }, elbow: { flex: 5.5 }, forearm: { sup: -117.5 }, hip: { flex: 97.79, abd: 14.42, rot: 5.34 }, knee: { flex: 91.5 }, ankle: { dorsi: 23.25, inv: 0.58 } },
+};
 
 // Wall sit: back (thorax + sacrum) on the wall, heels 36 cm in front of it, feet ~shoulder width, toes out 10°.
 // Start: leaning on the wall, knees 9°. Hold: knees 80° (the text allows a pain-free 45–90°), thighs ~22° below
@@ -34,7 +49,8 @@ const SQUAT_BOTTOM = {
 const WALL_START = { hip: { flex: 26.1, abd: 4.9, rot: 12.5 }, knee: { flex: 9 }, ankle: { dorsi: -17.6, inv: -1.2 } };
 const WALL_HOLD = { joints: { hip: { flex: 67.8, abd: 11.8, rot: 6.6 }, knee: { flex: 80 }, ankle: { dorsi: 11.6, inv: -1.7 } } };
 // Mid-slide key (knees 48°) solved with the same constraints: without it the interpolated hips bulge ~2 cm into
-// the wall; now the back stays within ±4 mm of the wall plane throughout (the wall stands 4 mm behind it at keys).
+// the wall. It is a `pass` key (eng-motion), so the slide no longer stops halfway; the thorax and sacrum stay
+// 0–5 mm off the wall plane throughout (never into it).
 const WALL_MID = { joints: { hip: { flex: 47.1, abd: 8.9, rot: 10 }, knee: { flex: 48 }, ankle: { dorsi: 0.2, inv: -1.3 } } };
 
 // Decline squat on a 25° slant board (heels high, toes low). Feet hip width (heel centres 11 cm from the midline),
@@ -96,30 +112,38 @@ const SPLIT_TOP = {
   ankle_L: { dorsi: -11.5, inv: 7.8 },
   toes_L: { ext: 52.7 },
 };
-// mid key (55 % of the way down), solved so the rear toes stay put: the straight blend of top and bottom slides the
-// rear foot ~9 cm backwards mid-way; with this key the slide is ≤ 2 cm.
-const SPLIT_MID = {
-  root: { rot: [2.2, 0, 0] as [number, number, number] },
-  joints: {
-    hip_R: { flex: 57.1, abd: 5.1, rot: 3.8 },
-    knee_R: { flex: 54.9 },
-    ankle_R: { dorsi: -0.1, inv: -0.5 },
-    hip_L: { flex: -1.3, abd: 3.9, rot: 1.4 },
-    knee_L: { flex: 65.3 },
-    ankle_L: { dorsi: 6.4, inv: 8.5 },
-    toes_L: { ext: 62.1 },
-  },
+// Pass-through keys at 25 / 50 / 75 / 87.5 % of the way down (eng-motion; replace the old 55 % stop key): front knee and
+// trunk as the straight blend, both hips, the rear knee, both ankles and the rear toes solved so the front foot and
+// the rear toes stay exactly where they are (the straight blend slid the rear foot ~9 cm, the old mid key 2.2 cm).
+// Used as `pass` keys on the way down and up, so there is no stop halfway.
+const SPLIT_25 = {
+  root: { rot: [1, 0, 0] as [number, number, number] },
+  joints: { hip_R: { flex: 40.53, abd: 4.14, rot: 6.13 }, knee_R: { flex: 31.5 }, ankle_R: { dorsi: -8.25, inv: -0.73 }, hip_L: { flex: -15.68, abd: 3.83, rot: 3.94 }, knee_L: { flex: 36.24 }, ankle_L: { dorsi: -0.84, inv: 8.23 }, toes_L: { ext: 53.15 } },
 };
+const SPLIT_50 = {
+  root: { rot: [2, 0, 0] as [number, number, number] },
+  joints: { hip_R: { flex: 54.07, abd: 5.12, rot: 5.42 }, knee_R: { flex: 51 }, ankle_R: { dorsi: -1.28, inv: -1.15 }, hip_L: { flex: -6.13, abd: 4.69, rot: 2.72 }, knee_L: { flex: 57.35 }, ankle_L: { dorsi: 11.12, inv: 8.97 }, toes_L: { ext: 53.76 } },
+};
+const SPLIT_75 = {
+  root: { rot: [3, 0, 0] as [number, number, number] },
+  joints: { hip_R: { flex: 69.01, abd: 6.59, rot: 3.28 }, knee_R: { flex: 70.5 }, ankle_R: { dorsi: 4.29, inv: -0.33 }, hip_L: { flex: 2.94, abd: 3.61, rot: 0.05 }, knee_L: { flex: 79.64 }, ankle_L: { dorsi: 18.23, inv: 10.53 }, toes_L: { ext: 61.71 } },
+};
+const SPLIT_88 = {
+  root: { rot: [3.5, 0, 0] as [number, number, number] },
+  joints: { hip_R: { flex: 77.61, abd: 6.94, rot: 2.49 }, knee_R: { flex: 80.25 }, ankle_R: { dorsi: 6, inv: -0.51 }, hip_L: { flex: 6.3, abd: 3.27, rot: -1.29 }, knee_L: { flex: 90.56 }, ankle_L: { dorsi: 23.37, inv: 11.64 }, toes_L: { ext: 64.98 } },
+};
+// (eng-motion: the bottom was re-solved with the same constraints — the rear toes had slid 7.5 mm and the outer
+// forefoot lifted 4 mm; now ≤ 1.6 mm)
 const SPLIT_BOTTOM = {
   root: { rot: [4, 0, 0] as [number, number, number] },
   joints: {
-    hip_R: { flex: 86.6, abd: 6.8, rot: 1.4 },
+    hip_R: { flex: 86.87, abd: 7.18, rot: 1.66 },
     knee_R: { flex: 90 },
-    ankle_R: { dorsi: 7.3, inv: -0.5 },
-    hip_L: { flex: 9.3, abd: 4.8, rot: -1.2 },
-    knee_L: { flex: 101.6 },
-    ankle_L: { dorsi: 25.8, inv: 14.4 },
-    toes_L: { ext: 70 },
+    ankle_R: { dorsi: 7.06, inv: -0.76 },
+    hip_L: { flex: 8.78, abd: 3.33, rot: -2.02 },
+    knee_L: { flex: 101.33 },
+    ankle_L: { dorsi: 27.2, inv: 13.58 },
+    toes_L: { ext: 70.45 },
   },
 };
 
@@ -413,17 +437,18 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     pose: { joints: WALL_START },
     keys: [
       { t: 0, label: '背中を壁につけたまま滑り下りる' },
-      { t: 0.13, pose: WALL_MID },
+      { t: 0.13, pose: WALL_MID, pass: true },
       { t: 0.26, pose: WALL_HOLD, label: 'この角度で45秒キープ' },
       { t: 0.68, pose: WALL_HOLD, label: 'ゆっくり立ち上がる' },
-      { t: 0.81, pose: WALL_MID },
+      { t: 0.81, pose: WALL_MID, pass: true },
       { t: 0.94 },
     ],
     loop: 'loop',
     anchor: { point: 'foot:dorsum_mid', axes: 'xz' },
     ground: true,
-    // the wall touches the back of the thorax (the thoracic skin is 1 mm behind the T6 spinous process at t = 0)
-    props: [{ kind: 'wall', at: { at: 'thorax:spinous_T6', off: [0, 0, -0.005] }, normal: [0, 0, 1], height: 1.85 }],
+    // the wall touches the back of the thorax (the thoracic skin is 1 mm behind the T6 spinous process at t = 0;
+    // closest approach over the whole slide 0.1 mm)
+    props: [{ kind: 'wall', at: { at: 'thorax:spinous_T6', off: [0, 0, -0.0037] }, normal: [0, 0, 1], height: 1.85 }],
     camera: { dir: [-1, 0.2, 0.3] },
     sides: 'both',
     highlights: {
@@ -492,9 +517,15 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     pose: { joints: SPLIT_TOP },
     keys: [
       { t: 0, label: '後ろの膝を真下へ2〜3秒で下ろす' },
-      { t: 0.27, pose: SPLIT_MID },
+      { t: 0.125, pose: SPLIT_25, pass: true },
+      { t: 0.25, pose: SPLIT_50, pass: true },
+      { t: 0.375, pose: SPLIT_75, pass: true },
+      { t: 0.4375, pose: SPLIT_88, pass: true },
       { t: 0.5, pose: SPLIT_BOTTOM, hold: 0.25, label: '前足の足裏全体で押して戻る' },
-      { t: 0.65, pose: SPLIT_MID },
+      { t: 0.57875, pose: SPLIT_88, pass: true },
+      { t: 0.6075, pose: SPLIT_75, pass: true },
+      { t: 0.665, pose: SPLIT_50, pass: true },
+      { t: 0.7225, pose: SPLIT_25, pass: true },
       { t: 0.78 },
     ],
     loop: 'loop',
@@ -551,7 +582,13 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     pose: { joints: SQUAT_STAND },
     keys: [
       { t: 0, label: 'お尻を引きながら3秒でしゃがむ' },
+      { t: 0.09375, pose: SQUAT_DOWN_25, pass: true },
+      { t: 0.1875, pose: SQUAT_DOWN_50, pass: true },
+      { t: 0.28125, pose: SQUAT_DOWN_75, pass: true },
       { t: 0.375, pose: SQUAT_BOTTOM, hold: 0.4, label: '足裏全体で押して3秒で立つ' },
+      { t: 0.51875, pose: SQUAT_DOWN_75, pass: true },
+      { t: 0.6125, pose: SQUAT_DOWN_50, pass: true },
+      { t: 0.70625, pose: SQUAT_DOWN_25, pass: true },
       { t: 0.8 },
     ],
     loop: 'loop',

@@ -285,8 +285,9 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     // knee to the opposite shoulder with the shin turned in (flexion + adduction + external rotation, the figure-4
     // / piriformis stretch position: Gulledge et al. — longest at ~115° flexion, 40° ER, 10° adduction)
     stretchPose: { joints: { hip_R: { flex: 110, abd: -10, rot: 40 }, knee_R: { flex: 110 } } },
-    // posterolateral close-up from slightly above: sacrum → notch → trochanter all visible, plus the thigh
-    camera: { position: [-0.78, 1.42, -0.92], target: [-0.07, 0.9, -0.02] },
+    // posterolateral close-up from slightly above: sacrum → notch → trochanter all visible, plus the thigh (25 %
+    // closer than before: the small muscle filled only ~1/7 of the card width)
+    camera: { position: [-0.6, 1.29, -0.7], target: [-0.07, 0.9, -0.02] },
     focus: 'hip',
   },
   // ── R3a: iliopsoas — psoas major (2 strands: T12–L2 and L2–L4 bodies / transverse processes) + iliacus
@@ -585,7 +586,9 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     ],
     // 'tailor' position: hip flexion + abduction + external rotation with the knee bent (ankle toward the other knee)
     actionPose: { joints: { hip_R: { flex: 55, abd: 25, rot: 35 }, knee_R: { flex: 85 } } },
-    // lunge with the back leg straight (hip extension + adduction + internal rotation, knee extended)
+    // lunge with the back leg straight (hip extension + adduction + internal rotation, knee extended). The belly only
+    // lengthens ~8 %: the knee is already straight at rest and the hip is at its −35° extension limit; more adduction /
+    // internal rotation adds < 1 % (a 59 cm muscle with a ~5 cm hip moment arm — the real sartorius changes little too).
     stretchPose: BACK_LEG_LUNGE,
     // front, slightly from the right: the oblique course across the thigh from the ASIS to the medial knee
     camera: { dir: [-0.4, 0.12, 1] },
@@ -602,7 +605,9 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
       { type: 'spot', at: 'femur:greater_trochanter_lat', radius: 0.016 },
     ],
     labelAt: 'femur:greater_trochanter_lat',
-    camera: 'iso',
+    // closer front-right oblique ('iso' direction): the default iso framing showed the whole trunk and legs, so the
+    // trochanter was a small dot; a pure side view puts the hanging arm in front of it
+    camera: { position: [-0.98, 1.22, 0.92], target: [-0.12, 0.9, 0.0] },
     focus: 'hip',
   },
   // ── R3a: trochanteric (subgluteus maximus) bursa — thin sac on the posterolateral greater trochanter, between the
@@ -812,8 +817,10 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
       },
     ],
     labelAt: { bone: 'femur', rest: [0.068, 0.79, -0.054] },
-    // from behind, below and to the right: looks up under the buttock at the tendons leaving the sit bone
-    camera: { position: [-0.4, 0.74, -0.62], target: [-0.065, 0.812, -0.04] },
+    // from behind, below and to the right: looks up under the buttock at the tendons leaving the sit bone. Far enough
+    // back to show the pelvis, buttock and thigh too (on the condition page the gluteus maximus / hamstrings around the
+    // tendon otherwise filled the whole card and the body context was lost)
+    camera: { position: [-0.6, 0.7, -0.98], target: [-0.07, 0.83, -0.04] },
     focus: 'hip',
   },
   // ── R3b: pubic symphysis — the fibrocartilage disc between the two pubic bones at the front midline (tinted) + a

@@ -38,9 +38,9 @@ import { CLIPS } from './clips';
 import type { CameraSpec, Clip } from './clips/types';
 import type { Highlight3DRole } from './contract';
 import { Figure } from './figure';
-import { DebugLabels, LabelLayer } from './labels';
-import { type CompiledPoint, compileRef, evalPoint, LANDMARKS } from './landmarks';
-import { type Palette, readPalette } from './materials';
+import { DebugLabels, LabelLayer, type LabelSpec, type MaskCord } from './labels';
+import { type CompiledPoint, compileRef, evalPoint, LANDMARKS, pointSeg } from './landmarks';
+import { colorOf, type Palette, readPalette, xrayMaterial } from './materials';
 import { PropLayer } from './props';
 import {
   type BasePoseName,
@@ -56,6 +56,7 @@ import {
   solveFK,
 } from './rig';
 import { MUSCLE_RIGS, STRUCTURE_RIGS } from './rig-data';
+import { StrandMesh } from './strands';
 
 export interface ViewSpec {
   muscle?: MuscleId;
@@ -100,6 +101,47 @@ export interface EngineEvents {
 export class WebGLUnavailableError extends Error {}
 
 const ROLE_ORDER: Highlight3DRole[] = ['injured', 'selected', 'primary', 'involved', 'secondary'];
+/** Label tier: major roles get full pills; minor roles are smaller and may collapse into 「+N」. */
+const MINOR_ROLES = new Set<Highlight3DRole>(['involved', 'secondary']);
+const MAX_LABELS = 10;
+/** Muscle demo framing: a point part-way from the insertion toward the next joint, so the moving limb stays in view. */
+const DISTAL_REF: Partial<Record<string, string>> = {
+  humerus: 'humerus:lateral_epicondyle',
+  forearm: 'forearm:radius_distal',
+  hand: 'hand:fingertips',
+  femur: 'femur:lateral_epicondyle',
+  patella: 'tibia:anterior_crest_mid',
+  tibia: 'tibia:lateral_malleolus',
+  foot: 'foot:met_head_3',
+  toes: 'toes:toe_tips',
+};
+const DISTAL_FRACTION = 0.6;
+
+const isRigged = (id: string) =>
+  isMuscleId(id) ? !!MUSCLE_RIGS[id]?.strands?.length : !!STRUCTURE_RIGS[id as StructureId]?.parts?.length;
+
+/** Times sampled for framing: every key (start & hold end) + 16 uniform samples. */
+function framingTimes(cc: CompiledClip): number[] {
+  if (!cc.animated) return [0];
+  const set = new Set<number>();
+  const add = (t: number) => set.add(Math.round(Math.min(1, Math.max(0, t)) * 1e4) / 1e4);
+  for (const k of cc.keys) {
+    add(k.t);
+    add(k.tEnd);
+  }
+  for (let i = 0; i < 16; i++) add(i / 16);
+  if (cc.loop === 'pingpong') add(1);
+  return [...set].sort((a, b) => a - b);
+}
+
+/** Quiet compile (the anatomy layer already warns about bad refs). */
+function quietCompile(ref: Parameters<typeof compileRef>[0], side: Side): CompiledPoint | null {
+  try {
+    return compileRef(ref, side);
+  } catch {
+    return null;
+  }
+}
 const STRUCTURE_REGION = new Map<string, RegionId>(STRUCTURES.map((x) => [x.id, x.region as RegionId]));
 const _right = new Vector3();
 const _up = new Vector3();
@@ -169,7 +211,12 @@ export class Engine {
   private io: IntersectionObserver | null = null;
   private mo: MutationObserver | null = null;
   private mq: MediaQueryList | null = null;
-  private labelSide: Side = 'R';
+  private frameDt = 0;
+  /** nerves in scope: see-through copy so a deep nerve stays visible behind muscles / bones */
+  private xray: { sm: StrandMesh; role: Highlight3DRole }[] = [];
+  private xrayMat = xrayMaterial();
+  /** muscle demo framing: insertion → distal joint pairs */
+  private ctxPts: { ins: CompiledPoint; dist: CompiledPoint }[] = [];
   private mode: EngineUiState['mode'] = 'pose';
   private note: string | null = null;
   private legend = false;
@@ -228,7 +275,10 @@ export class Engine {
     this.scene.add(this.anatomy.group);
     this.props = new PropLayer(this.pal);
     this.scene.add(this.props.group);
-    this.labels = new LabelLayer(overlay);
+    this.labels = new LabelLayer(overlay, () => {
+      this.needsRender = true;
+      this.kick();
+    });
 
     const controls = new OrbitControls(this.camera, canvas);
     controls.enableDamping = true;
@@ -328,7 +378,6 @@ export class Engine {
     this.legend = false;
     let cameraSpec: CameraSpec | undefined;
     let focus: RegionId | undefined = spec.focus;
-    let exerciseFallback: Partial<Record<PartId, Highlight3DRole>> | null = null;
     if (spec.muscle) {
       this.mode = 'muscle';
       const rig = MUSCLE_RIGS[spec.muscle];
@@ -351,8 +400,10 @@ export class Engine {
         for (const m of ex.secondary) scope[m] = 'secondary';
         for (const m of ex.primary) scope[m] = 'primary';
         // if none of the data's target muscles is rigged yet, the clip's own highlights are shown instead
-        if (c?.highlights) exerciseFallback = { ...c.highlights };
+        if (c?.highlights && !Object.keys(scope).some(isRigged)) scope = { ...c.highlights };
       } else if (c?.highlights) scope = { ...c.highlights };
+      // clip extras (e.g. a nerve on a nerve glide) on top of the exercise's own targets
+      if (c?.extraHighlights) Object.assign(scope, c.extraHighlights);
       if (!c) {
         this.note = 'このエクササイズの3Dアニメーションは準備中です';
         focus ??= ex?.regions?.[0];
@@ -380,14 +431,15 @@ export class Engine {
 
     const cc = compileClip(clipSrc);
     this.clip = cc;
-    focus ??= cc.focus;
-    this.labelSide = cc.side;
+    // An authored clip / muscle rig frames itself (its own focus, or the whole movement): the page's `focus` prop is
+    // only a fallback there (the UI passes the first region for every exercise / muscle).
+    if (this.mode === 'exercise' && spec.exercise && CLIPS[spec.exercise]) focus = cc.focus;
+    else if (this.mode === 'muscle' && spec.muscle && MUSCLE_RIGS[spec.muscle]) focus = cc.focus ?? spec.focus;
+    else focus ??= cc.focus;
     const scopeSides = this.mode === 'highlights' || this.mode === 'muscle' ? [cc.side] : cc.sides;
     this.anatomy.setScope(scope, scopeSides, { markers, ghosts: !!spec.all });
-    if (exerciseFallback && !this.anatomy.hasVisuals) {
-      scope = { ...exerciseFallback, ...(spec.highlights ?? {}) };
-      this.anatomy.setScope(scope, scopeSides, { markers, ghosts: !!spec.all });
-    }
+    this.buildXray(scope, scopeSides);
+    this.ctxPts = this.mode === 'muscle' && spec.muscle ? this.muscleContext(spec.muscle, cc.side) : [];
     if (this.mode === 'highlights' && Object.keys(scope).length && !this.anatomy.hasVisuals) this.note = '3Dモデルは準備中です';
     if (this.mode === 'exercise' && !this.note && Object.keys(scope).length && !this.anatomy.hasVisuals) this.note = '筋肉の3Dモデルは準備中です';
 
@@ -396,15 +448,6 @@ export class Engine {
     solveFK(evalClip(cc, 0, newPoseVec()), st0);
     placeState(cc, st0);
     this.props.setProps(cc.props, cc.side, cc.mirror, st0);
-
-    // labels
-    const items: { key: string; text: string; color: string }[] = [];
-    for (const [id, role] of Object.entries(scope) as [PartId, Highlight3DRole][]) {
-      items.push({ key: `${id}:${this.mode === 'exercise' && cc.sides.length > 1 ? 'R' : cc.side}`, text: labelName(id), color: this.roleSwatch(role) });
-    }
-    items.sort((a, b) => ROLE_ORDER.indexOf(scope[a.key.split(':')[0] as PartId]!) - ROLE_ORDER.indexOf(scope[b.key.split(':')[0] as PartId]!));
-    this.labels.setItems(items.slice(0, 8));
-    this.labels.visible = spec.labels;
 
     // playback
     this.frozenT = typeof spec.t === 'number' && Number.isFinite(spec.t) ? Math.min(1, Math.max(0, spec.t)) : null;
@@ -431,6 +474,11 @@ export class Engine {
     this.applyHome();
     this.camera.lookAt(this.home.target);
     this.controls.update();
+
+    // labels: one per highlighted part, on the side actually highlighted (both sides → the side nearer the camera)
+    this.setupLabels(scope, scopeSides, st0);
+    this.labels.visible = spec.labels;
+    this.planLabels();
     // floor disc follows the reference bounds
     const cx = (this.bounds.min.x + this.bounds.max.x) / 2;
     const cz = (this.bounds.min.z + this.bounds.max.z) / 2;

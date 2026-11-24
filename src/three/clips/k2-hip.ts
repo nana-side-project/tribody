@@ -386,6 +386,34 @@ const N_HALF = {
   } as Joints,
 };
 const N_HALF_MIRROR = mirrorLR(N_HALF);
+// halfway between N_HALF and N_MID (eng-motion `pass` key): hips, knees, ankles and toes re-solved so the buttocks stay
+// on the mat (≤ 1 mm) with the ankles within 2 cm of the blend — the plain blend let the toes sweep the floor and prop
+// the pelvis ~3 cm up for a moment.
+const N_QUARTER = {
+  root: { pos: N_ROOT_POS, rot: [-10.69, -13.24, 6.11] as [number, number, number] },
+  joints: {
+    lumbar: { flex: -7.9, lat: -4.89, rot: -2.59 },
+    thorax: { rot: -3 },
+    neck: { flex: 12 },
+    shoulder_R: { flex: -3.35, abd: -7.53, rot: 105 },
+    elbow_R: { flex: 19.13 },
+    forearm_R: { sup: -144.75 },
+    wrist_R: { flex: -70 },
+    hip_R: { flex: 135, abd: 35.84, rot: -8.39 },
+    knee_R: { flex: 100.91 },
+    ankle_R: { dorsi: -30.02, inv: -1.01 },
+    toes_R: { ext: 0.64 },
+    shoulder_L: { flex: -9.7, abd: -11.32, rot: 96.75 },
+    elbow_L: { flex: 20 },
+    forearm_L: { sup: -114.18 },
+    wrist_L: { flex: -68.7 },
+    hip_L: { flex: 130.55, abd: 34.65, rot: -41.28 },
+    knee_L: { flex: 106.87 },
+    ankle_L: { dorsi: -27.59, inv: -1.01 },
+    toes_L: { ext: 0.32 },
+  } as Joints,
+};
+const N_QUARTER_MIRROR = mirrorLR(N_QUARTER);
 // hands lifted off the floor (palms ~25 cm up beside the hips, elbows soft) between "hands behind" and "hands on the
 // shin". Chosen with a skin self-collision sweep: the previous via (shoulders extended / adducted behind the back) swept
 // the left arm through the lower back and both hands through the thighs on the way to / from the shin.
@@ -401,6 +429,19 @@ const N_HANDS_UP = {
     elbow_L: { flex: 50 },
     forearm_L: { sup: -90 },
     wrist_L: { flex: 0 },
+  } as Joints,
+};
+// hands just lifted off the floor (elbows bent 60°, wrists kept extended): a `pass` key on the way from "hands
+// behind" to N_HANDS_UP and back (eng-motion) — straightening the wrists while the hands were still down swept the
+// left fingers through the floor and the grounding lifted the whole body ~6 cm for a moment.
+const N_HANDS_LIFT = {
+  root: N_P.root,
+  joints: {
+    ...N_P.joints,
+    elbow_R: { flex: 60 },
+    wrist_R: { flex: -80 },
+    elbow_L: { flex: 60 },
+    wrist_L: { flex: -80 },
   } as Joints,
 };
 const N_LEAN = {
@@ -901,18 +942,24 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     pose: N_P,
     keys: [
       { t: 0, hold: 0.3, label: '手を後ろにつき、両膝を反対側へ倒し替える' },
-      { t: 0.08, pose: N_HALF },
-      { t: 0.14, pose: N_MID },
-      { t: 0.2, pose: N_HALF_MIRROR },
+      { t: 0.08, pose: N_HALF, pass: true },
+      { t: 0.11, pose: N_QUARTER, pass: true },
+      { t: 0.14, pose: N_MID, pass: true },
+      { t: 0.17, pose: N_QUARTER_MIRROR, pass: true },
+      { t: 0.2, pose: N_HALF_MIRROR, pass: true },
       { t: 0.26, pose: N_P_MIRROR, hold: 0.3, label: '同じように元の側へ倒し替える' },
-      { t: 0.34, pose: N_HALF_MIRROR },
-      { t: 0.4, pose: N_MID },
-      { t: 0.46, pose: N_HALF },
+      { t: 0.34, pose: N_HALF_MIRROR, pass: true },
+      { t: 0.37, pose: N_QUARTER_MIRROR, pass: true },
+      { t: 0.4, pose: N_MID, pass: true },
+      { t: 0.43, pose: N_QUARTER, pass: true },
+      { t: 0.46, pose: N_HALF, pass: true },
       { t: 0.52, hold: 0.2, label: '背すじを伸ばしたまま前のすねへ倒す' },
-      { t: 0.6, pose: N_HANDS_UP },
+      { t: 0.565, pose: N_HANDS_LIFT, pass: true },
+      { t: 0.6, pose: N_HANDS_UP, pass: true },
       { t: 0.67, pose: N_LEAN, label: '20秒キープ' },
       { t: 0.86, pose: N_LEAN, label: 'ゆっくり戻る' },
-      { t: 0.91, pose: N_HANDS_UP },
+      { t: 0.91, pose: N_HANDS_UP, pass: true },
+      { t: 0.945, pose: N_HANDS_LIFT, pass: true },
       { t: 0.97 },
     ],
     loop: 'loop',

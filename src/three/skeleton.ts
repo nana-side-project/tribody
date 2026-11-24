@@ -475,8 +475,9 @@ export const BONE_PIECES: BonePieceDef[] = [
         g.push(capsule(R(lb, 0.81, 0.004), R(lh, 0.742, 0.007), 0.0045, 0.0048, 8, 3));
         g.push(capsule(R(lh, 0.736, 0.008), R(lh + 0.001, 0.736 - lens[i], 0.012), 0.0042, 0.0034, 8, 3));
       }
-      g.push(capsule(R(0.268, 0.81, 0.01), R(0.279, 0.776, 0.024), 0.005, 0.005, 8, 3));
-      g.push(capsule(R(0.28, 0.772, 0.026), R(0.286, 0.736, 0.036), 0.0044, 0.0036, 8, 3));
+      // thumb in the palm plane (follows the skin thumb in rig.ts SKIN_SHAPES)
+      g.push(capsule(R(0.268, 0.812, 0.004), R(0.28, 0.779, 0.007), 0.005, 0.005, 8, 3));
+      g.push(capsule(R(0.282, 0.774, 0.007), R(0.291, 0.741, 0.008), 0.0044, 0.0036, 8, 3));
       return g;
     },
   },

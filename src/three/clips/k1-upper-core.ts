@@ -221,6 +221,20 @@ const TRAP_HAND_L = {
   wrist_L: { flex: 28.3 },
 };
 
+// wall slide pass keys (see the clip): 25 / 50 / 75 % of the way from the pressed start to the top
+const WS_25: Pose = { root: { rot: [-1.06, 0, 0] }, joints: { scapula: { protr: 12 }, shoulder: { flex: 103.75, abd: 6, rot: 7.51 }, elbow: { flex: 71.01 }, ankle: { dorsi: -1.06 } } };
+const WS_50: Pose = { root: { rot: [0.01, 0, 0] }, joints: { scapula: { protr: 12 }, shoulder: { flex: 117.5, abd: 9, rot: 15.41 }, elbow: { flex: 57.74 }, ankle: { dorsi: 0.01 } } };
+const WS_75: Pose = { root: { rot: [1.6, 0, 0] }, joints: { scapula: { protr: 12 }, shoulder: { flex: 131.25, abd: 12, rot: 23.27 }, elbow: { flex: 46.5 }, ankle: { dorsi: 1.6 } } };
+
+// band row pass keys (see the clip): the palms move on the straight line between the arms-forward and the pulled
+// positions (shoulder flex / abd and elbow solved, scapulae as the blend) — the plain blend dipped the hands ~6 cm
+const ROW_PULL_25: Pose = { joints: { scapula: { elev: -3.25, protr: 1 }, shoulder: { flex: 35.08, abd: 9 }, elbow: { flex: 51.95 } } };
+const ROW_PULL_50: Pose = { joints: { scapula: { elev: -3.5, protr: -6 }, shoulder: { flex: 18.31, abd: 10.38 }, elbow: { flex: 74.73 } } };
+const ROW_PULL_75: Pose = { joints: { scapula: { elev: -3.75, protr: -13 }, shoulder: { flex: 2.17, abd: 12.29 }, elbow: { flex: 91.77 } } };
+const ROW_BACK_25: Pose = { joints: { scapula: { elev: -3.75, protr: -15 }, shoulder: { flex: 1.96, abd: 12.68 }, elbow: { flex: 91.83 } } };
+const ROW_BACK_50: Pose = { joints: { scapula: { elev: -3.5, protr: -10 }, shoulder: { flex: 18.09, abd: 10.79 }, elbow: { flex: 74.85 } } };
+const ROW_BACK_75: Pose = { joints: { scapula: { elev: -3.25, protr: -5 }, shoulder: { flex: 34.93, abd: 9.26 }, elbow: { flex: 52.08 } } };
+
 export const clips: Partial<Record<ExerciseId, Clip>> = {
   // ───────────── K1a: shoulder strengthening (rotator cuff / scapula) ─────────────
   // isometric external rotation: standing just behind a door frame, painful (right) arm toward the frame,
@@ -369,8 +383,9 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
   // (z 0.358): start elbows 87°; pressing (scapulae protracted +12) leans the body back 1.5°; at the top
   // (flex 145 / abd 15 = a V, ER 30 so the ulnar border still faces the wall, elbows 37°) the body leans 3.5°
   // toward the wall over the planted heels (lean = root pitch + equal ankle dorsiflexion, feet flat).
-  // The wall sits 6 mm beyond that plane: interpolating between the solved keys lets the forearm overlap the
-  // wall by ≤ 2 cm mid-slide (a mid key would fix it but makes the slide stop halfway).
+  // Between the press and the top, three `pass` keys (25 / 50 / 75 %: shoulder flex/abd as the straight blend;
+  // elbow, lean and ER solved) keep the forearm and the hand edge on the wall plane all the way (eng-motion: the
+  // plain blend pushed the forearm 2 cm into the wall mid-slide), and the slide stays one smooth movement.
   'ex-wall-slide': {
     id: 'ex-wall-slide',
     duration: 8,
@@ -387,12 +402,18 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
         pose: { root: { rot: [-1.46, 0, 0] }, joints: { ankle: { dorsi: -1.46 }, scapula: { protr: 12 }, shoulder: { flex: 90, abd: 3, rot: 0 }, elbow: { flex: 85.7 } } },
         label: '押したまま斜め上へ滑らせる（3秒）',
       },
+      { t: 0.19375, pose: WS_25, pass: true },
+      { t: 0.2875, pose: WS_50, pass: true },
+      { t: 0.38125, pose: WS_75, pass: true },
       {
         t: 0.475,
         pose: { root: { rot: [3.55, 0, 0] }, joints: { ankle: { dorsi: 3.55 }, scapula: { protr: 12 }, shoulder: { flex: 145, abd: 15, rot: 30.5 }, elbow: { flex: 36.8 } } },
         hold: 0.4,
         label: '肩甲骨を下げながらゆっくり戻す（3秒）',
       },
+      { t: 0.61875, pose: WS_75, pass: true },
+      { t: 0.7125, pose: WS_50, pass: true },
+      { t: 0.80625, pose: WS_25, pass: true },
       {
         t: 0.9,
         pose: { root: { rot: [-1.46, 0, 0] }, joints: { ankle: { dorsi: -1.46 }, scapula: { protr: 12 }, shoulder: { flex: 90, abd: 3, rot: 0 }, elbow: { flex: 85.7 } } },
@@ -401,7 +422,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     loop: 'loop',
     anchor: { point: 'foot:calcaneus_plantar', axes: 'xz' },
     ground: true,
-    props: [{ kind: 'wall', at: [0, 0, 0.364], normal: [0, 0, -1], width: 1.4, height: 2.2 }],
+    // the wall plane touches the forearms (closest approach over the whole slide 0.1 mm)
+    props: [{ kind: 'wall', at: [0, 0, 0.3595], normal: [0, 0, -1], width: 1.4, height: 2.2 }],
     // from behind-right: the shoulder blades rotating upward and the forearms tracing a V on the wall
     camera: { dir: [-0.5, 0.35, -0.8] },
     frame: ['hand:fingertips', 'hand_L:fingertips', 'scapula:inferior_angle', 'scapula_L:inferior_angle', 'forearm:olecranon', 'forearm_L:olecranon', 'thorax:spinous_T12'],
@@ -466,7 +488,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
   // band row: facing a post, band anchored at lower-chest height (1.13 m), thumbs-up grip, arms forward.
   // Pull: elbows travel back close to the sides (shoulder ext 15 / abd 15, elbows 105°) while the shoulder
   // blades retract (protr +8 → −20) and stay down (elev −3/−4); 2 s pull, 2 s hold, 3 s return, then the
-  // blades open forward slightly (last second). Trunk and neck stay still. Hand path 1.15 → 1.12 m (≤ 7 cm arc).
+  // blades open forward slightly (last second). Trunk and neck stay still. Hand path 1.15 → 1.12 m: `pass` keys
+  // (eng-motion) keep the palms on the straight line toward / away from the post (the plain blend dipped ~6 cm).
   'ex-band-row': {
     id: 'ex-band-row',
     duration: 8,
@@ -478,6 +501,9 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
         pose: { joints: { shoulder: { flex: 62, abd: 8 }, elbow: { flex: 5 }, scapula: { protr: 8, elev: -3 } } },
         label: 'ひじを後ろへ引き、肩甲骨を寄せる（2秒）',
       },
+      { t: 0.0625, pose: ROW_PULL_25, pass: true },
+      { t: 0.125, pose: ROW_PULL_50, pass: true },
+      { t: 0.1875, pose: ROW_PULL_75, pass: true },
       {
         t: 0.25,
         pose: { joints: { shoulder: { flex: -15, abd: 15 }, elbow: { flex: 105 }, scapula: { protr: -20, elev: -4 } } },
@@ -488,6 +514,9 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
         pose: { joints: { shoulder: { flex: -15, abd: 15 }, elbow: { flex: 105 }, scapula: { protr: -20, elev: -4 } } },
         label: '3秒かけて腕を前へ戻す',
       },
+      { t: 0.59375, pose: ROW_BACK_25, pass: true },
+      { t: 0.6875, pose: ROW_BACK_50, pass: true },
+      { t: 0.78125, pose: ROW_BACK_75, pass: true },
       {
         t: 0.875,
         pose: { joints: { shoulder: { flex: 62, abd: 8 }, elbow: { flex: 5 }, scapula: { protr: 0, elev: -3 } } },

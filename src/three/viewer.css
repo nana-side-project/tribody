@@ -11,6 +11,8 @@
   -webkit-tap-highlight-color: transparent;
   --tb3d-glass: rgb(255 255 255 / 0.84);
   --tb3d-glass: color-mix(in srgb, var(--surface, #fff) 86%, transparent);
+  --tb3d-glass-2: rgb(255 255 255 / 0.72);
+  --tb3d-glass-2: color-mix(in srgb, var(--surface, #fff) 74%, transparent);
 }
 .tb3d-host {
   position: absolute;
@@ -33,7 +35,7 @@
   pointer-events: none;
 }
 
-/* floating labels */
+/* floating labels (laid out by labels.ts in the free space around the figure) */
 .tb3d-labels {
   position: absolute;
   inset: 0;
@@ -47,7 +49,10 @@
 .tb3d-leaders line {
   stroke: var(--text-2, #5f5852);
   stroke-width: 1;
-  opacity: 0.65;
+  opacity: 0.7;
+}
+.tb3d-leaders line.minor {
+  opacity: 0.45;
 }
 .tb3d-leaders circle {
   stroke: var(--surface, #fff);
@@ -77,6 +82,52 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(30 27 24 / 0.14);
+}
+/* secondary / involved: smaller & lighter (still ≥ 11 px) */
+.tb3d-label.minor {
+  gap: 4px;
+  padding: 2px 7px 2px 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-2, #5f5852);
+  background: var(--tb3d-glass-2);
+  box-shadow: 0 1px 2px rgb(30 27 24 / 0.06);
+}
+.tb3d-label.minor i {
+  width: 6px;
+  height: 6px;
+}
+/* 「+N」: collapsed secondary labels (tap to show them) */
+.tb3d-more {
+  position: absolute;
+  left: 0;
+  top: 0;
+  min-width: 30px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--border, #e3dcd4);
+  border-radius: 999px;
+  background: var(--tb3d-glass);
+  color: var(--text-2, #5f5852);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
+  will-change: transform;
+}
+.tb3d-more::before {
+  /* larger invisible tap target (≥ 44 px) */
+  content: "";
+  position: absolute;
+  inset: -11px -7px;
+}
+.tb3d-more:focus-visible {
+  outline: 2px solid var(--accent, #b5524c);
+  outline-offset: 1px;
 }
 
 /* phase label & legend */

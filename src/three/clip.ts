@@ -25,6 +25,10 @@ export interface CompiledKey {
   t: number;
   tEnd: number;
   vec: PoseVec;
+  /** pass-through key (ClipKey.pass): the motion does not stop here */
+  pass: boolean;
+  /** per-slot velocity (value per unit of normalised time) at a pass key; null = velocity stop */
+  m: PoseVec | null;
 }
 
 export interface CompiledClip {
@@ -49,6 +53,13 @@ export interface CompiledClip {
 
 const ease = (u: number) => 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, u)));
 
+const clipWarned = new Set<string>();
+function clipWarn(msg: string) {
+  if (clipWarned.has(msg)) return;
+  clipWarned.add(msg);
+  console.warn('[tribody] ' + msg);
+}
+
 export function compileClip(clip: Clip): CompiledClip {
   const mirror = !!clip.mirror;
   const side: Side = mirror ? 'L' : 'R';
@@ -64,9 +75,15 @@ export function compileClip(clip: Clip): CompiledClip {
     applyPose(vec, mp(k.pose));
     const next = srcKeys[i + 1]?.t ?? (clip.loop === 'loop' ? 1 + srcKeys[0].t : 1);
     const t = Math.min(1, Math.max(0, k.t));
-    const tEnd = Math.min(t + (k.hold ?? 0) / dur, next - 0.002);
-    return { t, tEnd: Math.max(t, tEnd), vec };
+    let hold = k.hold ?? 0;
+    if (k.pass && hold > 0) {
+      clipWarn(`clip ${clip.id} key ${i} (t ${k.t}): hold is ignored on a pass key`);
+      hold = 0;
+    }
+    const tEnd = Math.min(t + hold / dur, next - 0.002);
+    return { t, tEnd: Math.max(t, tEnd), vec, pass: !!k.pass, m: null };
   });
+  passTangents(keys, clip.loop === 'pingpong' ? 'pingpong' : 'loop', String(clip.id));
   const labels = srcKeys.filter((k) => k.label).map((k) => ({ t: k.t, label: k.label! }));
   let groundY: number | null;
   const g = clip.ground ?? (baseDef.ground === false ? false : (baseDef.ground ?? 0));
@@ -132,14 +149,15 @@ export function evalClip(cc: CompiledClip, t: number, out: PoseVec): PoseVec {
       return out;
     }
     if (nxt && tt > k.tEnd && tt < nxt.t) {
-      lerpVec(k.vec, nxt.vec, ease((tt - k.tEnd) / Math.max(1e-6, nxt.t - k.tEnd)), out);
+      const h = Math.max(1e-6, nxt.t - k.tEnd);
+      segment(k, nxt, (tt - k.tEnd) / h, h, out);
       return out;
     }
   }
   if (tt > last.tEnd) {
     if (cc.loop === 'loop') {
-      const end = 1 + K[0].t;
-      lerpVec(last.vec, K[0].vec, ease((tt - last.tEnd) / Math.max(1e-6, end - last.tEnd)), out);
+      const h = Math.max(1e-6, 1 + K[0].t - last.tEnd);
+      segment(last, K[0], (tt - last.tEnd) / h, h, out);
     } else out.set(last.vec);
     return out;
   }
@@ -149,6 +167,88 @@ export function evalClip(cc: CompiledClip, t: number, out: PoseVec): PoseVec {
 
 function lerpVec(a: PoseVec, b: PoseVec, u: number, out: PoseVec) {
   for (let i = 0; i < POSE_SIZE; i++) out[i] = a[i] + (b[i] - a[i]) * u;
+}
+
+/**
+ * One segment a → b at local u (0..1) lasting h (normalised time). Two velocity stops: the classic sine ease
+ * (bit-identical to clips without pass keys). Otherwise a cubic Hermite per slot with the pass keys' tangents
+ * (zero at a stop), i.e. C1 through the run of pass keys and eased only at the run's ends.
+ */
+function segment(a: CompiledKey, b: CompiledKey, u: number, h: number, out: PoseVec) {
+  if (!a.m && !b.m) {
+    lerpVec(a.vec, b.vec, ease(u), out);
+    return;
+  }
+  const s = Math.min(1, Math.max(0, u));
+  const s2 = s * s;
+  const s3 = s2 * s;
+  const h00 = 2 * s3 - 3 * s2 + 1;
+  const h01 = 1 - h00;
+  const h10 = (s3 - 2 * s2 + s) * h;
+  const h11 = (s3 - s2) * h;
+  const ma = a.m;
+  const mb = b.m;
+  for (let i = 0; i < POSE_SIZE; i++) {
+    out[i] = h00 * a.vec[i] + h01 * b.vec[i] + (ma ? h10 * ma[i] : 0) + (mb ? h11 * mb[i] : 0);
+  }
+}
+
+/**
+ * Tangents of pass keys: the 3-point (non-uniform Catmull–Rom) slope through the neighbouring keys, limited per
+ * slot like a monotone (Fritsch–Carlson) spline: 0 where the slot turns (local extremum, so it never overshoots a
+ * key value) and at most 3× the smaller neighbouring secant (each segment stays monotone between its keys, so
+ * joint limits and contacts are never crossed by more than the keys themselves).
+ */
+function passTangents(keys: CompiledKey[], loop: 'loop' | 'pingpong', id: string) {
+  const n = keys.length;
+  if (n < 2) {
+    for (const k of keys) k.pass = false;
+    return;
+  }
+  for (let i = 0; i < n; i++) {
+    const k = keys[i];
+    if (!k.pass) continue;
+    let p: CompiledKey;
+    let q: CompiledKey;
+    let tp: number;
+    let tq: number;
+    if (i > 0) {
+      p = keys[i - 1];
+      tp = p.tEnd;
+    } else if (loop === 'loop') {
+      p = keys[n - 1];
+      tp = p.tEnd - 1;
+    } else {
+      clipWarn(`clip ${id}: the first key of a pingpong clip cannot be a pass key`);
+      k.pass = false;
+      continue;
+    }
+    if (i < n - 1) {
+      q = keys[i + 1];
+      tq = q.t;
+    } else if (loop === 'loop') {
+      q = keys[0];
+      tq = q.t + 1;
+    } else {
+      clipWarn(`clip ${id}: the last key of a pingpong clip cannot be a pass key`);
+      k.pass = false;
+      continue;
+    }
+    const h0 = k.t - tp;
+    const h1 = tq - k.t;
+    const m = newPoseVec();
+    if (h0 > 1e-6 && h1 > 1e-6) {
+      for (let j = 0; j < POSE_SIZE; j++) {
+        const d0 = (k.vec[j] - p.vec[j]) / h0;
+        const d1 = (q.vec[j] - k.vec[j]) / h1;
+        if (d0 * d1 <= 0) continue; // turning point (or flat on one side): this slot stops here
+        const cr = (h1 * d0 + h0 * d1) / (h0 + h1);
+        const lim = 3 * Math.min(Math.abs(d0), Math.abs(d1));
+        m[j] = Math.sign(cr) * Math.min(Math.abs(cr), lim);
+      }
+    }
+    k.m = m;
+  }
 }
 
 export function phaseLabel(cc: CompiledClip, t: number): string | null {

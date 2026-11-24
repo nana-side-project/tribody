@@ -575,7 +575,9 @@ export const SKIN_SHAPES: SkinShapeDef[] = [
   { seg: 'forearm', kind: 'capsule', a: [0.197, 1.075, -0.012], b: [0.238, 0.85, 0.0], ra: 0.039, rb: 0.026, loft: true },
   { seg: 'hand', kind: 'ellipsoid', c: [0.246, 0.778, 0.006], r: [0.04, 0.058, 0.017] },
   { seg: 'hand', kind: 'capsule', a: [0.248, 0.735, 0.01], b: [0.254, 0.672, 0.014], ra: 0.019, rb: 0.016 },
-  { seg: 'hand', kind: 'capsule', a: [0.27, 0.8, 0.016], b: [0.282, 0.745, 0.034], ra: 0.012, rb: 0.01 },
+  // thumb: in the palm plane, ~22° out from the index side (it used to stick 2 cm out palmar, so a palm flat on a
+  // wall / floor pushed the thumb tip into it); palmar surface stays behind the palm & finger surfaces
+  { seg: 'hand', kind: 'capsule', a: [0.272, 0.795, 0.005], b: [0.293, 0.743, 0.008], ra: 0.0115, rb: 0.0095 },
   // leg
   { seg: 'femur', kind: 'capsule', a: [0.093, 0.875, -0.006], b: [0.09, 0.53, 0.0], ra: 0.086, rb: 0.055, loft: true },
   { seg: 'tibia', kind: 'ellipsoid', c: [0.089, 0.497, 0.006], r: [0.052, 0.056, 0.052], loft: true },

@@ -16,7 +16,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { bone: 'scapula', rest: [0.108, 1.432, -0.07] },
           { bone: 'scapula', rest: [0.137, 1.438, -0.05] },
           { bone: 'scapula', rest: [0.162, 1.442, -0.016] },
-          { mix: [{ bone: 'scapula', rest: [0.178, 1.438, -0.009] }, { bone: 'humerus', rest: [0.178, 1.438, -0.009] }], t: 0.5 },
+          { mix: [{ bone: 'scapula', rest: [0.178, 1.438, -0.009] }, { bone: 'humerus', rest: [0.178, 1.438, -0.009] }], t: 0.4 },
           { ref: 'humerus:greater_tubercle_sup', off: [0.0, 0.002, -0.004] },
         ],
         radius: 0.0088,
@@ -29,7 +29,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { ref: 'scapula:supraspinous_fossa', off: [0.012, 0.004, 0.012] },
           { bone: 'scapula', rest: [0.138, 1.435, -0.044] },
           { bone: 'scapula', rest: [0.163, 1.441, -0.01] },
-          { mix: [{ bone: 'scapula', rest: [0.179, 1.438, -0.004] }, { bone: 'humerus', rest: [0.179, 1.438, -0.004] }], t: 0.5 },
+          { mix: [{ bone: 'scapula', rest: [0.179, 1.438, -0.004] }, { bone: 'humerus', rest: [0.179, 1.438, -0.004] }], t: 0.4 },
           { ref: 'humerus:greater_tubercle_sup', off: [0.0, 0.002, 0.0] },
         ],
         radius: 0.0105,
@@ -42,7 +42,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { bone: 'scapula', rest: [0.114, 1.426, -0.075] },
           { bone: 'scapula', rest: [0.14, 1.432, -0.04] },
           { bone: 'scapula', rest: [0.164, 1.44, -0.004] },
-          { mix: [{ bone: 'scapula', rest: [0.18, 1.437, 0.001] }, { bone: 'humerus', rest: [0.18, 1.437, 0.001] }], t: 0.5 },
+          { mix: [{ bone: 'scapula', rest: [0.18, 1.437, 0.001] }, { bone: 'humerus', rest: [0.18, 1.437, 0.001] }], t: 0.4 },
           { ref: 'humerus:greater_tubercle_sup', off: [0.0, 0.0, 0.004] },
         ],
         radius: 0.0088,
@@ -53,15 +53,18 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     actionPose: { joints: { shoulder_R: { abd: 75 } } },
     // hand behind the back: extension + adduction + internal rotation
     stretchPose: { joints: { shoulder_R: { flex: -35, abd: -12, rot: -75 }, elbow_R: { flex: 95 }, forearm_R: { sup: -90 } } },
-    camera: 'isoBack',
+    // higher & more lateral than isoBack: also used for the swimmer's-shoulder condition page (first involved rig),
+    // where isoBack hid the injured supraspinatus under the (involved) trapezius
+    camera: { dir: [-0.8, 0.5, -0.65] },
     focus: 'shoulder',
   },
 
   // ── R1a ────────────────────────────────────────────────────────────────────────────────────────
   // infraspinatus: infraspinous fossa (below the spine) → behind the glenohumeral joint → greater tubercle (middle facet).
   // 4 strands fan from the fossa (the engine's scapula is narrow: medial border ≈ 0.085, lateral border ≈ 0.10–0.14).
-  // Via points: lateral fossa + behind the glenoid neck (scapula = pulley), posterior humeral head (humerus) so the tendon
-  // wraps the head in internal rotation / cross-body. The lateral 40 % is tendon (the part draped over the head).
+  // Via points: lateral fossa + behind the glenoid neck (scapula = pulley), then a scapula/humerus mix (t 0.4) behind the
+  // humeral head: it wraps the head in internal rotation / cross-body but, unlike a pure humerus point, does not swing in
+  // front of the neck point in external rotation (that made a 66° hook at the tendon). Lateral 40 % = tendon.
   infraspinatus: {
     id: 'infraspinatus',
     strands: [
@@ -116,7 +119,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     ],
     // external rotation with the elbow at the side
     actionPose: { joints: { shoulder_R: { abd: 10, rot: 60 }, elbow_R: { flex: 90 }, forearm_R: { sup: -85 } } },
-    // cross-body stretch (ex-cross-body-stretch): arm forward at shoulder height pulled across the chest
+    // cross-body stretch (ex-cross-body-stretch) with a little internal rotation (infraspinatus = external rotator;
+    // without it the belly lengthened only ~7 %)
     stretchPose: { joints: { shoulder_R: { flex: 90, abd: -40, rot: -25 }, elbow_R: { flex: 5 }, forearm_R: { sup: -70 } } },
     camera: { dir: [-0.8, 0.12, -0.75] },
     focus: 'shoulder',
@@ -155,9 +159,10 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     camera: { dir: [-0.8, 0.12, -0.75] },
     focus: 'shoulder',
   },
-  // subscapularis: subscapular fossa (costal surface, between scapula and ribs) → in front of the scapular neck → wraps
-  // the front of the humeral head (scapula point + a scapula/humerus mix so it neither cuts the head in external rotation
-  // nor kinks in internal rotation) → lesser tubercle. Thin strands: the engine's scapula lies almost on the ribs.
+  // subscapularis: subscapular fossa (costal surface, between scapula and ribs) → just in front of the scapular neck →
+  // a scapula/humerus mix (t 0.65) in front of the humeral head → lesser tubercle. The mix wraps the head in external
+  // rotation and slides medially with the tubercle in internal rotation (a fixed scapula pulley in front of the head made
+  // a 130° hairpin there). Space between the engine's scapula and ribs is ~2 cm, so the strands stay ≤ 6 mm.
   subscapularis: {
     id: 'subscapularis',
     strands: [
@@ -208,7 +213,9 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     focus: 'shoulder',
   },
   // deltoid: lateral third of the clavicle (anterior) / acromion (middle) / spine of the scapula (posterior)
-  // → draped over the humeral head & greater tubercle → deltoid tuberosity.
+  // → draped over the humeral head & greater tubercle → deltoid tuberosity. Middle part: one via low on the greater
+  // tubercle (a via level with the head folded onto the acromion origin at 80° abduction). Posterior parts: one via behind
+  // the head (two vias on the rotating humerus bent the belly into a boomerang in the hand-behind-back stretch).
   deltoid: {
     id: 'deltoid',
     strands: [
@@ -338,7 +345,10 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     ],
     // adduction + internal rotation in front of the body (all parts shorten; raising the arm would lengthen the lower fibres)
     actionPose: { joints: { shoulder_R: { flex: 20, abd: -25, rot: -30 }, elbow_R: { flex: 90 }, forearm_R: { sup: -80 } } },
-    // doorway stretch: arm at shoulder height, elbow 90° with the forearm up, horizontally abducted 10° behind the body
+    // doorway stretch, forearm up on the frame with the elbow a little below shoulder height (70° abduction, 10° behind
+    // the body, external rotation) and the shoulder blade set back. Every doorway variant lengthens the sternal /
+    // abdominal fibres ≥ 40 % in this model (they run from the lower chest to the raised humerus); this is the gentlest
+    // recognisable one.
     stretchPose: { joints: { shoulder_R: { abd: 70, flex: -10, rot: 50 }, elbow_R: { flex: 90 }, forearm_R: { sup: -90 }, scapula_R: { protr: -8 } } },
     camera: 'iso',
     focus: 'shoulder',
@@ -385,7 +395,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     focus: 'shoulder',
   },
   // biceps brachii: long head (supraglenoid tubercle → over the humeral head → bicipital groove) + short head (coracoid)
-  // → common distal tendon in front of the elbow → radial tuberosity.
+  // → common distal tendon in front of the elbow → radial tuberosity. The distal via sits 4.5 cm above the elbow axis
+  // (at 1.12 the flexed elbow folded the tendon back onto it: 57° hook) and within the thin arm skin (front z ≈ 0.02).
   'biceps-brachii': {
     id: 'biceps-brachii',
     strands: [
@@ -475,7 +486,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
 
   // ── R1b: scapular & back muscles ───────────────────────────────────────────────────────────────
   // trapezius: occiput (superior nuchal line) / nuchal ligament / C7–T12 spinous processes → lateral third of the
-  // clavicle (upper part), acromion & spine of the scapula (middle), root of the spine (lower).
+  // clavicle (upper part), acromion & spine of the scapula (middle), root of the spine (lower). Middle & T8–T10 strands
+  // have no fixed thorax via near the blade: with the blade retracted it kinked the strands back (64°).
   trapezius: {
     id: 'trapezius',
     strands: [
@@ -519,7 +531,6 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '中部（C7〜T1）',
         path: [
           { ref: 'neck:spinous_C7', off: [0.004, 0.0, -0.008] },
-          { bone: 'thorax', rest: [0.06, 1.455, -0.08] },
           { bone: 'clavicle', rest: [0.13, 1.458, -0.054] },
           { ref: 'scapula:acromion', off: [-0.021, 0.006, -0.01] },
         ],
@@ -531,7 +542,6 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '中部（T1〜T2）',
         path: [
           { ref: 'thorax:spinous_T2', off: [0.005, 0.006, -0.002] },
-          { bone: 'thorax', rest: [0.06, 1.435, -0.09] },
           { bone: 'scapula', rest: [0.12, 1.443, -0.066] },
           { bone: 'scapula', rest: [0.163, 1.446, -0.058] },
         ],
@@ -543,7 +553,6 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '中部（T3〜T4）',
         path: [
           { ref: 'thorax:spinous_T3', off: [0.005, -0.006, -0.004] },
-          { bone: 'thorax', rest: [0.05, 1.405, -0.108] },
           { bone: 'scapula', rest: [0.1, 1.415, -0.104] },
           { bone: 'scapula', rest: [0.125, 1.422, -0.099] },
         ],
@@ -597,7 +606,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     focus: 'shoulder',
   },
   // rhomboids: minor (lower nuchal ligament, C7–T1) and major (T2–T5) → medial border of the scapula
-  // (root of the spine → inferior angle). Thin sheets on the ribs, deep to the trapezius.
+  // (root of the spine → inferior angle). Thin sheets on the ribs, deep to the trapezius. One rib-surface via close to
+  // the spine: vias further out made the retracted strands run vertically (S-shaped) to the border.
   rhomboids: {
     id: 'rhomboids',
     strands: [
@@ -605,7 +615,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '小菱形筋（C7〜T1）',
         path: [
           { ref: 'thorax:spinous_T1', off: [0.005, 0.004, -0.003] },
-          { bone: 'thorax', rest: [0.022, 1.433, -0.089] },
+          { bone: 'thorax', rest: [0.022, 1.433, -0.093] },
           { bone: 'scapula', rest: [0.079, 1.39, -0.098] },
         ],
         radius: 0.003,
@@ -616,7 +626,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '大菱形筋（T2〜T3）',
         path: [
           { ref: 'thorax:spinous_T2', off: [0.005, -0.004, -0.002] },
-          { bone: 'thorax', rest: [0.022, 1.398, -0.101] },
+          { bone: 'thorax', rest: [0.022, 1.398, -0.106] },
           { bone: 'scapula', rest: [0.083, 1.345, -0.1] },
         ],
         radius: 0.0032,
@@ -627,7 +637,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '大菱形筋（T3〜T4）',
         path: [
           { ref: 'thorax:spinous_T4', off: [0.005, -0.005, 0.0] },
-          { bone: 'thorax', rest: [0.025, 1.343, -0.115] },
+          { bone: 'thorax', rest: [0.025, 1.343, -0.120] },
           { bone: 'scapula', rest: [0.085, 1.29, -0.104] },
         ],
         radius: 0.0032,
@@ -638,7 +648,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '大菱形筋（T4〜T5）',
         path: [
           { ref: 'thorax:spinous_T5', off: [0.005, -0.006, 0.0] },
-          { bone: 'thorax', rest: [0.025, 1.298, -0.118] },
+          { bone: 'thorax', rest: [0.025, 1.298, -0.123] },
           { ref: 'scapula:inferior_angle', off: [-0.002, 0.004, -0.004] },
         ],
         radius: 0.003,
@@ -699,7 +709,10 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
 
   // latissimus dorsi: T7–T12 spinous processes, thoracolumbar fascia (L1–L5), posterior iliac crest, ribs 10–12
   // (+ a slip over the inferior angle) → posterior axillary fold → twists round the medial side of the humerus →
-  // floor of the intertubercular groove (the lowest fibres insert highest). Thin sheets on the ribs.
+  // floor of the intertubercular groove (the lowest fibres insert highest). Thin sheets on the ribs. Near the insertion:
+  // axillary thorax/humerus mix (t 0.4) + a scapula/humerus mix (t 0.6) along the teres-major line (a pure humerus via
+  // above the insertion hooked 86° in extension); the upper two strands ride the inferior angle / lateral border with
+  // thorax/scapula mixes so the blade does not swallow them when it rotates up overhead.
   'latissimus-dorsi': {
     id: 'latissimus-dorsi',
     strands: [
@@ -779,7 +792,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     ],
     // demo starts with the arm reaching forward-up (like the catch of the swim stroke)
     restPose: { joints: { shoulder_R: { flex: 60 }, elbow_R: { flex: 15 }, forearm_R: { sup: -90 } } },
-    // pull: arm drawn down and back past the hip with internal rotation (extension + adduction + IR = the swim pull)
+    // pull: arm drawn down and just behind the hip with internal rotation (the swim pull). Deeper extension (−30°)
+    // folded the tendon back round the humerus at the insertion.
     actionPose: { joints: { shoulder_R: { flex: -10, rot: -25 }, elbow_R: { flex: 15 } } },
     // overhead reach with a side bend to the opposite side (ex-lat-stretch: arms overhead, chest sinking)
     stretchPose: { joints: { shoulder_R: { flex: 150, abd: 10, rot: 10 }, elbow_R: { flex: 20 }, thorax: { lat: -10 } } },
@@ -789,6 +803,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
   // serratus anterior: one digitation per rib (1–9) on the lateral chest wall → wraps backward round the ribs, deep to
   // the scapula → costal (front) surface of the medial border: rib 1–2 to the superior angle, ribs 2–3 along the border,
   // ribs 4–9 converging on the inferior angle. (The engine's scapula lies on the ribs, so the part under the blade is hidden.)
+  // Ribs 3–9: one thorax/scapula mix (t 0.35) on the posterolateral chest wall. (A second, scapula-fixed point on the
+  // lateral costal surface swung in front of the first in protraction and curled the lower digitations into loops.)
   'serratus-anterior': {
     id: 'serratus-anterior',
     strands: [
@@ -892,7 +908,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         flat: { width: 0.0189, normal: 'lateral' },
       },
     ],
-    // pushing the shoulder blade forward round the chest (protraction + upward rotation: punch / push-up plus)
+    // pushing the shoulder blade forward round the chest (protraction + upward rotation: punch / push-up plus). The
+    // engine's blade swings far round the chest, so a small extra protraction (5°) already shortens the digitations ~30 %
     // the arm is held a little away from the side so the digitations on the chest wall stay in view
     restPose: { joints: { shoulder_R: { abd: 45 } } },
     actionPose: { joints: { shoulder_R: { flex: 90, abd: 0 }, elbow_R: { flex: 0 }, forearm_R: { sup: -90 }, scapula_R: { protr: 5 } } },
@@ -1022,7 +1039,8 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
       },
     ],
     labelAt: { bone: 'humerus', rest: [0.191, 1.37, 0.026] },
-    camera: 'iso',
+    // close front-lateral view of the bicipital groove (the iso full-body view left only a hairline)
+    camera: { position: [-0.5, 1.52, 0.46], target: [-0.18, 1.37, 0.012] },
     focus: 'shoulder',
   },
   // ── R1b ────────────────────────────────────────────────────────────────────────────────────────

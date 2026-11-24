@@ -45,6 +45,12 @@ export interface ClipKey {
   label?: string;
   /** Seconds to hold this key's pose before moving on (taken out of the time until the next key). */
   hold?: number;
+  /**
+   * Pass-through key: the motion goes THROUGH this pose without stopping (C1 monotone spline through the run of
+   * pass keys, eased only at the neighbouring normal keys). Use it for solved mid poses that keep a contact.
+   * `hold` is ignored on a pass key; the first / last key of a 'pingpong' clip cannot pass.
+   */
+  pass?: boolean;
 }
 
 /** Camera: a preset name, a custom view direction (auto-fitted, recommended), or an exact position/target. */
@@ -76,4 +82,8 @@ export interface Clip {
   sides?: 'R' | 'L' | 'both';
   /** Override / fallback highlights when the exercise data has none. */
   highlights?: Partial<Record<MuscleId | StructureId, Highlight3DRole>>;
+  /** Extra parts highlighted IN ADDITION to the exercise's own targets (Exercise.primary / secondary, or the
+   *  fallback `highlights`), merged on top in exercise mode — e.g. `{ 'sciatic-nerve': 'primary' }` on a nerve glide.
+   *  Structures (nerves, tendons…) are allowed. */
+  extraHighlights?: Partial<Record<MuscleId | StructureId, Highlight3DRole>>;
 }
