@@ -5,6 +5,7 @@
 // Scale ≈ 10.8 units / cm: knee joint line y≈40, ankle joint y≈420, sole y≈508.
 import type { RegionDiagram, RegionDiagramProps } from '../types';
 import { Ctxt, Frame, HoleMask, M, Nerve, Part, Ten, ell, line, muscle, sp, useCtx, type Ctx, type Lab, type P, type Spot } from './hip';
+import { FlSoleInset, SOLE_INSET, soleInsetPt } from './footsole';
 
 const W = 360;
 const H = 520;
@@ -161,18 +162,38 @@ function CalfBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'calf-upper', at: [150, 176] },
     { id: 'calf-lower', at: [160, 366] },
   ];
+  // fibularis longus shown on its own (muscle page): add a sole inset below the heel with its insertion
+  const flSolo = k.hl['fibularis-longus'] === 'selected' || k.hl['fibularis-longus'] === 'muscle';
+  if (flSolo) {
+    labels.push(
+      { id: 'fibularis-longus', t: '長腓骨筋腱', at: soleInsetPt([136, 352]), x: 266, y: 588 },
+      { id: 'fibularis-longus', t: '停止：\n第1中足骨底\n内側楔状骨', at: soleInsetPt([236, 296]), x: 104, y: 600, a: 'end' },
+    );
+  }
   return (
     <Frame
       k={k}
       p={lfp(p)}
       w={W}
-      h={H}
+      h={flSolo ? SOLE_INSET.y + SOLE_INSET.h + 8 : H}
       title="右のふくらはぎを後ろから見た図（左が内側、右が外側）"
       cap={['← 内側', '右脚・後ろから']}
       labels={labels}
       spots={spots}
       fade={{ top: 34 }}
       defs={<LfStyle />}
+      overlay={
+        flSolo && (
+          <FlSoleInset k={k} from={[222, 458]}>
+            <text className="cap-t" x={104} y={SOLE_INSET.y + 14} textAnchor="end">
+              足の裏
+            </text>
+            <text className="cap-t" x={104} y={SOLE_INSET.y + 30} textAnchor="end">
+              （下から）
+            </text>
+          </FlSoleInset>
+        )
+      }
     >
       <Ctxt k={k}>
         <path className="body" d={BB.body} />

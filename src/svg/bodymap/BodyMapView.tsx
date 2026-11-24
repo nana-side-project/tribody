@@ -80,6 +80,8 @@ interface LensState {
   originY: number;
   /** ring drawn on the map around the magnified area (canvas units) */
   ring: { x: number; y: number; r: number };
+  /** hotspot nearest the tap (focus returns there when the lens is dismissed) */
+  nearKey: string;
   seq: number;
 }
 
@@ -103,6 +105,8 @@ export default function BodyMapView(props: BodyMapViewProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [pxPerUnit, setPxPerUnit] = useState(0.57);
+  /** rendered map width (px): popups close when it changes (rotation, window resize) */
+  const [boxW, setBoxW] = useState(0);
   const [lastPick, setLastPick] = useState<{ id: PainSpotId; side: Side } | null>(null);
   const [chooser, setChooser] = useState<Chooser | null>(null);
   const [lens, setLens] = useState<LensState | null>(null);
@@ -122,7 +126,10 @@ export default function BodyMapView(props: BodyMapViewProps) {
     if (!svg) return;
     const measure = () => {
       const r = svg.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0) setPxPerUnit(Math.min(r.width / vbW, r.height / vbH));
+      if (r.width > 0 && r.height > 0) {
+        setPxPerUnit(Math.min(r.width / vbW, r.height / vbH));
+        setBoxW(Math.round(r.width));
+      }
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
@@ -139,8 +146,8 @@ export default function BodyMapView(props: BodyMapViewProps) {
     setChooser(null);
     setLens(null);
     if (l && refocus) {
-      // back to the hotspot nearest the magnified area, so keyboard users keep their place
-      const k = l.layout.items[0]?.spot.key;
+      // back to the hotspot nearest the tap, so keyboard / screen-reader users keep their place
+      const k = l.nearKey;
       try {
         if (k) svgRef.current?.querySelector<SVGGElement>(`.tb-spots [data-key="${k}"]`)?.focus({ preventScroll: true });
       } catch {
@@ -149,8 +156,10 @@ export default function BodyMapView(props: BodyMapViewProps) {
     }
   }, []);
 
-  // close the chooser / lens on view change, resize, outside tap, Escape
-  useEffect(() => closePopups(), [view, pxPerUnit, closePopups]);
+  // close the chooser / lens on view change, width change (rotation), outside tap, Escape. Not on a
+  // height-only change: on phones the map's height follows 100dvh, which changes whenever the browser's
+  // address bar shows or hides — the open lens stays valid then (its layout is in px, the ring in map units).
+  useEffect(() => closePopups(), [view, boxW, closePopups]);
   const popupOpen = !!chooser || !!lens;
   useEffect(() => {
     if (!popupOpen) return;
@@ -250,14 +259,36 @@ export default function BodyMapView(props: BodyMapViewProps) {
     const cardW = Math.round(Math.min(372, vw - 16));
     const layout = layoutLens(decision.spots, cardW - 2 * LENS_PAD, c.scale, decision.required);
     const H = LENS_HEAD_H + layout.h + LENS_PAD + 2;
-    // above the tap if it fits (may overlap the view switcher a little), else below it
+    // above the tap if it fits in the map (may overlap the view switcher a little), else below it —
+    // but prefer whichever side is on screen as it is, so the page doesn't have to scroll under the finger
     const minTop = -56;
-    const top = y - 18 - H >= minTop ? y - 18 - H : Math.min(y + 18, Math.max(minTop, wr.height + 96 - H));
+    const above = y - 18 - H;
+    const below = y + 18;
+    const roomAbove = above >= minTop;
+    const roomBelow = below + H <= wr.height + 96;
+    let tabH = 64;
+    try {
+      tabH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tabbar-h')) || 64;
+    } catch {
+      /* ignore */
+    }
+    const onScreen = (t: number) => wr.top + t >= 8 && wr.top + t + H <= window.innerHeight - tabH - 8;
+    // (below the map is fine too when it is on screen: the card floats over the footer / region tiles)
+    const top =
+      roomAbove && onScreen(above)
+        ? above
+        : onScreen(below)
+          ? below
+          : roomAbove
+            ? above
+            : roomBelow
+              ? below
+              : Math.max(minTop, wr.height + 96 - H);
     const left = Math.max(8 - wr.left, Math.min(vw - 8 - wr.left - cardW, x - cardW / 2));
     const r = Math.max(...layout.items.map((i) => Math.hypot(i.spot.x - layout.cx, i.spot.y - layout.cy))) + 16 / c.scale;
     setChooser(null);
     lensSeq.current++;
-    setLens({ layout, left, top, originX: x - left, originY: y - top, ring: { x: layout.cx, y: layout.cy, r }, seq: lensSeq.current });
+    setLens({ layout, left, top, originX: x - left, originY: y - top, ring: { x: layout.cx, y: layout.cy, r }, nearKey: decision.spots[0].key, seq: lensSeq.current });
   };
 
   const onSpotKey = (e: KeyboardEvent<SVGGElement>, s: PlacedSpot) => {
@@ -451,6 +482,7 @@ export default function BodyMapView(props: BodyMapViewProps) {
           activeIds={active}
           onPick={pick}
           onClose={() => closePopups(true)}
+          onLeave={() => closePopups()}
         />
       )}
 

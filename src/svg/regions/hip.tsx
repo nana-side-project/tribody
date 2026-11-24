@@ -374,7 +374,7 @@ export const KIT_CSS = `
 /* labels */
 .thk-lab { cursor: default; }
 .thk-lab[role="button"] { cursor: pointer; }
-.thk-lab text { font-size: 13px; font-weight: 500; fill: var(--text-2); paint-order: stroke; stroke: var(--surface);
+.thk-lab text { font-size: 13.25px; font-weight: 500; fill: var(--text-2); paint-order: stroke; stroke: var(--surface);
   stroke-width: 3.2px; stroke-linejoin: round; }
 .thk-lab .ld { fill: none; stroke: var(--text-2); stroke-width: .75; opacity: .65; }
 .thk-lab .ldot { fill: var(--text-2); opacity: .85; }
@@ -580,8 +580,8 @@ export interface Spot {
   at: readonly number[];
 }
 
-const FS = 13; // label font size in user units (≈ 11 CSS px on a 360 px phone, 12 px at 390)
-const LH = 15;
+const FS = 13.25; // label font size in user units (≥ 11 CSS px on a 360 px phone, ≈ 12.2 px at 390)
+const LH = 15.25;
 
 function Label({ k, l }: { k: Ctx; l: Lab }) {
   const lines = l.t.split('\n');

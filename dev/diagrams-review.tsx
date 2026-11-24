@@ -283,7 +283,7 @@ function runChecks(): string[] {
         if (b.left < rect.left - 0.5 || b.right > rect.right + 0.5 || b.top < rect.top - 0.5 || b.bottom > rect.bottom + 0.5)
           out.push(`${tag}: label "${t}" clipped`);
         const fs = parseFloat(getComputedStyle(labs[boxes.findIndex((x) => x.t === t)]).fontSize) * (rect.width / svg.viewBox.baseVal.width);
-        if (fs < 10.5 || fs > 13) out.push(`${tag}: label "${t}" renders at ${fs.toFixed(1)} px`);
+        if (fs < 11 || fs > 13.5) out.push(`${tag}: label "${t}" renders at ${fs.toFixed(1)} px`);
       }
       const caps = [...host.querySelectorAll<SVGTextElement>('.cap-t')].map((t) => ({ t: t.textContent ?? '', b: t.getBoundingClientRect() }));
       for (const c of caps) {

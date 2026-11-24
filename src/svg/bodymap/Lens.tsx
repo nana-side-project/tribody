@@ -2,7 +2,7 @@
 // figure enlarged, with every nearby hotspot as a big dot and a named callout (both tappable).
 // Layout comes from ./lens.ts; the artwork is the same as the map's (same CSS classes, so the
 // light/dark tokens apply).
-import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { Fragment, useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from 'react';
 import type { PainSpotId } from '../../data/registry';
 import type { FigureArt } from './figure';
 import { type LensLayout, lensItemAt } from './lens';
@@ -20,7 +20,10 @@ export interface LensProps {
   originY: number;
   activeIds: ReadonlySet<PainSpotId>;
   onPick: (s: PlacedSpot) => void;
+  /** close button (focus goes back to the map) */
   onClose: () => void;
+  /** keyboard focus moved on past the card (e.g. Tab after the close button): close, leave focus where it went */
+  onLeave: () => void;
 }
 
 export const LENS_HEAD_H = 44;
@@ -30,25 +33,35 @@ export const LENS_PAD = 6;
 const DOT = 7;
 const HALO = 15;
 
-export default function Lens({ uid, art, layout, left, top, originX, originY, activeIds, onPick, onClose }: LensProps) {
+export default function Lens({ uid, art, layout, left, top, originX, originY, activeIds, onPick, onClose, onLeave }: LensProps) {
   const { w, h, m, cx, cy, colW, items, side: oneSide } = layout;
   const ref = useRef<HTMLDivElement>(null);
   const [hot, setHot] = useState<string | null>(null);
+  /** the grow-in animation starts only after the card has been scrolled into view (see below) */
+  const [shown, setShown] = useState(false);
 
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     // focus the dialog itself (screen readers announce it; Tab / ↓ reach the choices) — not the first
     // choice, which would look pre-selected to someone who just tapped
     el.focus({ preventScroll: true });
-    // bring the whole card into view (above the tab bar) — instantly, so targets don't move under a finger
+    // bring the whole card into view (above the tab bar) — instantly, so targets don't move under a finger.
+    // This runs before the first paint and before the grow-in animation is switched on: measured while
+    // scaled down, the card would look as if it fitted and stay cut off at the top of the screen.
     try {
       el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     } catch {
       /* ignore */
     }
+    setShown(true);
   }, []);
+
+  const onBlur = (e: FocusEvent<HTMLDivElement>) => {
+    const to = e.relatedTarget as Node | null;
+    // only when focus lands somewhere else on the page (null = a click on a non-focusable spot: handled elsewhere)
+    if (to && !e.currentTarget.contains(to)) onLeave();
+  };
 
   const vb = `${(cx - w / 2 / m).toFixed(2)} ${(cy - h / 2 / m).toFixed(2)} ${(w / m).toFixed(2)} ${(h / m).toFixed(2)}`;
 
@@ -80,31 +93,29 @@ export default function Lens({ uid, art, layout, left, top, originX, originY, ac
     list[next].focus();
   };
 
-  const titleId = `${uid}-lens-t`;
+  // the accessible name is set as one string: the title's flex items would otherwise be read with gaps
+  // (「拡大：どこが痛みますか？ （ 右 側）」)
+  const title = `拡大：どこが痛みますか？${oneSide ? `（${SIDE_JA[oneSide]}側）` : ''}`;
   return (
     <div
       ref={ref}
-      className="tb-lens"
+      className={`tb-lens${shown ? ' is-shown' : ''}`}
       role="dialog"
-      aria-labelledby={titleId}
+      aria-label={title}
       tabIndex={-1}
       style={{ left, top, width: w + 2 * LENS_PAD, transformOrigin: `${originX.toFixed(0)}px ${originY.toFixed(0)}px` }}
       onKeyDown={onKey}
+      onBlur={onBlur}
     >
       <div className="tb-lens-head" style={{ height: LENS_HEAD_H }}>
         <svg className="tb-lens-icon" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="10.5" cy="10.5" r="6.5" />
           <path d="M15.4 15.4 20 20M8 10.5h5M10.5 8v5" />
         </svg>
-        <span className="tb-lens-title" id={titleId}>
+        <span className="tb-lens-title" aria-hidden="true">
           拡大：どこが痛みますか？
           {oneSide && <span className="tb-lens-side-chip">{SIDE_JA[oneSide]}</span>}
         </span>
-        <button type="button" className="tb-lens-close" aria-label="拡大を閉じる" onClick={onClose}>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />
-          </svg>
-        </button>
       </div>
       <div
         className="tb-lens-stage"
@@ -204,6 +215,12 @@ export default function Lens({ uid, art, layout, left, top, originX, originY, ac
           </button>
         ))}
       </div>
+      {/* after the choices in tab order; drawn in the header */}
+      <button type="button" className="tb-lens-close" aria-label="拡大を閉じる" onClick={onClose}>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />
+        </svg>
+      </button>
     </div>
   );
 }

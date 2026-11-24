@@ -325,6 +325,9 @@
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.08);
   scroll-margin: 12px 0 calc(var(--tabbar-h, 64px) + var(--safe-bottom, 0px) + 12px);
   outline: none;
+}
+/* switched on once the card has been scrolled into view (Lens.tsx): measuring a scaled-down card would leave it cut off */
+.tb-lens.is-shown {
   animation: tb-lens-in 0.18s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 @keyframes tb-lens-in {
@@ -338,7 +341,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tb-lens {
+  .tb-lens.is-shown {
     animation: none;
   }
 }
@@ -346,7 +349,15 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding-left: 12px;
+  padding: 0 48px 0 12px;
+}
+.tb-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 .tb-lens-icon {
   flex: none;
@@ -377,7 +388,9 @@
   font-weight: 700;
 }
 .tb-lens-close {
-  flex: none;
+  position: absolute;
+  top: 0;
+  right: 2px;
   display: grid;
   place-items: center;
   width: 44px;
@@ -476,6 +489,7 @@
   flex-direction: column;
   justify-content: center;
   align-items: flex-start;
+  min-width: 44px;
   min-height: 44px;
   margin: 0;
   padding: 4px 7px;

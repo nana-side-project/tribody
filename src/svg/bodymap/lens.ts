@@ -4,9 +4,9 @@
 // hotspots (knee front / below / outer / inner, the back-of-ankle group, hip / groin, shoulder…) sit
 // 11–20 px apart: closer than a fingertip. A tap is therefore resolved in two steps:
 //   1. decideTap(): a tap that is clearly on one hotspot picks it straight away; a tap that could
-//      belong to a neighbour as well (another hotspot within SAFE_PX, or almost as close as the
+//      belong to a neighbour as well (another hotspot within TAP.safePx, or almost as close as the
 //      nearest) never guesses — it opens the lens.
-//   2. layoutLens(): the lens magnifies that part of the figure ~2.5–4.5× and lays the nearby
+//   2. layoutLens(): the lens magnifies that part of the figure (up to 4.5×) and lays the nearby
 //      hotspots out as big dots with named callouts (≥ 44 px targets) in two columns.
 // Both are pure functions of the placed hotspots (canvas units) and the rendered scale, so the
 // rules are unit-tested (lens.test.ts) independently of the DOM.
@@ -18,12 +18,20 @@ export const TAP = {
   hitPx: 22,
   /**
    * Direct pick only if every other hotspot (except the same spot on the other side) is farther than
-   * this from the tap. Finger taps land up to ~10 px off target, so a hotspot within 14 px of the
+   * this from the tap. Finger taps land up to ~10 px off target, so a hotspot within 12 px of the
    * tap could be the one meant: ask instead of guessing.
    */
-  safePx: 14,
+  safePx: 12,
   /** …and farther than the nearest one by at least this much (no coin-flip between two spots). */
-  gapPx: 6,
+  gapPx: 5,
+  /**
+   * The same spot on the other side of the body is a rival like any other neighbour when the pair is at
+   * least this far apart (canvas units) — the inner knees, the groin (15–20 px apart on a phone) — so a
+   * tap between the two asks which side instead of guessing. The pairs either side of the spine (neck 22,
+   * low back 28 units apart: 9–16 px) never ask: they are too close for a side to be tapped reliably, and
+   * asking would add a step to the commonest spine taps; the nearer side wins there.
+   */
+  twinUnits: 35,
   /** The lens offers every hotspot within this radius of the tap (CSS px)… */
   lensPx: 30,
   /** …at most this many. */
@@ -54,8 +62,9 @@ export function rankSpots(spots: readonly PlacedSpot[], x: number, y: number, sc
 
 /**
  * What a tap at canvas point (x, y) should do. `scale` = CSS px per canvas unit; `onBody` = the tap
- * landed on the silhouette. The same spot drawn on both sides of the midline (neck, low back, groin)
- * is never ambiguous: the nearer side wins.
+ * landed on the silhouette. The same spot drawn on both sides of the midline counts as a rival only
+ * when the pair is TAP.twinUnits or more apart and the tap is about as close to both (inner knees,
+ * groin); for the pairs either side of the spine (neck, low back) the nearer side wins.
  */
 export function decideTap(
   spots: readonly PlacedSpot[],
@@ -68,9 +77,13 @@ export function decideTap(
   const a = ranked[0];
   if (!a) return { kind: 'none' };
   const others = ranked.slice(1).filter((r) => r.s.id !== a.s.id);
+  const twin = ranked.find((r) => r.s.id === a.s.id && r.s.key !== a.s.key);
+  const twinRival = !!twin && Math.hypot(twin.s.x - a.s.x, twin.s.y - a.s.y) >= TAP.twinUnits;
+  const byDist = (list: Ranked[]) => list.sort((p, q) => p.d - q.d);
   let conflicts: Ranked[];
   if (a.d <= TAP.hitPx) {
     conflicts = others.filter((r) => r.d < TAP.safePx || r.d < a.d + TAP.gapPx);
+    if (twinRival && (twin.d < TAP.safePx || twin.d < a.d + TAP.gapPx)) conflicts = byDist([...conflicts, twin]);
   } else {
     if (!onBody) return { kind: 'none' };
     if (a.d > Math.min(TAP.bodyPx, TAP.bodyUnits * scale)) {
@@ -80,6 +93,7 @@ export function decideTap(
     }
     // a tap on the body just outside the hotspots: snap, unless another one is about as close
     conflicts = others.filter((r) => r.d < a.d + 2 * TAP.gapPx);
+    if (twinRival && twin.d < a.d + 2 * TAP.gapPx) conflicts = byDist([...conflicts, twin]);
   }
   if (conflicts.length === 0) return { kind: 'pick', spot: a.s };
   const last = conflicts[conflicts.length - 1].d;
@@ -124,6 +138,9 @@ export const LENS = {
   /** magnification limits relative to the map's own scale */
   minZoom: 2.2,
   maxZoom: 4.5,
+  /** optional extra hotspots are dropped if they'd bring the zoom below this, or two dots closer than minSepPx */
+  goodZoom: 3,
+  minSepPx: 36,
   /** width (px) of the middle band that holds the magnified dots */
   inner: 88,
   /** padding (px) kept between the dots and the callout columns / stage edges */
@@ -169,7 +186,16 @@ export function calloutLines(parts: readonly string[], cw: number, extraEm = 0):
 
 const calloutHeight = (lines: number) => Math.max(LENS.minH, Math.ceil(lines * LENS.lineH + 2 * LENS.padV));
 
-const colWidth = (w: number) => Math.round(Math.min(140, Math.max(92, (w - LENS.inner - 2 * LENS.padX) / 2)));
+/**
+ * Callout column width: as wide as possible (≤ 140), leaving a middle band of at least LENS.inner px —
+ * wider when the group needs it to magnify goodZoom× with its dots minSepPx apart (columns ≥ 92 px).
+ */
+function colWidth(spots: readonly PlacedSpot[], w: number, scale: number): number {
+  const b = bbox(spots);
+  const want = Math.min(LENS.maxZoom * scale, Math.max(LENS.goodZoom * scale, LENS.minSepPx / minGap(spots)));
+  const band = Math.max(LENS.inner, (b.x1 - b.x0) * want);
+  return Math.round(Math.min(140, Math.max(92, (w - band - 2 * LENS.padX) / 2)));
+}
 /** content width of a callout in a column of width colW */
 export const calloutContentW = (colW: number) => colW - 8 - 2 * LENS.padH;
 
@@ -198,9 +224,17 @@ function bbox(spots: readonly PlacedSpot[]) {
   return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
 }
 
-function fitZoom(spots: readonly PlacedSpot[], w: number, h: number) {
+/** smallest distance between two of the hotspots (canvas units) */
+function minGap(spots: readonly PlacedSpot[]): number {
+  let g = Infinity;
+  for (let i = 0; i < spots.length; i++)
+    for (let j = i + 1; j < spots.length; j++) g = Math.min(g, Math.hypot(spots[i].x - spots[j].x, spots[i].y - spots[j].y));
+  return g;
+}
+
+function fitZoom(spots: readonly PlacedSpot[], w: number, h: number, colW: number) {
   const b = bbox(spots);
-  const innerW = w - 2 * colWidth(w) - 2 * LENS.padX;
+  const innerW = w - 2 * colW - 2 * LENS.padX;
   const innerH = h - 2 * LENS.padY;
   return Math.min(innerW / Math.max(1, b.x1 - b.x0), innerH / Math.max(1, b.y1 - b.y0));
 }
@@ -213,10 +247,15 @@ function fitZoom(spots: readonly PlacedSpot[], w: number, h: number) {
  * they would spread the group too wide to magnify at least LENS.minZoom×.
  */
 export function layoutLens(all: readonly PlacedSpot[], w: number, scale: number, required = all.length): LensLayout {
+  // extras are context, not worth shrinking the view for: keep them only while the group still
+  // magnifies ≥ goodZoom× with every pair of dots ≥ minSepPx apart
+  const roomy = (set: readonly PlacedSpot[]) => {
+    const m = Math.min(LENS.maxZoom * scale, fitZoom(set, w, LENS.minStageH, colWidth(set, w, scale)));
+    return m >= LENS.goodZoom * scale && minGap(set) * m >= LENS.minSepPx;
+  };
   let spots = all.slice();
-  while (spots.length > Math.max(1, required) && fitZoom(spots, w, LENS.minStageH) < LENS.minZoom * scale)
-    spots = spots.slice(0, -1);
-  const colW = colWidth(w);
+  while (spots.length > Math.max(1, required) && !roomy(spots)) spots = spots.slice(0, -1);
+  const colW = colWidth(spots, w, scale);
   const cw = calloutContentW(colW);
   const sides = new Set(spots.map((s) => s.side));
   const side = sides.size === 1 ? spots[0].side : null;
@@ -249,7 +288,7 @@ export function layoutLens(all: readonly PlacedSpot[], w: number, scale: number,
   const colH = (list: P[]) => list.reduce((a, p) => a + callout(p.spot).lh, 0) + Math.max(0, list.length - 1) * LENS.gap;
   const h = Math.ceil(Math.max(LENS.minStageH, colH(left) + 2 * LENS.edge, colH(right) + 2 * LENS.edge));
   // never more than the group fits (dots must stay clear of the callout columns)
-  const m = Math.min(LENS.maxZoom * scale, fitZoom(spots, w, h));
+  const m = Math.min(LENS.maxZoom * scale, fitZoom(spots, w, h, colW));
   const at = (s: PlacedSpot) => ({ px: w / 2 + (s.x - cx) * m, py: h / 2 + (s.y - cy) * m });
 
   const items: LensItem[] = [];

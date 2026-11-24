@@ -7,89 +7,13 @@ import type { ReactNode } from 'react';
 import type { RegionDiagram, RegionDiagramProps } from '../types';
 import { Ctxt, Frame, M, Nerve, Part, Ten, ell, line, muscle, sp, tube, useCtx, type Ctx, type Lab, type P, type Spot } from './hip';
 import { LfStyle, lfp } from './calf';
+import { CALC_SOLE, FlSoleTendon, Metatarsals, Phalanges, SKIN_SOLE, XRAY_CSS, mirror } from './footsole';
 
 const W = 360;
 const HS = 460; // sole & top
 const HM = 360; // medial
 
-type Pt = readonly [number, number];
-const mx = (p: Pt): [number, number] => [360 - p[0], p[1]];
-const mirror = (pts: readonly P[]): P[] => pts.map((q) => (q[2] ? [360 - q[0], q[1], 1] : [360 - q[0], q[1]]) as P);
-
-/* ═════════════ foot outline & skeleton in plantar coordinates (big toe on the right) ═════════════ */
-
-const SKIN_SOLE: P[] = [
-  [180, 438], [160, 434], [144, 422], [136, 402], [134, 372], [136, 340], [134, 310], [130, 280], [124, 250], [120, 224], [118, 200], [119, 182],
-  // 5th toe (the smallest toe: about as wide as the 4th)
-  [122, 164], [125, 146], [128, 130], [133, 119], [140, 116], [146, 123], [149, 136], [150, 148, 1],
-  // 4th toe
-  [151, 122], [155, 98], [163, 86], [172, 88], [176, 106], [176, 138, 1],
-  // 3rd toe
-  [177, 108], [179, 80], [187, 67], [196, 70], [199, 92], [198, 128, 1],
-  // 2nd toe
-  [199, 98], [201, 64], [208, 51], [218, 53], [222, 72], [223, 122, 1],
-  // big toe
-  [226, 96], [228, 62], [238, 46], [255, 44], [269, 57], [274, 88], [272, 124], [268, 152],
-  [262, 182], [254, 212], [246, 242], [240, 272], [236, 302], [234, 332], [232, 362], [229, 392], [219, 418], [202, 432],
-];
-
-/** metatarsal centre lines (base → head) and widths, plantar coordinates */
-const MTS: { c: P[]; w: number[]; head: [number, number, number, number] }[] = [
-  { c: [[234, 284], [237, 244], [241, 204], [245, 178]], w: [24, 17, 17, 24], head: [246, 168, 15, 13] },
-  { c: [[212, 286], [212, 242], [211, 194], [210, 162]], w: [13, 9, 9, 12], head: [210, 154, 9.5, 8.5] },
-  { c: [[194, 290], [192, 244], [189, 200], [186, 172]], w: [12, 8.5, 8.5, 11], head: [186, 164, 9, 8] },
-  { c: [[174, 294], [171, 252], [167, 212], [163, 186]], w: [12, 8.5, 8.5, 11], head: [163, 178, 9, 8] },
-  { c: [[154, 300], [150, 262], [144, 224], [139, 198]], w: [15, 9, 9, 11], head: [139, 190, 9, 8] },
-];
-/** phalanges per toe (plantar coordinates) */
-const PHAL: { c: P[]; w: number }[] = [
-  { c: [[249, 152], [251, 108]], w: 17 },
-  { c: [[252, 102], [253, 66]], w: 15 },
-  { c: [[210, 145], [210, 113]], w: 9 },
-  { c: [[210, 108], [210, 90]], w: 8 },
-  { c: [[210, 86], [210, 64]], w: 8 },
-  { c: [[186, 155], [187, 124]], w: 8.5 },
-  { c: [[187, 119], [188, 102]], w: 7.5 },
-  { c: [[188, 98], [188, 80]], w: 7.5 },
-  { c: [[163, 169], [164, 140]], w: 8.5 },
-  { c: [[164, 135], [165, 119]], w: 7.5 },
-  { c: [[165, 115], [166, 100]], w: 7 },
-  { c: [[139, 181], [137, 156]], w: 8 },
-  { c: [[137, 151], [136, 136]], w: 7 },
-  { c: [[136, 132], [135, 122]], w: 6.5 },
-];
-
-const CALC_SOLE: P[] = [[180, 426], [204, 420], [218, 402], [220, 372], [214, 344], [206, 318], [194, 300], [172, 296], [154, 304], [144, 330], [140, 362], [144, 396], [156, 418]];
-
-function Metatarsals({ mirrored = false, cls = 'bone' }: { mirrored?: boolean; cls?: string }) {
-  const f = (pts: readonly P[]) => (mirrored ? mirror(pts) : (pts as P[]));
-  return (
-    <>
-      {/* tuberosity of the 5th metatarsal (drawn first so the shaft overlaps it) */}
-      <path className={cls} d={ell(mirrored ? 213 : 147, 303, 8.5, 6.5, mirrored ? 24 : -24)} />
-      {MTS.map((m, i) => {
-        const [hx, hy, rx, ry] = m.head;
-        const hc = mirrored ? mx([hx, hy]) : [hx, hy];
-        return (
-          <g key={i}>
-            <path className={cls} d={tube(f(m.c), m.w, 20, 0.9)} />
-            <path className={cls} d={ell(hc[0], hc[1], rx, ry)} />
-          </g>
-        );
-      })}
-    </>
-  );
-}
-
-function Phalanges({ mirrored = false, cls = 'bone' }: { mirrored?: boolean; cls?: string }) {
-  return (
-    <>
-      {PHAL.map((ph, i) => (
-        <path key={i} className={cls} d={tube(mirrored ? mirror(ph.c) : ph.c, ph.w, 10, 0.9)} />
-      ))}
-    </>
-  );
-}
+/* foot outline & skeleton in plantar coordinates: shared with the calf diagram's sole inset → ./footsole */
 
 /* ───────────── sole view ───────────── */
 
@@ -153,8 +77,9 @@ function FootSole({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'interdigital-nerve', t: '趾間神経', at: [172, 158], x: 104, y: 150, a: 'end' },
     { id: 'metatarsals', t: '中足骨', at: [141, 222], x: 104, y: 214, a: 'end' },
     { t: '小趾外転筋', at: [139, 296], x: 104, y: 268, a: 'end' },
-    { id: 'flexor-digitorum-brevis', t: '短趾屈筋', at: [157, 322], x: 104, y: 320, a: 'end' },
-    { id: 'calcaneus', t: '踵骨', at: [150, 372], x: 104, y: 370, a: 'end' },
+    { id: 'flexor-digitorum-brevis', t: '短趾屈筋', at: [157, 300], x: 104, y: 304, a: 'end' },
+    { id: 'fibularis-longus', t: '長腓骨筋腱', at: [137, 340], x: 104, y: 340, a: 'end' },
+    { id: 'calcaneus', t: '踵骨', at: [150, 378], x: 104, y: 376, a: 'end' },
     { id: 'heel-fat-pad', t: '踵の脂肪体', at: [162, 416], x: 104, y: 418, a: 'end' },
     { id: 'flexor-hallucis-longus', t: '長母趾屈筋腱', at: [251, 112], x: 278, y: 100 },
     { t: '種子骨', at: [256, 172], x: 282, y: 158 },
@@ -176,7 +101,12 @@ function FootSole({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       cap={['右足・足の裏', '内側（親指側）→']}
       labels={labels}
       spots={spots}
-      defs={<LfStyle />}
+      defs={
+        <>
+          <LfStyle />
+          <style>{XRAY_CSS}</style>
+        </>
+      }
     >
       <Ctxt k={k}>
         <path className="body" d={sp(SKIN_SOLE)} style={{ stroke: 'var(--border)', strokeWidth: 1 }} />
@@ -232,6 +162,11 @@ function FootSole({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
           className="ten-fib"
           d={line([[156, 380], [170, 372], [184, 378], [198, 370]]) + line([[150, 398], [166, 392], [182, 398], [200, 390], [212, 398]]) + line([[158, 416], [176, 410], [192, 416], [206, 410]])}
         />
+      </Part>
+      {/* deepest layer: fibularis longus tendon from the cuboid groove obliquely to the 1st metatarsal base /
+          medial cuneiform, drawn see-through over the superficial muscles */}
+      <Part k={k} id="fibularis-longus">
+        <FlSoleTendon />
       </Part>
     </Frame>
   );
@@ -486,7 +421,7 @@ const diagram: RegionDiagram = {
   parts: {
     sole: [
       'calcaneus', 'metatarsals', 'interdigital-nerve', 'flexor-hallucis-longus', 'flexor-digitorum-brevis', 'abductor-hallucis', 'plantar-fascia',
-      'heel-fat-pad',
+      'heel-fat-pad', 'fibularis-longus',
     ],
     medial: [
       'metatarsals', 'calcaneus', 'talus', 'navicular', 'medial-arch', 'flexor-hallucis-longus', 'tibialis-posterior-tendon', 'tibialis-posterior',
