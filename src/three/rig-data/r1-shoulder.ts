@@ -341,7 +341,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     // adduction + internal rotation in front of the body (all parts shorten; raising the arm would lengthen the lower fibres)
     actionPose: { joints: { shoulder_R: { flex: 20, abd: -25, rot: -30 }, elbow_R: { flex: 90 }, forearm_R: { sup: -80 } } },
     // doorway stretch: arm at shoulder height, elbow 90° with the forearm up, horizontally abducted 10° behind the body
-    stretchPose: { joints: { shoulder_R: { flex: 90, abd: 100 }, elbow_R: { flex: 90 }, forearm_R: { sup: -90 } } },
+    stretchPose: { joints: { shoulder_R: { abd: 70, flex: -10, rot: 50 }, elbow_R: { flex: 90 }, forearm_R: { sup: -90 }, scapula_R: { protr: -8 } } },
     camera: 'iso',
     focus: 'shoulder',
   },
