@@ -393,6 +393,11 @@ export const KIT_CSS = `
 .tbu .rib-i { fill: none; stroke: var(--bone); stroke-linecap: round; }
 .tbu .hole { fill: var(--bone-ink); opacity: .3; stroke: var(--bone-ink); stroke-width: .7; }
 .tbu .tooth { fill: color-mix(in srgb, var(--bone) 40%, #fff); stroke: var(--bone-ink); stroke-width: .6; }
+.tbu .ghost-mus { fill: none; stroke: var(--rd-mus-ink); stroke-width: 1.1; stroke-dasharray: 4 3; opacity: .55; }
+.tbu .tbu-halo .ghost-mus { fill: none !important; stroke-width: 4px !important; }
+.tbu .is-involved .ghost-mus { stroke: var(--rd-amber); opacity: 1; stroke-width: 1.8; }
+.tbu .is-injured .ghost-mus { stroke: var(--injured); opacity: 1; stroke-width: 1.8; }
+.tbu .is-selected .ghost-mus { stroke: var(--text); opacity: 1; stroke-width: 2; }
 .tbu .ghost { fill: none; stroke: var(--bone-ink); stroke-width: .8; opacity: .38; stroke-linecap: round; }
 .tbu .skin { fill: none; stroke: var(--text-2); stroke-width: 1; opacity: .28; stroke-dasharray: 3 3; }
 .tbu .bursa { fill: var(--bursa); stroke: color-mix(in srgb, var(--bursa) 55%, #102a44); stroke-width: .8; }
@@ -464,11 +469,11 @@ export const KIT_CSS = `
 .tbu-spot .s-ring { fill: var(--accent); opacity: .3; transform-box: fill-box; transform-origin: center;
   animation: tbu-ring 2.2s ease-out infinite; }
 .tbu-spot .s-sh { fill: #000; opacity: .22; }
-.tbu-spot .s-dot { fill: var(--surface); stroke: var(--accent); stroke-width: 2.6; }
-.tbu-spot .s-core { fill: var(--accent); }
+.tbu-spot .s-dot { fill: var(--accent); stroke: #fff; stroke-width: 2.6; }
+.tbu-spot .s-core { fill: #fff; opacity: .55; }
 .tbu-spot .s-sel { fill: none; stroke: var(--injured); stroke-width: 2.2; }
 .tbu-spot.is-sel .s-dot { fill: var(--injured); stroke: #fff; }
-.tbu-spot.is-sel .s-core { fill: #fff; }
+.tbu-spot.is-sel .s-core { fill: #fff; opacity: .9; }
 .tbu-spot.is-sel .s-ring { fill: var(--injured); opacity: .35; }
 .tbu-spot:focus-visible .s-sel, .tbu-spot:focus-visible .s-dot { stroke: var(--text); }
 @keyframes tbu-ring { 0% { transform: scale(.55); opacity: .5; } 80%, 100% { transform: scale(1.5); opacity: 0; } }
@@ -681,7 +686,7 @@ function SpotMark({ s, sel, onSel }: { s: Spot; sel: boolean; onSel?: (id: PainS
       {sel && <circle className="s-sel" r={12.5} />}
       <circle className="s-sh" cx={0.6} cy={1.2} r={sel ? 8.6 : 7.6} />
       <circle className="s-dot" r={sel ? 8 : 7} />
-      <circle className="s-core" r={sel ? 3 : 2.8} />
+      <circle className="s-core" r={sel ? 2.8 : 2} />
     </g>
   );
 }
@@ -1019,6 +1024,11 @@ export function ShoulderBackLayers({ k, deep, skip = [] }: { k: Ctx; deep: boole
           </Part>
         </>
       )}
+      {deep && has('trapGhost') && (
+        <Part k={k} id="trapezius">
+          <path className="ghost-mus" d={MB.trap.body} />
+        </Part>
+      )}
       {has('spine') && (
         <Part k={k} id="thoracic-spine">
           <path className="bone" d={B.spinous} />
@@ -1051,6 +1061,7 @@ const LABELS_BACK_DEEP: Lab[] = [
   { id: 'scapula', t: '肩甲骨', at: [140, 116], x: 40, y: 120, a: 'end' },
   { id: 'rhomboids', t: '菱形筋', at: [100, 150], x: 40, y: 170, a: 'end' },
   { id: 'thoracic-spine', t: '胸椎', at: [MX, 254], x: 40, y: 258, a: 'end' },
+  { id: 'trapezius', t: '僧帽筋\n(点線)', at: [100, 236], x: 40, y: 206, a: 'end' },
 ];
 const SPOTS_BACK: Spot[] = [
   { id: 'shoulder-top', at: [206, 86] },
@@ -1201,23 +1212,19 @@ function FrontView({ k, deep }: { k: Ctx; deep: boolean }) {
           </Part>
         </>
       )}
+      <Part k={k} id="serratus-anterior">
+        {SERRATUS.map((g, i) => (
+          <M key={i} g={g} />
+        ))}
+      </Part>
       {!deep && (
-        <Part k={k} id="serratus-anterior">
-          {SERRATUS.map((g, i) => (
-            <M key={i} g={g} />
-          ))}
+        <Part k={k} id="triceps-brachii">
+          <M g={MF.triceps} />
         </Part>
       )}
-      {!deep && (
-        <>
-          <Part k={k} id="triceps-brachii">
-            <M g={MF.triceps} />
-          </Part>
-          <Part k={k} id="latissimus-dorsi">
-            <M g={MF.lat} />
-          </Part>
-        </>
-      )}
+      <Part k={k} id="latissimus-dorsi">
+        <M g={MF.lat} />
+      </Part>
       {!deep && (
         <Ctxt k={k}>
           <g className="tone-deep">
@@ -1270,18 +1277,16 @@ function FrontView({ k, deep }: { k: Ctx; deep: boolean }) {
         </>
       )}
       {!deep && (
-        <>
-          <Part k={k} id="pectoralis-major">
-            <M g={MF.pecMajor} />
-          </Part>
-          <Ctxt k={k}>
-            <M g={MF.scm} ctx />
-          </Ctxt>
-          <Part k={k} id="trapezius">
-            <M g={MF.trap} />
-          </Part>
-        </>
+        <Part k={k} id="pectoralis-major">
+          <M g={MF.pecMajor} />
+        </Part>
       )}
+      <Ctxt k={k}>
+        <M g={MF.scm} ctx />
+      </Ctxt>
+      <Part k={k} id="trapezius">
+        <M g={MF.trap} />
+      </Part>
       <Part k={k} id="acromion">
         <path className="bone" d={F.acromion} />
       </Part>
@@ -1417,9 +1422,13 @@ const diagram: RegionDiagram = {
       'acromion',
       'scapula',
       'biceps-brachii',
+      'serratus-anterior',
+      'latissimus-dorsi',
+      'trapezius',
     ],
     back: ['trapezius', 'deltoid', 'latissimus-dorsi', 'infraspinatus', 'teres-minor', 'triceps-brachii', 'acromion', 'scapula', 'thoracic-spine'],
     'back-deep': [
+      'trapezius',
       'supraspinatus',
       'infraspinatus',
       'teres-minor',

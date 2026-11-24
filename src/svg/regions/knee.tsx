@@ -221,16 +221,16 @@ function KneeFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <path className="ten" d={sp([[167, 118, 1], [189, 118, 1], [195, 140], [205, 166], [151, 166], [160, 140]])} />
         <path className="ten-fib" d={line([[172, 122], [168, 164]]) + line([[178, 122], [178, 164]]) + line([[184, 122], [190, 164]])} />
       </Part>
+      <Part k={k} id="patellar-tendon">
+        <path className="ten" d={sp([[164, 214], [178, 212], [192, 214], [190, 262], [188, 290], [168, 290], [166, 262]])} />
+        <path className="ten-fib" d={line([[171, 236], [171, 288]]) + line([[178, 238], [178, 288]]) + line([[185, 236], [185, 288]])} />
+      </Part>
       <Ctxt k={k}>
         <path className="bone-sh" d={KF.patSh} />
       </Ctxt>
       <Part k={k} id="patella">
         <path className="bone" d={KF.patella} />
         <path className="bone-ln" d={KF.patLn} />
-      </Part>
-      <Part k={k} id="patellar-tendon">
-        <path className="ten" d={sp([[165, 224], [178, 232], [191, 224], [190, 262], [188, 290], [168, 290], [166, 262]])} />
-        <path className="ten-fib" d={line([[171, 232], [171, 288]]) + line([[178, 236], [178, 288]]) + line([[185, 232], [185, 288]])} />
       </Part>
       <Part k={k} id="iliotibial-band">
         <Ten c={ITB_KF} w={[16, 16, 16, 16, 17, 14]} cls="fascia" lines={2} />
@@ -671,6 +671,177 @@ function KneeMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   );
 }
 
+/* ───────────── back view: right knee from behind (medial side at the viewer's left) ───────────── */
+const KB = {
+  body: sp([[100, -10], [98, 100], [102, 200], [100, 260], [104, 330], [110, 400], [118, 460], [246, 460], [254, 400], [258, 320], [258, 250], [254, 180], [252, 90], [250, -10]]),
+  femur: sp([
+    [158, -30], [158, 60], [152, 120], [140, 160], [124, 188], [116, 210], [118, 232], [128, 246], [146, 252], [164, 248], [172, 238], [176, 222],
+    [184, 222], [188, 238], [196, 248], [214, 251], [232, 246], [240, 232], [242, 210], [236, 188], [220, 160], [208, 120], [202, 60], [202, -30],
+  ]),
+  femLn: line([[146, 190], [166, 196], [176, 214]]) + line([[214, 190], [194, 196], [184, 214]]),
+  tibia: sp([
+    [122, 258], [146, 253], [180, 255], [214, 253], [238, 258], [240, 270], [232, 280], [222, 296], [212, 330], [206, 380], [204, 460], [164, 460],
+    [162, 380], [156, 330], [144, 300], [130, 284], [122, 270],
+  ]),
+  fibula: sp([[232, 276], [240, 268], [252, 270], [258, 280], [254, 294], [248, 304], [250, 330], [252, 460], [240, 460], [238, 330], [236, 304], [232, 292]]),
+  menM: sp([[118, 250, 1], [130, 246], [150, 247], [168, 250, 1], [150, 254], [130, 255]]),
+  menL: sp([[190, 250, 1], [210, 246], [230, 247], [242, 251, 1], [230, 255], [210, 254]]),
+};
+const KBM = {
+  bf: muscle({
+    r: [
+      [[177, -30], [238, -30]],
+      [[178, 60], [241, 60]],
+      [[205, 140], [242, 142]],
+      [[227, 206], [245, 206]],
+      [[240, 270], [252, 270]],
+    ],
+    t1: 0.6,
+    n: 8,
+    seams: [0.45],
+  }),
+  sm: muscle({
+    r: [
+      [[118, -30], [172, -30]],
+      [[118, 80], [172, 86]],
+      [[120, 170], [160, 176]],
+      [[123, 222], [143, 226]],
+      [[124, 254], [139, 260]],
+    ],
+    t1: 0.8,
+    n: 8,
+  }),
+  st: muscle({
+    r: [
+      [[150, -30], [183, -30]],
+      [[146, 40], [178, 44]],
+      [[134, 112], [154, 118]],
+      [[126, 180], [134, 182]],
+      [[119, 240], [125, 242]],
+      [[111, 282], [115, 284]],
+    ],
+    t1: 0.42,
+    n: 5,
+  }),
+  grac: muscle({
+    r: [
+      [[108, -30], [124, -30]],
+      [[108, 100], [122, 100]],
+      [[109, 180], [117, 180]],
+      [[107, 240], [113, 242]],
+      [[101, 282], [105, 284]],
+    ],
+    t1: 0.55,
+    n: 3,
+  }),
+  sart: muscle({
+    r: [
+      [[97, -30], [110, -30]],
+      [[98, 100], [110, 100]],
+      [[100, 200], [110, 202]],
+      [[98, 262], [106, 266]],
+    ],
+    t1: 0.86,
+    n: 3,
+  }),
+  gasM: muscle({
+    r: [
+      [[146, 206], [168, 200]],
+      [[121, 262], [178, 252]],
+      [[116, 310], [181, 300]],
+      [[115, 360], [181, 356]],
+      [[124, 470], [178, 470]],
+    ],
+    t0: 0.06,
+    n: 10,
+  }),
+  gasL: muscle({
+    r: [
+      [[193, 198], [214, 204]],
+      [[182, 252], [232, 262]],
+      [[181, 300], [238, 308]],
+      [[181, 350], [238, 356]],
+      [[184, 450], [228, 452]],
+    ],
+    t0: 0.06,
+    n: 8,
+  }),
+  solM: muscle({ r: [[[113, 320], [124, 318]], [[111, 400], [126, 400]], [[115, 470], [128, 470]]], n: 2 }),
+  solL: muscle({ r: [[[234, 316], [245, 320]], [[234, 400], [247, 400]], [[231, 470], [244, 470]]], n: 2 }),
+  plant: muscle({ r: [[[204, 186], [216, 190]], [[198, 214], [207, 218]]], n: 3 }),
+};
+
+function KneeBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
+  const labels: Lab[] = [
+    { id: 'sartorius', t: '縫工筋', at: [104, 66], x: 92, y: 50, a: 'end' },
+    { id: 'gracilis', t: '薄筋', at: [115, 104], x: 92, y: 92, a: 'end' },
+    { id: 'semitendinosus', t: '半腱様筋', at: [146, 64], x: 92, y: 134, a: 'end' },
+    { id: 'semimembranosus', t: '半膜様筋', at: [130, 186], x: 92, y: 180, a: 'end' },
+    { id: 'gastrocnemius', t: '腓腹筋・内側頭', at: [140, 330], x: 92, y: 320, a: 'end' },
+    { id: 'soleus', t: 'ヒラメ筋', at: [118, 410], x: 92, y: 404, a: 'end' },
+    { id: 'biceps-femoris', t: '大腿二頭筋', at: [222, 80], x: 264, y: 64 },
+    { t: '脛骨神経', at: [182, 166], x: 264, y: 146 },
+    { t: '足底筋', at: [208, 200], x: 264, y: 196 },
+    { id: 'fibula', t: '腓骨', at: [250, 300], x: 268, y: 286 },
+    { id: 'gastrocnemius', t: '腓腹筋・外側頭', at: [212, 330], x: 264, y: 336 },
+    { id: 'tibia', t: '脛骨', at: [204, 420], x: 264, y: 416 },
+  ];
+  return (
+    <Frame
+      k={k}
+      p={p}
+      w={W}
+      h={H}
+      title="右膝を後ろから見た図（左が内側、右が外側）"
+      cap={['← 内側', '右膝・後ろから']}
+      labels={labels}
+      spots={[]}
+      fade={{ top: 34, bottom: 40 }}
+    >
+      <Ctxt k={k}>
+        <path className="body" d={KB.body} />
+        <path className="bone" d={KB.femur} />
+        <path className="bone-ln" d={KB.femLn} />
+      </Ctxt>
+      <Part k={k} id="tibia">
+        <path className="bone" d={KB.tibia} />
+        <path className="bone-ln" d={line([[146, 300], [182, 286], [222, 270]])} />
+      </Part>
+      <Part k={k} id="fibula">
+        <path className="bone" d={KB.fibula} />
+      </Part>
+      <Part k={k} id="soleus">
+        <M g={KBM.solM} />
+        <M g={KBM.solL} />
+      </Part>
+      <Ctxt k={k}>
+        <M g={KBM.plant} ctx />
+        <Ten c={[[182, -30], [182, 100], [182, 180], [182, 240], [182, 290]]} w={9} cls="nerve" lines={2} />
+        <Ten c={[[188, 110], [204, 160], [222, 210], [236, 256], [244, 300]]} w={6} cls="nerve" lines={1} />
+      </Ctxt>
+      <Part k={k} id="semimembranosus">
+        <M g={KBM.sm} />
+      </Part>
+      <Part k={k} id="sartorius">
+        <M g={KBM.sart} />
+      </Part>
+      <Part k={k} id="gracilis">
+        <M g={KBM.grac} />
+      </Part>
+      <Part k={k} id="semitendinosus">
+        <M g={KBM.st} />
+      </Part>
+      <Part k={k} id="biceps-femoris">
+        <M g={KBM.bf} />
+      </Part>
+      <Part k={k} id="gastrocnemius">
+        <M g={KBM.gasL} />
+        <M g={KBM.gasM} />
+      </Part>
+    </Frame>
+  );
+}
+
 /* ───────────── component & registration ───────────── */
 
 function KneeDiagram(p: RegionDiagramProps) {
@@ -681,6 +852,8 @@ function KneeDiagram(p: RegionDiagramProps) {
       return <KneeLateral p={p} k={k} />;
     case 'medial':
       return <KneeMedial p={p} k={k} />;
+    case 'back':
+      return <KneeBack p={p} k={k} />;
     default:
       return <KneeFront p={p} k={k} />;
   }
@@ -692,6 +865,7 @@ const diagram: RegionDiagram = {
     { id: 'front', label: '前から' },
     { id: 'lateral', label: '外側から' },
     { id: 'medial', label: '内側から' },
+    { id: 'back', label: '後ろから' },
   ],
   parts: {
     front: [
@@ -709,11 +883,13 @@ const diagram: RegionDiagram = {
       'rectus-femoris', 'quadriceps-tendon', 'patellar-tendon', 'patellofemoral-cartilage', 'patella', 'semitendinosus', 'gracilis', 'sartorius',
       'pes-anserinus',
     ],
+    back: ['tibia', 'fibula', 'soleus', 'semimembranosus', 'sartorius', 'gracilis', 'semitendinosus', 'biceps-femoris', 'gastrocnemius'],
   },
   spots: {
     front: ['knee-front', 'knee-below', 'knee-outer', 'knee-inner'],
     lateral: ['knee-outer', 'knee-front', 'knee-below'],
     medial: ['knee-inner', 'knee-front', 'knee-below'],
+    back: [],
   },
   Component: KneeDiagram,
 };
