@@ -1,0 +1,294 @@
+/* Body map (home screen). Uses the app design tokens with sensible fallbacks. */
+.tb-bodymap {
+  --tb-ink: var(--bone-ink, #6f6a64);
+  --tb-fill: var(--surface-2, #efeae4);
+  --tb-accent: var(--accent, #b5524c);
+  --tb-ring: var(--surface, #ffffff);
+  --tb-shade-color: #5a4a3c;
+  --tb-shade-opacity: 0.22;
+  --tb-outline-opacity: 0.58;
+  --tb-contour-opacity: 0.34;
+  --tb-contour-faint: 0.2;
+  --tb-dot-opacity: 0.6;
+  position: relative;
+  width: 100%;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+:root[data-theme='dark'] .tb-bodymap {
+  --tb-shade-color: #000000;
+  --tb-shade-opacity: 0.5;
+  --tb-outline-opacity: 0.42;
+  --tb-contour-opacity: 0.3;
+  --tb-contour-faint: 0.17;
+  --tb-dot-opacity: 0.8;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .tb-bodymap {
+    --tb-shade-color: #000000;
+    --tb-shade-opacity: 0.5;
+    --tb-outline-opacity: 0.42;
+    --tb-contour-opacity: 0.3;
+    --tb-contour-faint: 0.17;
+    --tb-dot-opacity: 0.8;
+  }
+}
+
+.tb-bodymap > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: var(--tb-bodymap-max-h, 68vh);
+  margin: 0 auto;
+  overflow: visible;
+  touch-action: manipulation;
+  font-family: inherit;
+}
+
+/* ── figure ── */
+.tb-outline {
+  opacity: var(--tb-outline-opacity);
+}
+.tb-outline path {
+  fill: none;
+  stroke: var(--tb-ink);
+  stroke-width: 3.4;
+  stroke-linejoin: round;
+}
+.tb-fill path {
+  fill: var(--tb-fill);
+}
+.tb-shade-flood {
+  flood-color: var(--tb-shade-color);
+  flood-opacity: var(--tb-shade-opacity);
+}
+.tb-contours path {
+  fill: var(--tb-ink);
+  opacity: var(--tb-contour-opacity);
+}
+.tb-contours path.is-faint {
+  opacity: var(--tb-contour-faint);
+}
+.tb-loops path {
+  fill: none;
+  stroke: var(--tb-ink);
+  stroke-width: 1.4;
+  opacity: var(--tb-contour-opacity);
+}
+.tb-loops path.is-faint {
+  opacity: var(--tb-contour-faint);
+}
+.tb-ground {
+  fill: var(--tb-ink);
+  opacity: 0.1;
+}
+
+/* ── captions ── */
+.tb-caption {
+  fill: var(--text-2, #5f5852);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.tb-caption-sub {
+  fill: var(--text-2, #5f5852);
+  font-size: 17px;
+  opacity: 0.85;
+}
+.tb-side-label {
+  fill: var(--text-2, #5f5852);
+  font-size: 22px;
+  font-weight: 600;
+}
+.tb-side-chip {
+  fill: var(--surface, #fff);
+  stroke: var(--border, #e3dcd4);
+  stroke-width: 1.5;
+}
+
+/* ── hotspots ── */
+.tb-spot {
+  cursor: pointer;
+  outline: none;
+}
+.tb-spot-hit {
+  fill: transparent;
+  pointer-events: all;
+}
+.tb-debug .tb-spot-hit {
+  fill: rgba(0, 120, 255, 0.06);
+  stroke: rgba(0, 120, 255, 0.35);
+  stroke-width: 0.75;
+}
+.tb-spot-halo {
+  fill: var(--tb-accent);
+  opacity: 0.13;
+  transition: opacity 0.15s ease;
+}
+.tb-spot-dot {
+  fill: var(--tb-accent);
+  fill-opacity: var(--tb-dot-opacity);
+  stroke: var(--tb-ring);
+  stroke-width: 1.05;
+  transition: fill-opacity 0.15s ease;
+}
+@media (hover: hover) {
+  .tb-spot:hover .tb-spot-halo {
+    opacity: 0.28;
+  }
+  .tb-spot:hover .tb-spot-dot {
+    fill-opacity: 0.9;
+  }
+}
+.tb-spot.is-active .tb-spot-dot {
+  fill-opacity: 1;
+}
+.tb-spot.is-active .tb-spot-halo {
+  opacity: 0.2;
+}
+.tb-spot.is-heat .tb-spot-dot {
+  fill-opacity: 1;
+}
+.tb-spot.is-selected .tb-spot-dot {
+  fill-opacity: 1;
+  stroke-width: 1.4;
+}
+.tb-spot.is-selected .tb-spot-halo {
+  opacity: 0.24;
+}
+.tb-spot-pulse {
+  fill: none;
+  stroke: var(--tb-accent);
+  stroke-width: 1.4;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tb-pulse 1.8s ease-out infinite;
+}
+.tb-spot-pulse.is-delayed {
+  animation-delay: 0.9s;
+}
+@keyframes tb-pulse {
+  0% {
+    transform: scale(0.75);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(2.3);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tb-spot-pulse {
+    animation: none;
+    transform: scale(1.5);
+    opacity: 0.55;
+  }
+  .tb-spot-pulse.is-delayed {
+    display: none;
+  }
+}
+.tb-spot.is-candidate .tb-spot-halo {
+  opacity: 0.3;
+  stroke: var(--tb-accent);
+  stroke-width: 1.2;
+}
+.tb-spot.is-candidate .tb-spot-dot {
+  fill-opacity: 1;
+}
+.tb-spot:focus-visible .tb-spot-halo {
+  opacity: 0.35;
+  stroke: var(--tb-accent);
+  stroke-width: 1.5;
+}
+
+/* ── heat tint (pain log intensity) ── */
+.tb-heat {
+  pointer-events: none;
+}
+
+/* ── labels (dev / "show names") ── */
+.tb-label-text {
+  fill: var(--text, #1e1b18);
+  font-size: 15px;
+}
+.tb-label-side {
+  fill: var(--text-2, #5f5852);
+}
+.tb-label-line {
+  fill: none;
+  stroke: var(--text-2, #5f5852);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+/* ── chooser for ambiguous taps ── */
+.tb-chooser {
+  position: absolute;
+  z-index: 5;
+  width: min(300px, calc(100% - 16px));
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--surface, #fff);
+  color: var(--text, #1e1b18);
+  border: 1px solid var(--border, #e3dcd4);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
+  font-size: 14px;
+  line-height: 1.35;
+  animation: tb-pop 0.14s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tb-chooser {
+    animation: none;
+  }
+}
+@keyframes tb-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.tb-chooser-title {
+  padding: 6px 10px 4px;
+  font-size: 12px;
+  color: var(--text-2, #5f5852);
+}
+.tb-chooser button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tb-chooser button:hover,
+.tb-chooser button:focus-visible {
+  background: var(--surface-2, #efeae4);
+  outline: none;
+}
+.tb-chooser-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--tb-accent);
+}
+.tb-chooser-side {
+  margin-left: auto;
+  padding-left: 8px;
+  color: var(--text-2, #5f5852);
+  font-size: 12px;
+  white-space: nowrap;
+}

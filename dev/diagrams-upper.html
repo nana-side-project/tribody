@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Upper region diagrams — dev</title>
+    <style>
+      /* Design tokens (copied from docs/ARCHITECTURE.md so this harness works standalone) */
+      :root {
+        --bg: #f6f3ef; --surface: #ffffff; --surface-2: #efeae4; --text: #1e1b18; --text-2: #5f5852;
+        --border: #e3dcd4; --accent: #b5524c; --accent-soft: #f3dcd9; --muscle: #b9504a; --muscle-light: #e6a49e;
+        --tendon: #e9dcc0; --bone: #e4e1dc; --bone-ink: #6f6a64; --origin: #d9772b; --insertion: #3f6fd1;
+        --injured: #e0342b; --nerve: #e2b93b; --bursa: #8fb8de; --danger: #c62828; --ok: #2e7d32;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #151312; --surface: #1e1b19; --surface-2: #282421; --text: #f2ede7; --text-2: #b5ada5;
+          --border: #3a3531; --accent: #e07d75; --accent-soft: #4a2a27; --muscle: #d8675f; --muscle-light: #9c4c46;
+          --tendon: #bfae8a; --bone: #8f8a84; --bone-ink: #d8d3cc; --origin: #f0954d; --insertion: #7aa2ff;
+          --injured: #ff5a4f; --nerve: #f3cf5a; --bursa: #6f9cc8; --danger: #ff6b6b; --ok: #66bb6a;
+          color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] {
+        --bg: #151312; --surface: #1e1b19; --surface-2: #282421; --text: #f2ede7; --text-2: #b5ada5;
+        --border: #3a3531; --accent: #e07d75; --accent-soft: #4a2a27; --muscle: #d8675f; --muscle-light: #9c4c46;
+        --tendon: #bfae8a; --bone: #8f8a84; --bone-ink: #d8d3cc; --origin: #f0954d; --insertion: #7aa2ff;
+        --injured: #ff5a4f; --nerve: #f3cf5a; --bursa: #6f9cc8; --danger: #ff6b6b; --ok: #66bb6a;
+        color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic UI', system-ui, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./diagrams-upper.tsx"></script>
+  </body>
+</html>

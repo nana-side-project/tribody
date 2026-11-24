@@ -1,0 +1,20 @@
+{
+  "name": "TriBody 解剖ガイド",
+  "short_name": "TriBody",
+  "description": "トライアスリートのための痛みと解剖ガイド。痛む場所から、傷んでいる筋肉・腱と補強・ストレッチ方法がわかります。",
+  "lang": "ja",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f3ef",
+  "theme_color": "#b5524c",
+  "categories": ["health", "fitness", "sports", "education"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

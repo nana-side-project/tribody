@@ -1,0 +1,57 @@
+// Names of the individually highlightable bone pieces (used by StructurePart { type: 'bone' }).
+// Midline pieces exist once; all others exist per side (resolved to the structure's side, right by default).
+export const MIDLINE_BONE_PARTS = [
+  'skull',
+  'mandible',
+  'cervical',
+  'thoracic',
+  'lumbar',
+  'discs',
+  'sacrum',
+  'coccyx',
+  'sternum',
+  'pubic_symphysis',
+] as const;
+
+export const SIDED_BONE_PARTS = [
+  'ribs',
+  'costal_cartilage',
+  'ilium',
+  'pubis',
+  'ischium',
+  'ischial_tuberosity',
+  'acetabulum',
+  'clavicle',
+  'scapula',
+  'acromion',
+  'coracoid',
+  'glenoid',
+  'humerus',
+  'humeral_head',
+  'greater_tubercle',
+  'radius',
+  'ulna',
+  'hand',
+  'femur',
+  'femoral_head',
+  'greater_trochanter',
+  'femoral_condyles',
+  'lateral_epicondyle',
+  'patella',
+  'tibia',
+  'tibial_plateau',
+  'medial_malleolus',
+  'fibula',
+  'fibular_head',
+  'lateral_malleolus',
+  'talus',
+  'calcaneus',
+  'navicular',
+  'cuboid',
+  'cuneiforms',
+  'metatarsals',
+  'phalanges',
+] as const;
+
+export type BonePartId = (typeof MIDLINE_BONE_PARTS)[number] | (typeof SIDED_BONE_PARTS)[number];
+export const isMidlinePart = (p: string) => (MIDLINE_BONE_PARTS as readonly string[]).includes(p);
