@@ -371,7 +371,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     strands: [
       {
         path: [
-          { ref: 'foot:calcaneus_plantar_medial', off: [-0.002, 0.012, -0.006] },
+          { ref: 'foot:calcaneus_plantar_medial', off: [-0.006, 0.002, -0.002] },
           { bone: 'foot', rest: [0.066, 0.021, 0.008] }, // medial arch (under the sustentaculum / navicular)
           { bone: 'foot', rest: [0.062, 0.018, 0.085] }, // medial to the 1st MT base
           { bone: 'foot', rest: [0.055, 0.004, 0.137] }, // medial-plantar to the 1st MT head (medial sesamoid)
@@ -401,7 +401,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
       {
         name: '第2趾',
         path: [
-          { ref: 'foot:calcaneus_plantar_medial', off: [0.004, 0.007, 0.008] },
+          { ref: 'foot:calcaneus_plantar_medial', off: [0.0, -0.003, 0.012] },
           { bone: 'foot', rest: [0.083, 0.0145, 0.02] },
           { bone: 'foot', rest: [0.082, 0.0115, 0.085] },
           { bone: 'foot', rest: [0.08, 0.0045, 0.132] },
@@ -414,7 +414,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
       {
         name: '第3趾',
         path: [
-          { ref: 'foot:calcaneus_plantar_medial', off: [0.006, 0.007, 0.008] },
+          { ref: 'foot:calcaneus_plantar_medial', off: [0.002, -0.003, 0.012] },
           { bone: 'foot', rest: [0.09, 0.0145, 0.02] },
           { bone: 'foot', rest: [0.095, 0.0115, 0.085] },
           { bone: 'foot', rest: [0.095, 0.0045, 0.126] },
@@ -427,7 +427,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
       {
         name: '第4趾',
         path: [
-          { ref: 'foot:calcaneus_plantar_medial', off: [0.008, 0.007, 0.008] },
+          { ref: 'foot:calcaneus_plantar_medial', off: [0.004, -0.003, 0.012] },
           { bone: 'foot', rest: [0.097, 0.0145, 0.02] },
           { bone: 'foot', rest: [0.108, 0.0115, 0.085] },
           { bone: 'foot', rest: [0.11, 0.0045, 0.118] },
@@ -440,7 +440,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
       {
         name: '第5趾',
         path: [
-          { ref: 'foot:calcaneus_plantar_medial', off: [0.01, 0.007, 0.008] },
+          { ref: 'foot:calcaneus_plantar_medial', off: [0.006, -0.003, 0.012] },
           { bone: 'foot', rest: [0.104, 0.0145, 0.02] },
           { bone: 'foot', rest: [0.121, 0.0115, 0.085] },
           { bone: 'foot', rest: [0.125, 0.0045, 0.108] },

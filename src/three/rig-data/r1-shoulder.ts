@@ -1056,7 +1056,7 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
   scapula: {
     id: 'scapula',
     parts: [{ type: 'bone', parts: ['scapula', 'acromion', 'coracoid'] }],
-    labelAt: { ref: 'scapula:infraspinous_fossa', off: [0.0, 0.0, -0.006] },
+    labelAt: { ref: 'scapula:infraspinous_fossa', off: [0.002, 0.0, -0.014] },
     camera: { dir: [-0.45, 0.22, -1] },
     focus: 'shoulder',
   },

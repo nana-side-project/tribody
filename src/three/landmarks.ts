@@ -133,19 +133,20 @@ def(
   ]),
 );
 // ribs — lateral points on the mid-axillary line (serratus anterior digitations), anterior points
+// (on the rib tubes of skeleton.ts + ~2.5 mm: they used to float up to 2–3 cm outside the upper / lower ribs)
 const RIB_LAT: [number, number, number][] = [
   // [lat, y, z]
-  [0.06, 1.405, 0.03], // rib 1 (upper surface)
-  [0.105, 1.385, 0.035],
-  [0.122, 1.358, 0.03],
-  [0.133, 1.328, 0.026],
-  [0.141, 1.298, 0.022],
-  [0.146, 1.268, 0.018],
-  [0.148, 1.238, 0.012],
-  [0.148, 1.208, 0.006],
-  [0.145, 1.178, 0.0],
-  [0.139, 1.152, -0.012],
-  [0.128, 1.13, -0.035],
+  [0.056, 1.428, 0.032], // rib 1 (upper surface)
+  [0.082, 1.387, 0.039],
+  [0.106, 1.357, 0.033],
+  [0.122, 1.328, 0.029],
+  [0.134, 1.298, 0.024],
+  [0.143, 1.269, 0.02],
+  [0.149, 1.24, 0.014],
+  [0.148, 1.211, 0.007],
+  [0.148, 1.186, 0.001],
+  [0.144, 1.168, -0.011],
+  [0.134, 1.16, -0.036],
 ];
 def(
   'thorax',
@@ -153,9 +154,9 @@ def(
 );
 def('thorax', [
   ['rib1_ant', [0.035, 1.413, 0.06], '第1肋骨 前端（胸骨柄の外側） (subclavius, scalenes area)'],
-  ['rib3_ant', [0.072, 1.362, 0.094], '第3肋骨 前面 (pectoralis minor)'],
-  ['rib4_ant', [0.078, 1.333, 0.1], '第4肋骨 前面 (pectoralis minor)'],
-  ['rib5_ant', [0.083, 1.302, 0.102], '第5肋骨 前面 (pectoralis minor)'],
+  ['rib3_ant', [0.079, 1.346, 0.067], '第3肋骨 前面 (pectoralis minor)'],
+  ['rib4_ant', [0.089, 1.314, 0.074], '第4肋骨 前面 (pectoralis minor)'],
+  ['rib5_ant', [0.095, 1.28, 0.078], '第5肋骨 前面 (pectoralis minor)'],
   ['rib6_ant', [0.085, 1.27, 0.1], '第6肋骨 前面 (pectoralis major lower fibres, rectus)'],
   ['costal_cartilage_5_7', [0.062, 1.246, 0.104], '第5〜7肋軟骨 (rectus abdominis insertion)'],
   ['costal_margin', [0.105, 1.2, 0.085], '肋骨弓 (external oblique, transversus)'],
@@ -213,20 +214,20 @@ def('scapula', [
   ['spine_mid', [0.12, 1.41, -0.088], '肩甲棘 中央 (deltoid posterior, trapezius)'],
   ['spine_lateral', [0.165, 1.437, -0.05], '肩甲棘 外側'],
   ['supraspinous_fossa', [0.108, 1.425, -0.08], '棘上窩 (supraspinatus)'],
-  ['infraspinous_fossa', [0.112, 1.33, -0.092], '棘下窩 (infraspinatus)'],
+  ['infraspinous_fossa', [0.11, 1.33, -0.084], '棘下窩 (infraspinatus)'],
   ['subscapular_fossa', [0.108, 1.335, -0.072], '肩甲下窩（前面） (subscapularis)'],
   ['superior_angle', [0.077, 1.435, -0.09], '上角 (levator scapulae)'],
-  ['medial_border_mid', [0.07, 1.33, -0.112], '内側縁 中央 (rhomboids, serratus anterior)'],
+  ['medial_border_mid', [0.083, 1.333, -0.1], '内側縁 中央 (rhomboids, serratus anterior)'],
   ['inferior_angle', [0.086, 1.236, -0.104], '下角 (serratus, teres major)'],
-  ['lateral_border', [0.135, 1.3, -0.075], '外側縁 (teres minor, teres major)'],
-  ['glenoid', [0.154, 1.405, -0.012], '関節窩'],
+  ['lateral_border', [0.112, 1.3, -0.077], '外側縁 (teres minor, teres major)'],
+  ['glenoid', [0.153, 1.405, -0.023], '関節窩'],
   ['supraglenoid_tubercle', [0.155, 1.43, -0.006], '関節上結節 (biceps long head)'],
   ['infraglenoid_tubercle', [0.15, 1.376, -0.022], '関節下結節 (triceps long head)'],
 ]);
 
 // ── humerus
 def('humerus', [
-  ['head', [0.168, 1.408, -0.006], '上腕骨頭'],
+  ['head', [0.175, 1.406, -0.008], '上腕骨頭'],
   ['greater_tubercle_sup', [0.193, 1.424, 0.0], '大結節 上面 (supraspinatus)'],
   ['greater_tubercle_mid', [0.2, 1.405, -0.013], '大結節 中面 (infraspinatus)'],
   ['greater_tubercle_inf', [0.196, 1.384, -0.022], '大結節 下面 (teres minor)'],
@@ -272,10 +273,10 @@ def('femur', [
   ['shaft_lat_prox', [0.138, 0.852, 0.004], '大腿骨外側 上部 (vastus lateralis)'],
   ['shaft_med_prox', [0.102, 0.84, 0.012], '大腿骨内側 上部 (vastus medialis)'],
   ['shaft_ant_mid', [0.11, 0.7, 0.024], '大腿骨前面 中央'],
-  ['linea_aspera_prox', [0.117, 0.8, -0.026], '粗線 上部 (adductors, vastus)'],
-  ['linea_aspera_mid', [0.107, 0.7, -0.026], '粗線 中央 (adductor longus/magnus, biceps short head)'],
-  ['linea_aspera_dist', [0.099, 0.6, -0.022], '粗線 下部 (adductor magnus)'],
-  ['adductor_tubercle', [0.052, 0.54, -0.012], '内転筋結節 (adductor magnus)'],
+  ['linea_aspera_prox', [0.125, 0.8, -0.018], '粗線 上部 (adductors, vastus)'],
+  ['linea_aspera_mid', [0.111, 0.7, -0.013], '粗線 中央 (adductor longus/magnus, biceps short head)'],
+  ['linea_aspera_dist', [0.099, 0.6, -0.016], '粗線 下部 (adductor magnus)'],
+  ['adductor_tubercle', [0.058, 0.54, -0.01], '内転筋結節 (adductor magnus)'],
   ['lateral_epicondyle', [0.132, 0.515, -0.004], '外側上顆 (ITB passes over, LCL)'],
   ['medial_epicondyle', [0.046, 0.515, -0.004], '内側上顆 (MCL)'],
   ['lateral_condyle_post', [0.118, 0.522, -0.03], '外側顆 後上部 (gastrocnemius lateral head)'],
@@ -297,7 +298,7 @@ def('patella', [
 // tibia + fibula
 def('tibia', [
   ['tibial_tuberosity', [0.09, 0.448, 0.034], '脛骨粗面 (patellar tendon)'],
-  ['pes_anserinus', [0.068, 0.432, 0.022], '鵞足（脛骨内側上部） (sartorius, gracilis, semitendinosus)'],
+  ['pes_anserinus', [0.074, 0.432, 0.015], '鵞足（脛骨内側上部） (sartorius, gracilis, semitendinosus)'],
   ['gerdy_tubercle', [0.114, 0.462, 0.026], 'ガーディー結節 (iliotibial band)'],
   ['medial_condyle', [0.054, 0.474, 0.0], '脛骨内側顆'],
   ['medial_condyle_post', [0.06, 0.468, -0.022], '脛骨内側顆 後面 (semimembranosus)'],
@@ -327,7 +328,7 @@ def('tibia', [
 def('foot', [
   ['calcaneus_post', [0.09, 0.034, -0.071], '踵骨隆起 後面 (Achilles insertion)'],
   ['calcaneus_post_sup', [0.09, 0.056, -0.06], '踵骨 後上部 (retrocalcaneal bursa)'],
-  ['calcaneus_plantar_medial', [0.076, 0.008, -0.036], '踵骨隆起 内側突起 (plantar fascia, abductor hallucis, FDB)'],
+  ['calcaneus_plantar_medial', [0.08, 0.018, -0.04], '踵骨隆起 内側突起 (plantar fascia, abductor hallucis, FDB)'],
   ['calcaneus_plantar', [0.09, 0.006, -0.03], '踵骨 足底面（踵の脂肪体）'],
   ['calcaneus_lat', [0.114, 0.03, -0.034], '踵骨 外側面 (CFL)'],
   ['sustentaculum_tali', [0.066, 0.048, -0.012], '載距突起 (FHL groove, spring ligament)'],

@@ -203,14 +203,14 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     joints: { ankle_R: { inv: 25, dorsi: -20 }, knee_R: { flex: 25 }, hip_R: { flex: 15 } },
     camera: { dir: [-0.9, 0.35, 0.45] },
     frame: ['tibia:lateral_malleolus', 'foot:talus_neck_lat', 'foot:calcaneus_lat', 'foot:fifth_met_base', 'foot:calcaneus_post'],
-    minSize: 0.16,
+    minSize: 0.13,
   },
   'posterior-tibial-tendinopathy': {
     base: 'STAND',
     joints: { hip_L: { flex: 28 }, knee_L: { flex: 35 } },
     camera: { dir: [1, 0.3, -0.25] },
     frame: ['tibia:retro_medial_malleolus', 'foot:navicular_tuberosity', 'tibia:medial_malleolus', 'foot:calcaneus_post', 'tibia:medial_border_dist', 'foot:medial_cuneiform_plantar'],
-    minSize: 0.24,
+    minSize: 0.2,
   },
   'peroneal-tendinopathy': { camera: 'rig' },
   'plantar-heel-pain': {
@@ -235,7 +235,7 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     joints: { toes_R: { ext: 25 } },
     camera: { dir: [-0.15, 0.1, 1] },
     frame: ['foot:met_head_1', 'foot:met_head_5', 'toes:toe_tips', 'foot:interspace_3_4', 'foot:arch_mid'],
-    minSize: 0.2,
+    minSize: 0.15,
   },
 
   // ── low back

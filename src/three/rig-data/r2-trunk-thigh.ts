@@ -658,7 +658,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
       {
         name: '下部（粗線外側唇・斜走線維）',
         path: [
-          { ref: 'femur:linea_aspera_mid', off: [0.012, 0.04, 0.0] },
+          { ref: 'femur:linea_aspera_mid', off: [0.008, 0.04, -0.013] },
           { bone: 'femur', rest: [0.138, 0.68, -0.008] },
           { bone: 'femur', rest: [0.136, 0.61, 0.01] },
           { bone: 'femur', rest: [0.124, 0.56, 0.029] },
@@ -704,7 +704,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
       {
         name: '中部（粗線内側唇）',
         path: [
-          { ref: 'femur:linea_aspera_mid', off: [-0.012, 0.03, 0.002] },
+          { ref: 'femur:linea_aspera_mid', off: [-0.016, 0.03, -0.011] },
           { bone: 'femur', rest: [0.08, 0.68, -0.008] },
           { bone: 'femur', rest: [0.068, 0.62, 0.012] },
           { bone: 'femur', rest: [0.07, 0.575, 0.034] },
@@ -769,7 +769,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
       {
         name: '短頭（粗線外側唇）',
         path: [
-          { ref: 'femur:linea_aspera_mid', off: [0.01, -0.035, -0.002] },
+          { ref: 'femur:linea_aspera_mid', off: [0.006, -0.035, -0.015] },
           { bone: 'femur', rest: [0.12, 0.6, -0.027] },
           { bone: 'femur', rest: [0.113, 0.548, -0.029] },
           { bone: 'femur', rest: [0.108, 0.512, -0.039] },
@@ -801,7 +801,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { bone: 'femur', rest: [0.0735, 0.509, -0.041] },
           { bone: 'tibia', rest: [0.057, 0.447, -0.029] },
           { bone: 'tibia', rest: [0.059, 0.428, -0.005] },
-          { ref: 'tibia:pes_anserinus', off: [0.003, -0.014, -0.008] },
+          { ref: 'tibia:pes_anserinus', off: [-0.003, -0.014, -0.001] },
         ],
         radius: 0.0115,
         tendon: [0.05, 0.42],
