@@ -18,6 +18,8 @@ import type { BodyMapProps } from '../types';
 import { CX, FIG_H, FIG_W, buildFigure } from './figure';
 import { SOLE, buildSole, solePt } from './sole';
 import { SIDE_JA, placeSpots, spotAriaLabel, type PlacedSpot, type Side } from './spots';
+import { TAP, decideTap, layoutLens, rankSpots, type LensLayout } from './lens';
+import Lens, { LENS_HEAD_H, LENS_PAD } from './Lens';
 import './bodymap.css';
 
 export interface BodyMapViewProps extends BodyMapProps {
@@ -27,23 +29,20 @@ export interface BodyMapViewProps extends BodyMapProps {
   debugHits?: boolean;
   /** Which side of `selectedSpot` to emphasise. Defaults to the side last tapped, else both. */
   selectedSide?: Side | null;
-  /** Show a small chooser when a tap lands between several hotspots (default true). */
+  /**
+   * When a tap could belong to several hotspots, open a magnifier of that part of the figure with
+   * every nearby hotspot as a big named target (default true). false = nearest hotspot wins.
+   */
   disambiguate?: boolean;
   /** Dev only: override the viewBox ("x y w h") to inspect details. */
   debugViewBox?: string;
 }
 
-/** Hit radius in CSS px → 44 px tap targets. */
-const HIT_PX = 22;
 /**
- * Tapping the body (away from any hotspot) selects the nearest hotspot within this radius — capped
- * in figure units too, so a smaller rendered map (short phones) doesn't snap e.g. a mid-thigh tap to
- * the groin; farther taps get the 「この場所の解説はまだありません」 popover instead.
+ * Hit radius in CSS px → 44 px tap targets. Tap rules (direct pick vs magnifier, snapping body taps
+ * to the nearest hotspot, the 「この場所の解説はまだありません」 popover) live in ./lens.ts.
  */
-const BODY_PX = 40;
-const BODY_UNITS = 70;
-/** The nearest hotspot wins outright if it is clearly closer than the runner-up. */
-const CLEAR_WIN = 0.7;
+const HIT_PX = TAP.hitPx;
 const LABEL_PAD = 290;
 /**
  * Visible canvas per view. The sole view is shorter; at 740 units its rendered box is the same
@@ -73,9 +72,15 @@ interface Chooser {
   miss?: boolean;
 }
 
-/** Nearest-first hotspots around a canvas point, with distances in CSS px. */
-function rankSpots(spots: PlacedSpot[], x: number, y: number, scale: number) {
-  return spots.map((s) => ({ s, d: Math.hypot(s.x - x, s.y - y) * scale })).sort((a, b) => a.d - b.d);
+interface LensState {
+  layout: LensLayout;
+  left: number;
+  top: number;
+  originX: number;
+  originY: number;
+  /** ring drawn on the map around the magnified area (canvas units) */
+  ring: { x: number; y: number; r: number };
+  seq: number;
 }
 
 export default function BodyMapView(props: BodyMapViewProps) {
@@ -100,6 +105,7 @@ export default function BodyMapView(props: BodyMapViewProps) {
   const [pxPerUnit, setPxPerUnit] = useState(0.57);
   const [lastPick, setLastPick] = useState<{ id: PainSpotId; side: Side } | null>(null);
   const [chooser, setChooser] = useState<Chooser | null>(null);
+  const [lens, setLens] = useState<LensState | null>(null);
   /** Hotspot under the mouse (hover is computed with the same nearest-spot rule as taps). */
   const [hoverKey, setHoverKey] = useState<string | null>(null);
 
@@ -125,17 +131,36 @@ export default function BodyMapView(props: BodyMapViewProps) {
     return () => ro.disconnect();
   }, [vbW, vbH]);
 
-  // close the chooser on view change / outside tap / Escape
-  useEffect(() => setChooser(null), [view]);
+  const lensRef = useRef<LensState | null>(null);
+  const lensSeq = useRef(0);
+  lensRef.current = lens;
+  const closePopups = useCallback((refocus = false) => {
+    const l = lensRef.current;
+    setChooser(null);
+    setLens(null);
+    if (l && refocus) {
+      // back to the hotspot nearest the magnified area, so keyboard users keep their place
+      const k = l.layout.items[0]?.spot.key;
+      try {
+        if (k) svgRef.current?.querySelector<SVGGElement>(`.tb-spots [data-key="${k}"]`)?.focus({ preventScroll: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  }, []);
+
+  // close the chooser / lens on view change, resize, outside tap, Escape
+  useEffect(() => closePopups(), [view, pxPerUnit, closePopups]);
+  const popupOpen = !!chooser || !!lens;
   useEffect(() => {
-    if (!chooser) return;
+    if (!popupOpen) return;
     const onDown = (e: PointerEvent) => {
-      const el = wrapRef.current?.querySelector('.tb-chooser');
+      const el = wrapRef.current?.querySelector('.tb-chooser, .tb-lens');
       if (el && e.target instanceof Node && el.contains(e.target)) return;
-      setChooser(null);
+      closePopups();
     };
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === 'Escape') setChooser(null);
+      if (e.key === 'Escape') closePopups(true);
     };
     // defer so the tap that opened it doesn't close it
     const t = setTimeout(() => document.addEventListener('pointerdown', onDown), 0);
@@ -145,7 +170,7 @@ export default function BodyMapView(props: BodyMapViewProps) {
       document.removeEventListener('pointerdown', onDown);
       document.removeEventListener('keydown', onKey);
     };
-  }, [chooser]);
+  }, [popupOpen, closePopups]);
   useEffect(() => {
     if (chooser) wrapRef.current?.querySelector<HTMLButtonElement>('.tb-chooser button')?.focus({ preventScroll: true });
   }, [chooser]);
@@ -153,6 +178,7 @@ export default function BodyMapView(props: BodyMapViewProps) {
   const pick = useCallback(
     (s: PlacedSpot) => {
       setChooser(null);
+      setLens(null);
       setLastPick({ id: s.id, side: s.side });
       // focus the picked hotspot, so a sheet opened by onSelect returns focus to it when closed
       try {
@@ -195,43 +221,43 @@ export default function BodyMapView(props: BodyMapViewProps) {
     }
     const c = toCanvas(e.clientX, e.clientY);
     if (!c) return;
-    const ranked = rankSpots(spots, c.x, c.y, c.scale);
-    const near = ranked.filter((r) => r.d <= HIT_PX);
+    const onBody = !!target.closest?.('[data-body]');
+    const decision = decideTap(spots, c.x, c.y, c.scale, onBody);
     const wrap = wrapRef.current;
-    const place = () => {
-      const wr = wrap!.getBoundingClientRect();
-      const x = e.clientX - wr.left;
-      const y = e.clientY - wr.top;
+    if (decision.kind === 'none') return closePopups();
+    if (decision.kind === 'pick' || !wrap) {
+      if (decision.kind === 'pick') pick(decision.spot);
+      else if (decision.kind === 'lens') pick(decision.spots[0]);
+      return;
+    }
+    const wr = wrap.getBoundingClientRect();
+    const x = e.clientX - wr.left;
+    const y = e.clientY - wr.top;
+    if (decision.kind === 'miss') {
+      if (!disambiguate) return pick(decision.spots[0]);
+      // a tap on the body with no hotspot nearby: say so and offer the nearest places
       const cardW = Math.min(300, wr.width - 16);
       const left = Math.max(8, Math.min(wr.width - cardW - 8, x - cardW / 2));
       const above = y > wr.height * 0.6;
-      return { left, top: above ? y - 20 : y + 20, above };
-    };
-    if (near.length === 0) {
-      const onBody = !!target.closest?.('[data-body]');
-      if (onBody && ranked[0] && ranked[0].d <= Math.min(BODY_PX, BODY_UNITS * c.scale)) pick(ranked[0].s);
-      else if (onBody && wrap && disambiguate) {
-        // a tap on the body with no hotspot nearby: say so and offer the nearest places
-        const seen = new Set<string>();
-        const items = ranked
-          .filter((r) => (seen.has(r.s.id) ? false : (seen.add(r.s.id), true)))
-          .slice(0, 2)
-          .map((r) => r.s);
-        setChooser({ ...place(), items, miss: true });
-      } else setChooser(null);
+      setLens(null);
+      setChooser({ left, top: above ? y - 20 : y + 20, above, items: decision.spots, miss: true });
       return;
     }
-    const limit = Math.max(near[0].d * 2.2, 12);
-    const close = near.filter((r) => r.d <= limit);
-    // one spot drawn as a left/right pair close together (neck, low back): no need to ask
-    const sameSpot = close.every((r) => r.s.id === close[0].s.id);
-    if (near.length === 1 || !disambiguate || sameSpot || near[0].d <= near[1].d * CLEAR_WIN) {
-      pick(near[0].s);
-      return;
-    }
-    // ambiguous tap between several hotspots → let the user choose
-    if (!wrap) return pick(near[0].s);
-    setChooser({ ...place(), items: close.slice(0, 4).map((r) => r.s) });
+    // ambiguous tap in a dense cluster → magnify that part of the figure
+    if (!disambiguate) return pick(decision.spots[0]);
+    // the card may be wider than the map (over the page gutters), never wider than the screen
+    const vw = document.documentElement.clientWidth || window.innerWidth;
+    const cardW = Math.round(Math.min(372, vw - 16));
+    const layout = layoutLens(decision.spots, cardW - 2 * LENS_PAD, c.scale, decision.required);
+    const H = LENS_HEAD_H + layout.h + LENS_PAD + 2;
+    // above the tap if it fits (may overlap the view switcher a little), else below it
+    const minTop = -56;
+    const top = y - 18 - H >= minTop ? y - 18 - H : Math.min(y + 18, Math.max(minTop, wr.height + 96 - H));
+    const left = Math.max(8 - wr.left, Math.min(vw - 8 - wr.left - cardW, x - cardW / 2));
+    const r = Math.max(...layout.items.map((i) => Math.hypot(i.spot.x - layout.cx, i.spot.y - layout.cy))) + 16 / c.scale;
+    setChooser(null);
+    lensSeq.current++;
+    setLens({ layout, left, top, originX: x - left, originY: y - top, ring: { x: layout.cx, y: layout.cy, r }, seq: lensSeq.current });
   };
 
   const onSpotKey = (e: KeyboardEvent<SVGGElement>, s: PlacedSpot) => {
@@ -360,7 +386,8 @@ export default function BodyMapView(props: BodyMapViewProps) {
             const act = active.has(s.id);
             const v = intensity?.[s.id];
             const heat = typeof v === 'number' && v > 0;
-            const cand = !!chooser?.items.some((c) => c.key === s.key);
+            const cand =
+              !!chooser?.items.some((c) => c.key === s.key) || !!lens?.layout.items.some((c) => c.spot.key === s.key);
             const hov = hoverKey === s.key;
             const cls = `tb-spot${act ? ' is-active' : ''}${sel ? ' is-selected' : ''}${heat ? ' is-heat' : ''}${cand ? ' is-candidate' : ''}${hov ? ' is-hover' : ''}`;
             const dotR = sel ? MARK.dotSelected : act || heat ? MARK.dotActive : MARK.dot;
@@ -397,8 +424,35 @@ export default function BodyMapView(props: BodyMapViewProps) {
           ))}
         </g>
 
+        {lens && (
+          <circle
+            className="tb-lens-ring"
+            cx={lens.ring.x}
+            cy={lens.ring.y}
+            r={lens.ring.r}
+            aria-hidden="true"
+            pointerEvents="none"
+          />
+        )}
+
         {showLabels && <SpotLabels spots={spots} />}
       </svg>
+
+      {lens && (
+        <Lens
+          key={lens.seq}
+          uid={uid}
+          art={art}
+          layout={lens.layout}
+          left={lens.left}
+          top={lens.top}
+          originX={lens.originX}
+          originY={lens.originY}
+          activeIds={active}
+          onPick={pick}
+          onClose={() => closePopups(true)}
+        />
+      )}
 
       {chooser && (
         <div

@@ -304,3 +304,217 @@
   font-size: 12px;
   white-space: nowrap;
 }
+
+/* ── magnifier for dense clusters (knee, ankle, hip, shoulder…) ── */
+.tb-lens-ring {
+  fill: var(--tb-accent);
+  fill-opacity: 0.06;
+  stroke: var(--tb-accent);
+  stroke-width: 1.6px;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+}
+.tb-lens {
+  position: absolute;
+  z-index: 6;
+  box-sizing: border-box;
+  border-radius: 16px;
+  background: var(--surface, #fff);
+  color: var(--text, #1e1b18);
+  border: 1px solid var(--border, #e3dcd4);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.08);
+  scroll-margin: 12px 0 calc(var(--tabbar-h, 64px) + var(--safe-bottom, 0px) + 12px);
+  outline: none;
+  animation: tb-lens-in 0.18s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+@keyframes tb-lens-in {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tb-lens {
+    animation: none;
+  }
+}
+.tb-lens-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 12px;
+}
+.tb-lens-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--accent-ink, #a2433d);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.tb-lens-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.tb-lens-side-chip {
+  flex: none;
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: var(--surface-2, #efeae4);
+  color: var(--text-2, #5f5852);
+  font-size: 12px;
+  font-weight: 700;
+}
+.tb-lens-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-2, #5f5852);
+  cursor: pointer;
+}
+.tb-lens-close svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.tb-lens-close:hover {
+  background: var(--surface-2, #efeae4);
+}
+.tb-lens-close:focus-visible {
+  outline: 2px solid var(--text, #1e1b18);
+  outline-offset: -4px;
+}
+.tb-lens-stage {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  box-shadow: inset 0 0 0 1px var(--border, #e3dcd4);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.tb-lens-art,
+.tb-lens-marks {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  pointer-events: none;
+}
+.tb-lens .tb-outline path {
+  stroke-width: 2.4px;
+  vector-effect: non-scaling-stroke;
+}
+.tb-lens .tb-loops path {
+  stroke-width: 1.4px;
+  vector-effect: non-scaling-stroke;
+}
+.tb-lens .tb-contours path {
+  opacity: calc(var(--tb-contour-opacity) * 0.8);
+}
+.tb-lens .tb-contours path.is-faint {
+  opacity: calc(var(--tb-contour-faint) * 0.8);
+}
+.tb-lens-leader {
+  stroke: var(--text-2, #5f5852);
+  stroke-width: 1.3;
+  opacity: 0.75;
+}
+.tb-lens-halo {
+  fill: var(--tb-accent);
+  opacity: 0.15;
+  transition: opacity 0.12s ease;
+}
+.tb-lens-dot {
+  fill: var(--tb-accent);
+  stroke: var(--tb-ring);
+  stroke-width: 2;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.12s ease;
+}
+.tb-lens-mark.is-hot .tb-lens-halo {
+  opacity: 0.32;
+}
+.tb-lens-mark.is-hot .tb-lens-dot {
+  transform: scale(1.2);
+}
+.tb-lens-mark.is-hot .tb-lens-leader {
+  stroke: var(--tb-accent);
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tb-lens-halo,
+  .tb-lens-dot {
+    transition: none;
+  }
+}
+.tb-lens-pick {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 44px;
+  margin: 0;
+  padding: 4px 7px;
+  border: 1.5px solid color-mix(in srgb, var(--tb-accent) 45%, var(--border, #e3dcd4));
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  color: var(--text, #1e1b18);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: left;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.tb-lens-pick.is-left {
+  align-items: flex-end;
+  text-align: right;
+}
+.tb-lens-pick:hover,
+.tb-lens-pick.is-hot {
+  background: var(--accent-soft, #f3dcd9);
+  border-color: var(--tb-accent);
+}
+.tb-lens-pick:focus-visible {
+  outline: 2px solid var(--text, #1e1b18);
+  outline-offset: 2px;
+}
+.tb-lens-side {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: var(--surface-2, #efeae4);
+  color: var(--text-2, #5f5852);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  vertical-align: 1px;
+}
