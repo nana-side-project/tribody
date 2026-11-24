@@ -43,6 +43,8 @@ export interface CompiledClip {
   props: Prop[];
   side: Side;
   sides: Side[];
+  /** per-part highlight sides overriding `sides` (Clip.partSides, mirror applied) */
+  partSides: Partial<Record<string, Side[]>>;
   mirror: boolean;
   camera?: CameraSpec;
   focus?: RegionId;
@@ -93,7 +95,10 @@ export function compileClip(clip: Clip): CompiledClip {
   const anchorDef = clip.anchor === null ? null : (clip.anchor ?? baseDef.anchor ?? null);
   const anchorCp = anchorDef ? tryCompile(anchorDef.point, side, `clip ${clip.id} anchor`) : null;
   const animated = keys.length > 1 && keys.some((k) => k.vec.some((v, i) => Math.abs(v - keys[0].vec[i]) > 1e-4));
-  const sides: Side[] = clip.sides === 'both' ? ['R', 'L'] : [clip.sides === 'L' ? (mirror ? 'R' : 'L') : side];
+  const sideOf = (s: 'R' | 'L' | 'both' | undefined): Side[] => (s === 'both' ? ['R', 'L'] : [s === 'L' ? (mirror ? 'R' : 'L') : side]);
+  const sides: Side[] = sideOf(clip.sides);
+  const partSides: Partial<Record<string, Side[]>> = {};
+  for (const [id, s] of Object.entries(clip.partSides ?? {})) if (s) partSides[id] = sideOf(s);
   const props = [...(baseDef.props ?? []), ...(clip.props ?? [])];
   const cc: CompiledClip = {
     src: clip,
@@ -107,6 +112,7 @@ export function compileClip(clip: Clip): CompiledClip {
     props,
     side,
     sides,
+    partSides,
     mirror,
     camera: clip.camera ?? baseDef.camera,
     focus: clip.focus,
@@ -295,10 +301,10 @@ export function muscleDemoClip(rig: MuscleRig): Clip {
     base: rig.base ?? 'STAND',
     pose: rig.restPose,
     keys: [
-      { t: 0, label: DEMO_LABEL_ACTION },
+      { t: 0, label: rig.actionLabel ?? DEMO_LABEL_ACTION },
       { t: 0.17, pose: rig.actionPose, hold: 0.9 },
       { t: 0.44 },
-      { t: 0.5, label: DEMO_LABEL_STRETCH },
+      { t: 0.5, label: rig.stretchLabel ?? DEMO_LABEL_STRETCH },
       { t: 0.67, pose: rig.stretchPose, hold: 0.9 },
       { t: 0.94 },
     ],

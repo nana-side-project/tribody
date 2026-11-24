@@ -1169,6 +1169,14 @@ button.row:active {
   color: var(--text-2);
   min-height: 48px;
 }
+/* the legend / link side shrinks; 閉じる never wraps (「閉じ／る」 next to a long muscle link at 360–390 px) */
+.viewer-frame__bar > :first-child {
+  min-width: 0;
+}
+.viewer-frame__bar > .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 /* region page: the key muscles under the viewer (tap = emphasise in 3D) */
 .viewer-frame__muscles {
   border-top: 1px solid var(--border);
@@ -1197,6 +1205,7 @@ button.row:active {
 .viewer-frame__link svg {
   width: 16px;
   height: 16px;
+  flex-shrink: 0;
 }
 .viewer-hero {
   margin: 0 calc(-1 * var(--gutter));

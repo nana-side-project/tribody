@@ -176,7 +176,7 @@ Hip / leg:
 | figure-4 start (supine, right shin across the body) | `hip_R: { flex: 70, abd: 30, rot: 45 }, knee_R: { flex: 100 }` + bend the left leg (`hip_L: { flex: 60 }, knee_L: { flex: 90 }`) and fine-tune with `?j=` |
 | calf raise with the toes kept flat | `ankle: { dorsi: -34 }, toes: { ext: 34 }` + anchor on `toes:toes_mid` |
 | heel drop off a step | `ankle: { dorsi: 28 }, toes: { ext: -28 }` on `STAND_STEP` |
-| clamshell "open" (side-lying, hips 48° / knees 88°) | `hip_R: { flex: 42.8, abd: 18.3, rot: 23.2 }` — a 35° turn about the hip–heel axis from `SIDE_LYING`'s resting top leg (`hip_R.abd −8`): heels stay together, the knee rises ~17 cm |
+| clamshell "open" (side-lying, hips 48° / knees 88°) | `hip_R: { flex: 42.5, abd: 25.0, rot: 23.9 }` — a 35° turn about the hip–heel axis from the clamshell's resting top leg (`hip_R.abd −1.3`, knees stacked on the re-grounded side-lying pose): heels stay together, the knee rises ~19 cm |
 
 **Because `rot` is applied after `flex` and `abd`, one arm/leg orientation can need a surprising `rot`**
 (e.g. with the arm raised by **flexion** to 170° the elbow crease faces backward, so bending the elbow folds the
@@ -236,7 +236,13 @@ Values outside are clamped (and logged once to the console):
     off them (`protr: 25` moves the medial border ~5 cm laterally);
   - **retraction saturates** (`retractR` 15): effective angle = −15·tanh(−protr / 15) → −10 ≈ −8.7°, −20 ≈ −13°,
     −30 ≈ −14.5°; the medial border stops ~3 cm from the spinous processes (−20 used to move it 6 cm, onto the
-    spine). Retraction values beyond −20 add almost nothing.
+    spine). Retraction values beyond −20 add almost nothing: for a visible squeeze use `protr` −12…−15 together with
+    `elev` −5…−6 (band row, prone Y-T-W).
+  - Pectoralis minor depresses / protracts / downwardly rotates the scapula, so `elev` < 0 or `upRot` < 0 SHORTEN it:
+    a pec-minor stretch needs retraction plus extra `upRot` (posterior tilt), not "back and down" (doorway stretch).
+  - In arm-elevation drills (wall slide) the automatic protraction (0.3·upRot) already lengthens the middle / lower
+    trapezius; keep explicit `protr` small and add a little depression if the trapezius is a target that should not
+    look stretched.
   Values for the scapula landmarks per pose: `node shots/eng-verify-motion/probe/run.mjs
   /home/user/forclaude/shots/qa3-fix-body/probe/girdle.ts`.
 - **Patella** glides from the trochlea onto the condyles: its centre moves on an arc around the condyles and tilts
@@ -254,25 +260,30 @@ description, default camera, grounding and default props). Look at them: `/dev/e
 | name | what it looks like | placement | default props | camera |
 |---|---|---|---|---|
 | `STAND` | 立位 | lowest skin point → y=0 | — | iso |
-| `SUPINE` | 仰向け（頭は −Z 方向） | lowest skin point → y=0 | — | iso |
+| `SUPINE` | 仰向け（頭は −Z 方向）; arms by the sides, palms down on the floor | lowest skin point → y=0 | — | iso |
 | `PRONE` | うつ伏せ（頭は +Z 方向） | lowest skin point → y=0 | — | iso |
-| `SIDE_LYING` | 横向き（左側が下・右側が上、頭は +X 方向）; hips 40° / knees 60°, the top leg rests on the bottom one (`hip_R.abd −8`) | lowest skin point → y=0 | — | front |
-| `QUADRUPED` | 四つ這い（手と膝をつく、頭は +Z 方向） | lowest skin point → y=0 | — | iso |
+| `SIDE_LYING` | 横向き（左側が下・右側が上、頭は +X 方向）; roll −81.9°, hips 40° / knees 60°, bottom hip adducted 5.6°, the top leg rests on the bottom one (`hip_R.abd −2.2`), head on the pillow (`neck.lat −19`), bottom forearm on the floor | lowest skin point → y=0 | pillow (head) | front |
+| `QUADRUPED` | 四つ這い（手と膝をつく、頭は +Z 方向）; = the k1 clips' solved `QUAD` | lowest skin point → y=0 | — | iso |
 | `HALF_KNEEL` | 片膝立ち（右膝が床、左足が前） | lowest skin point → y=0 | — | right |
 | `LONG_SIT` | 長座（床に座り脚を伸ばす） | lowest skin point → y=0 | — | right |
-| `SIT_CHAIR` | 椅子座位 | lowest skin point → y=0 | chair | iso |
+| `SIT_CHAIR` | 椅子座位; arms hanging, hands holding the side edges of the seat | lowest skin point → y=0 | chair | iso |
 | `PLANK` | プランク（前腕とつま先で支える） | lowest skin point → y=0 | — | right |
 | `SIDE_PLANK` | サイドプランク（左前腕で支える） | lowest skin point → y=0 | — | front |
-| `STAND_STEP` | 段差の縁に前足部で立つ（かかとは段差の外） | lowest skin point → y=0.15, anchor `toes:toes_mid` (xyz) | step | right |
+| `STAND_STEP` | 段差の縁に前足部で立つ（かかとは段差の外）; the step edge is 0.5 cm behind the MTP axis | lowest skin point → y=0.15, anchor `toes:toes_mid` (xyz) | step | right |
 | `BIKE` | ロードバイク乗車姿勢（ブラケットを握る） | root as written | bike | right |
 | `SWIM` | スイム（うつ伏せ水平・右腕を前に伸ばす） | lowest skin point → y=0.04 | — | iso |
 
 Notes: `SUPINE` head is toward −Z; `PRONE`, `QUADRUPED`, `PLANK` head toward +Z; `SIDE_LYING` / `SIDE_PLANK`
 head toward +X with the front facing +Z (so the default front camera sees the figure from the front).
 `ANATOMICAL` = all zeros (the L0 reference). Contacts were solved numerically: in SUPINE the back of the head,
-upper back, sacrum and heels touch (hip −2°, neck −8°); in PRONE the chest and pelvis touch with the thighs and the
-tops of the feet ~2 cm above (the face is just off the floor); in QUADRUPED hands and knees
-touch, in PLANK forearms and toes, in HALF_KNEEL the right knee + toes and the left foot.
+upper back, sacrum, heels and the hands (fingers 0 mm, palm heel 3.5 mm) touch (hip −2°, neck −8°); in PRONE the chest
+and pelvis touch with the thighs and the tops of the feet ~2 cm above (the face is just off the floor); in QUADRUPED the
+fingers / palms, toes and knees (5 mm) touch; in SIDE_LYING the bottom shoulder, hip, foot (knee 1 cm) and the head on
+its pillow (4 mm in); in PLANK forearms and toes, in HALF_KNEEL the right knee + toes and the left foot. A **pillow that
+comes with a base pose** (SIDE_LYING) is in every clip on that base — don't add another one; tune the clip's `neck.lat`
+so the head rests on it (`side-clip.ts` below). The STAND_STEP step edge sits just behind the ball of the foot, so heel
+drops (dorsiflexion about the toes) leave the forefoot on the edge (qa3-fix-clips; the edge used to be 3.5 cm further
+back and the calf-stretch demo's foot sank 8 mm into it).
 
 **Grounding = what you see.** `lowest skin point` is taken over every skin shape (`SKIN_SHAPES` in rig.ts). Since
 qa3-fix-body the knees (femoral condyles, kneecap, upper tibia) and the buttocks are drawn shapes too, so a kneeling
@@ -280,8 +291,11 @@ knee, a seated or long-sitting pelvis and the forefoot sole (ball of the foot un
 `toes` segment) touch visibly where the figure is grounded (they used to hover 1–2 cm: the lofted rings were smaller
 than the grounding shapes there). Visible-skin contacts per clip / base pose:
 `node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/qa3-fix-body/probe/contacts.ts out.json`
-(+ `cmp-contacts.mjs base.json out.json` to compare two trees). After that change QUADRUPED's hands are still ~2 cm
-above the floor and SIT_CHAIR's thighs ~3 cm above the seat (base-pose solves, not skin).
+(+ `cmp-contacts.mjs base.json out.json` to compare two trees). SIT_CHAIR's thighs are still ~3 cm above the seat (the
+drawn buttocks are the seated contact; lowering the knees would move every SIT_CHAIR demo / close-up camera).
+The **exercise mat is 8 mm thick** (top at y 0.008) while `ground: true` puts the lowest point at y 0, so a body part
+0–8 mm "above the floor" in the probes visually rests on the mat (the figure sinks into the soft mat); use
+`ground: 0.008` only when the figure should stand on top of it (half-kneeling).
 
 ---
 
@@ -748,11 +762,23 @@ muscles 0.4–0.5 at the insertion.
 - Choose a base where the moving limb is free: standing hip abduction is fine on `STAND`; calf work on
   `STAND_STEP` (heel raise / heel drop with the toes anchored); quadriceps in `PRONE` or `STAND`; hip
   flexors in `HALF_KNEEL`; rotator cuff in `STAND`.
+- **Make the movement visible.** A rotation about a straight limb's own axis shows almost nothing (the piriformis demo
+  used to spin a straight standing leg: identical silhouettes, feet out of frame). Bend the next joint so a segment
+  swings: hip rotators on `PRONE` with `restPose` knee 90 (the shin swings like a wiper — the piriformis demo; keep
+  the hip near neutral, its rotation action reverses in deep flexion), shoulder rotators with the elbow at 90.
+- Strands that lie entirely on one rigid segment never change length (the cervical spine is one segment from C7/T1
+  to C0/C1, the lumbar spine one from L5/S1 to T12/L1): give their points a `{ mix }` of the same rest point on the
+  segment below and on their own segment, `t` ≈ the point's height fraction along the segment (longus colli upper
+  oblique: C4 0.47, C2 0.73).
+- A muscle whose main action has no skeletal motion (transversus abdominis: drawing-in) can show its shortening with
+  a substitute movement, but then say so: `actionLabel` / `stretchLabel` replace the phase labels of the demo (≤ 14
+  characters), e.g. TrA `actionLabel: '収縮：ひねると短くなる'` with a modest 30° twist.
 - Verify the numbers: `/dev/engine.html?muscle=<id>&debug=1` prints
   `rest 1.000 → action 0.765 (belly 0.721) / stretch 1.141 (belly 1.168)  OK ✓`. **Both must pass** (action
   shorter, stretch longer than rest). Aim for a belly change of ±10–35 %.
-- Demo timeline (auto-built): rest → action (label 「収縮：筋が短くなる」, hold) → rest → stretch (label
-  「ストレッチ：筋が伸びる」, hold) → rest, 7 s loop. Peaks are at `t = 0.2` (action) and `t = 0.7` (stretch).
+- Demo timeline (auto-built): rest → action (label 「収縮：筋が短くなる」 or `actionLabel`, hold) → rest → stretch
+  (label 「ストレッチ：筋が伸びる」 or `stretchLabel`, hold) → rest, 7 s loop. Peaks are at `t = 0.2` (action) and
+  `t = 0.7` (stretch).
 
 ### Colours & roles (automatic)
 
@@ -894,7 +920,10 @@ show, at ~55 % opacity) — an injured tendon or bursa under a superficial muscl
 
   Recipe used for the shipped clips: blend the two neighbouring keys at 25 / 50 / 75 %, keep the "progress" DOFs
   (e.g. knee flexion) as the blend, solve the others for the contacts (per-clip solvers in `shots/eng-motion/probe/`,
-  e.g. `quad-solve.ts`, `row-solve.ts`, `cp-solve.ts`, `hd-solve.ts`, on top of `lib.ts`), insert the results as pass
+  e.g. `quad-solve.ts`, `row-solve.ts`, `cp-solve.ts`, `hd-solve.ts`, on top of `lib.ts`; qa3-fix-clips' solvers on the
+  visible skin are in `shots/qa3-fix-clips/probe/` — `lib.ts` (patch a key, compile the whole clip, Nelder–Mead), e.g.
+  `wallslide-solve.ts`, `hands-wall.ts`, `pup-solve.ts`, `row-solve.ts`, `gastroc-solve.ts`, `side-clip.ts`, and
+  `variant.ts` / `keygaps.ts` / `series-gap.ts` / `ratio-series.ts` to check contacts and belly ratios), insert the results as pass
   keys (the same poses in reverse order on the way back), then re-check the whole cycle with
   `node shots/eng-verify-motion/probe/run.mjs sweep.ts <id…|changed|all>`: visible skin (loft + hands / feet / head)
   against the floor and every prop, joint limits, overshoot, speed at each pass key relative to its run, and every
@@ -971,6 +1000,13 @@ show, at ~55 % opacity) — an injured tendon or bursa under a superficial muscl
 - `mirror: true` — perform on the LEFT side (swaps every R/L, mirrors root & props & camera).
 - `sides: 'R' | 'L' | 'both'` — which side's muscles are highlighted. Use `'both'` for symmetric exercises
   (bridge, squat, calf raise), `'R'` for unilateral ones (the moving side).
+- `partSides` — per-part override of `sides` for a part that works on the other side in a one-sided exercise:
+  `partSides: { 'gluteus-medius': 'L' }` on the standing knee drive (the stance-leg gluteus medius holds the pelvis),
+  `{ obliques: 'L' }` on the Copenhagen plank (the floor-side obliques hold the hips up). `'R' | 'L' | 'both'`, swapped
+  with `mirror` like `sides`. Compiled into `CompiledClip.partSides` (`Side[]` per id). **Not applied yet**: the engine
+  (engine.ts) still builds the scope and the labels from `cc.sides` only — it needs to use
+  `cc.partSides[id] ?? (both.has(id) ? ['R', 'L'] : sides)` per part in `anatomy.setScope` (today `ScopeOptions.both`)
+  and in `setupLabels`' `sidesOf`.
 - `highlights` — used when the Exercise data (`primary` / `secondary` in src/data) is empty. When the data
   exists the viewer highlights `Exercise.primary` (primary) and `Exercise.secondary` (secondary); if **none** of
   those muscles is rigged yet, it falls back to the clip's `highlights`, so always set them.

@@ -27,9 +27,9 @@ export function useLeavingPage(): boolean {
   /** the committed path the URL moved away from (stays put if the component lives on under a new path) */
   const [leftFrom, setLeftFrom] = useState<string | null>(null);
   useLayoutEffect(() => {
-    const check = () => {
-      if (urlPath() !== decoded(pathname)) setLeftFrom(pathname);
-    };
+    // Re-evaluated on every event, not latched: a tap on a link followed by Back before the next page commits
+    // (both transitions collapse into "stay here") must bring the viewer back, or the page keeps an empty box.
+    const check = () => setLeftFrom(urlPath() !== decoded(pathname) ? pathname : null);
     // A link tap / navigate() updates the URL synchronously inside the click (pushState): the document-level
     // listener runs after React's own handler. Back / forward / a typed URL arrive as popstate / hashchange.
     document.addEventListener('click', check);

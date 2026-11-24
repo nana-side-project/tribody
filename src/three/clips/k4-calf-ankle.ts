@@ -55,15 +55,16 @@ const WALL_LEAN = (lean: number, front: [number, number, number], arm: [number, 
     ...HANDS_ON_WALL(arm[0], arm[1], arm[2], arm[3]),
   },
 });
-// gastrocnemius: back knee straight; start 16° (weight between the feet) → stretch 22° (front knee 39°)
-// (arms of START / HOLD solved together so the hands stay on the wall along the whole eased lean, ≤ 6 mm in)
+// gastrocnemius: back knee straight; start 16° (weight between the feet) → stretch 25° (front knee 48°; qa3-fix-clips:
+// deeper than the old 22° so the gastrocnemius belly reaches ~1.11 like its own stretch demo, instead of 1.09)
+// (arms solved so the fingers stay on the wall and the palms ~4 mm off it along the whole eased lean)
 const GASTROC_START = WALL_LEAN(16, [36.6, 9.8, -10.9], [78.1, -7.8, 45.3, -63.9]);
-const GASTROC_HOLD = WALL_LEAN(22, [51.7, 39.2, 9.5], [71.9, -13, 87.6, -43.9]);
+const GASTROC_HOLD = WALL_LEAN(25, [56.23, 47.97, 16.64], [72.93, -17.37, 106.8, -26.29]);
 // pass keys at 25 / 50 / 75 % of the lean (eng-motion): lean as the blend, front leg and arms re-solved so both feet
 // stay flat on their spots and the palms on the wall (the plain blend lifted the back heel ~7 mm mid-lean)
-const GASTROC_25 = WALL_LEAN(17.5, [42.33, 21.1, -3.82], [75, -8.88, 58.33, -57.83]);
-const GASTROC_50 = WALL_LEAN(19, [46.06, 28.36, 1.2], [73.08, -10.07, 69.26, -52.77]);
-const GASTROC_75 = WALL_LEAN(20.5, [49.08, 34.19, 5.51], [72.07, -11.43, 78.88, -48.22]);
+const GASTROC_25 = WALL_LEAN(18.25, [44.44, 25.21, -1.07], [75.13, -9.14, 61.09, -59.53]);
+const GASTROC_50 = WALL_LEAN(20.5, [49.17, 34.36, 5.59], [72.36, -11.3, 78.38, -48.66]);
+const GASTROC_75 = WALL_LEAN(22.75, [52.97, 41.67, 11.35], [71.6, -14.06, 93.45, -37.32]);
 // soleus: shorter stance (0.30 m heel to heel), trunk ~upright. Knees straight → both knees bent (back knee 18°,
 // back ankle 20°) → back knee pushed forward over the toes, hips lower (back knee 36°, back ankle 31°, front knee 40°)
 const SOLEUS_START = WALL_LEAN(10, [21.8, 2.5, -9.3], [58, -6.8, 52.7, -73.5]);
@@ -284,7 +285,7 @@ const KTW_TOUCH: Pose = {
 
 /**
  * Long sitting for the band exercises (solved numerically): pelvis 22° back, hips ~65°, legs straight, neutral spine,
- * leaning back on the hands (33 cm behind the hips, fingers pointing back, elbows 15°). Buttocks, both heels and both
+ * leaning back on the hands (~30 cm behind the hips, fingers pointing back, elbows soft). Buttocks, both heels and both
  * hands touch the floor. `extra` = per-exercise changes (ankle angle, the left leg).
  */
 const bandSit = (hip: number, ankle: number, extra: Pose['joints'] = {}): Pose => ({
@@ -296,10 +297,11 @@ const bandSit = (hip: number, ankle: number, extra: Pose['joints'] = {}): Pose =
     lumbar: { flex: 5 },
     thorax: { flex: 3 },
     neck: { flex: 4 },
-    shoulder: { flex: -34.5, abd: 0.3 },
-    elbow: { flex: 15 },
+    // hands on the floor behind (qa3-fix-clips: re-solved, they hovered 1.5–2 cm above it): fingers down, palm heel 6 mm up
+    shoulder: { flex: -27.25, abd: -1.18 },
+    elbow: { flex: 5.92 },
     forearm: { sup: 0 },
-    wrist: { flex: -85 },
+    wrist: { flex: -83.44 },
     ...extra,
   },
 });
@@ -579,16 +581,17 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     base: 'STAND',
     keys: [
       { t: 0, pose: slb('down', 0), label: '片脚に体重を移し、反対の脚を浮かせる' },
-      { t: 0.08, pose: slb('down', 7) },
-      { t: 0.11, pose: slb('hover', 7) },
+      // shift → lift-off → lift as one movement (qa3-fix-clips: `pass` keys, it used to stop twice on the way up)
+      { t: 0.08, pose: slb('down', 7), pass: true },
+      { t: 0.11, pose: slb('hover', 7), pass: true },
       { t: 0.16, pose: slb('lift', 7), label: '膝を軽く曲げ、骨盤を水平に30秒キープ' },
       { t: 0.28, pose: slb('lift', 7, 1.3, 0.6) },
       { t: 0.41, pose: slb('lift', 7, -1, -0.4) },
       { t: 0.54, pose: slb('lift', 7, 0.9, -0.3) },
       { t: 0.67, pose: slb('lift', 7, -1.2, 0.5) },
       { t: 0.77, pose: slb('lift', 7), label: 'ゆっくり足を下ろす' },
-      { t: 0.83, pose: slb('hover', 7) },
-      { t: 0.87, pose: slb('down', 7) },
+      { t: 0.83, pose: slb('hover', 7), pass: true },
+      { t: 0.87, pose: slb('down', 7), pass: true },
       { t: 0.94, pose: slb('down', 0) },
     ],
     loop: 'loop',
@@ -645,7 +648,7 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
   },
   // Band eversion (right): long sitting, leaning back on the hands; band hooked around the lateral forefoot, tied to a
   // furniture leg on the inner side (left knee bent, foot flat, out of the band's way). Heel on the floor, shin still:
-  // only the foot turns the sole outward (little-toe side up) 20°, 1 s hold, 3 s back. Ankle near neutral (−10°) so
+  // only the foot turns the sole outward (little-toe side up) 25°, 1 s hold, 3 s back. Ankle near neutral (−10°) so
   // tibialis anterior does not take over.
   'ex-band-eversion': {
     id: 'ex-band-eversion',
@@ -654,8 +657,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     pose: bandSit(65.3, -10, { hip_L: { flex: 121.3 }, knee_L: { flex: 125 }, ankle_L: { dorsi: -20.3 } }),
     keys: [
       { t: 0, label: 'すねを動かさず、足裏を外へ向ける（1秒）' },
-      { t: 0.182, pose: { joints: { ankle_R: { inv: -22 } } }, label: '一番外側で1秒止める' },
-      { t: 0.364, pose: { joints: { ankle_R: { inv: -22 } } }, label: '3秒かけてゆっくり戻す' },
+      { t: 0.182, pose: { joints: { ankle_R: { inv: -25 } } }, label: '一番外側で1秒止める' },
+      { t: 0.364, pose: { joints: { ankle_R: { inv: -25 } } }, label: '3秒かけてゆっくり戻す' },
       { t: 0.909 },
     ],
     loop: 'loop',
@@ -673,7 +676,7 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
   // Band inversion (right): same seat (left knee bent, foot flat — as in the eversion clip, so the medial view of the
   // working leg is not blocked by the other leg); band around the medial forefoot, tied to a furniture leg on the outer
   // side. Toes pointed slightly down (ankle −25°) so tibialis posterior, not tibialis anterior, works; from the heel the
-  // inner border of the foot lifts and the toes turn in (inversion 25°), 1 s hold, 3 s back. The rig has no forefoot
+  // inner border of the foot lifts and the toes turn in (inversion 30°), 1 s hold, 3 s back. The rig has no forefoot
   // adduction DOF, so the "toes in" part is shown by the inversion only.
   'ex-band-inversion': {
     id: 'ex-band-inversion',
@@ -682,8 +685,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     pose: bandSit(65.6, -25, { hip_L: { flex: 121.3 }, knee_L: { flex: 125 }, ankle_L: { dorsi: -20.3 } }),
     keys: [
       { t: 0, label: 'つま先を少し下に向け、足の内側を上げる（1秒）' },
-      { t: 0.182, pose: { joints: { ankle_R: { inv: 25 } } }, label: '一番内側で1秒止める' },
-      { t: 0.364, pose: { joints: { ankle_R: { inv: 25 } } }, label: '3秒かけてゆっくり戻す' },
+      { t: 0.182, pose: { joints: { ankle_R: { inv: 30 } } }, label: '一番内側で1秒止める' },
+      { t: 0.364, pose: { joints: { ankle_R: { inv: 30 } } }, label: '3秒かけてゆっくり戻す' },
       { t: 0.909 },
     ],
     loop: 'loop',

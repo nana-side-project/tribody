@@ -6,16 +6,18 @@ import type { Clip } from './types';
 // ── K1b shared poses ──
 // hook-lying (SUPINE): hips 45°, knees 104°, feet flat — pelvis, upper back, heels and forefeet on the floor
 const HOOK_LYING = { hip: { flex: 45, abd: 4 }, knee: { flex: 104 }, ankle: { dorsi: -32 } };
-// cross-body stretch: right arm forward at shoulder height and across the chest (horizontal adduction `abd`)
-const CROSS_ARM_R = (abd: number) => ({
+// cross-body stretch: right arm forward at shoulder height and across the chest (horizontal adduction `abd`, internal
+// rotation `rot` when pulled)
+const CROSS_ARM_R = (abd: number, rot = 0) => ({
   scapula_R: { protr: -6, elev: -4 },
-  shoulder_R: { flex: 90, abd, rot: 0 },
+  shoulder_R: { flex: 90, abd, rot },
   elbow_R: { flex: 8 },
   forearm_R: { sup: -90 },
 });
-// left hand on the outside of the right arm just above the elbow (solved per arm position)
-const CROSS_HAND_L_START = { shoulder_L: { flex: 45, abd: -25.6, rot: -66 }, elbow_L: { flex: 86.8 }, forearm_L: { sup: 10 }, wrist_L: { flex: 22.2 } };
-const CROSS_HAND_L_PULL = { shoulder_L: { flex: 32.7, abd: -21.5, rot: -56.9 }, elbow_L: { flex: 106.8 }, forearm_L: { sup: -10.2 }, wrist_L: { flex: 22 } };
+// left palm on the back-outer side of the right upper arm just above the elbow, facing it (solved per arm position;
+// the left elbow stays below the arm in front of the chest)
+const CROSS_HAND_L_START = { shoulder_L: { flex: 25.48, abd: -32.84, rot: -58.03 }, elbow_L: { flex: 90.85 }, forearm_L: { sup: 9.95 }, wrist_L: { flex: 5.04 } };
+const CROSS_HAND_L_PULL = { shoulder_L: { flex: 34.19, abd: -12.45, rot: -62.15 }, elbow_L: { flex: 112.64 }, forearm_L: { sup: -6.99 }, wrist_L: { flex: 19.81 } };
 // doorway pec stretch: staggered stance (left foot forward) with the right forearm on the door jamb (90/90).
 // Solved: heels fixed (R z −0.17, L z +0.20), feet flat; forearm vertical, palm flat toward +z on the jamb face.
 const DOOR_START: Pose = {
@@ -32,14 +34,17 @@ const DOOR_START: Pose = {
     ankle_L: { dorsi: -9.79 },
   },
 };
-// weight on the front leg: pelvis +8 cm, 6° forward lean of the whole (straight) body, blade back & down
+// weight on the front leg: pelvis +8 cm, 6° forward lean of the whole (straight) body, blade set back (retraction 10°,
+// not shrugged) and tilted back (extra upward rotation 10°): qa3-fix-clips — with the old blade "back & down"
+// (elev −4) the pectoralis minor (a primary) got SHORTER during the stretch (it depresses the scapula); now it lengthens
+// 1.20 → 1.35 and the pectoralis major 1.55 → 1.65. Arm re-solved so the forearm and hand stay on the jamb (≤ 1 mm).
 const DOOR_STRETCH: Pose = {
   root: { pos: [0, 0.88, 0.123], rot: [6, 0, 0] },
   joints: {
-    scapula_R: { protr: -10, elev: -4 },
-    shoulder_R: { flex: 68.82, abd: 99.5, rot: 15.62 },
-    elbow_R: { flex: 77.79 },
-    forearm_R: { sup: -80.87 },
+    scapula_R: { protr: -10, elev: -2, upRot: 10 },
+    shoulder_R: { flex: 84.42, abd: 98.51, rot: 0.3 },
+    elbow_R: { flex: 81.08 },
+    forearm_R: { sup: -78.21 },
     hip_R: { flex: -12.28 },
     knee_R: { flex: 0 },
     ankle_R: { dorsi: 18.28 },
@@ -169,9 +174,12 @@ const DEADBUG_L: Pose = { joints: { shoulder_L: { flex: 180, abd: 0, rot: 0 }, h
 // side plank (knees bent 90°) on the RIGHT forearm (right side down, head toward −X): hips down (start) / lifted
 // to a straight line. Exact mirror of the solved left-forearm version (root rot [x, −y, −z], axial lat negated,
 // R ⇄ L), so the working bottom side is the clip's 'R' side (the engine labels the clip's R side).
+// qa3-fix-clips: the bottom used a near-maximal 54° side-bend (lumbar −24 / thoracic −30: the quadratus lumborum
+// reached 1.6–1.8 on the top side); now 33° (−15 / −18) with the pelvis rolled back 9° and the arm re-solved, so the
+// hip rests on the mat (on its surface), the knee and forearm on the floor and the knee keeps its spot when lifting.
 const SP_DOWN: Pose = {
-  root: { pos: [0, 0.4, 0], rot: [2.05, 0, 88.06] },
-  joints: { lumbar: { lat: -24 }, thorax: { lat: -30 }, shoulder_R: { abd: 17.07, flex: 8.35 } },
+  root: { pos: [0, 0.4, 0], rot: [2.54, 0, 79.33] },
+  joints: { lumbar: { lat: -15 }, thorax: { lat: -18 }, shoulder_R: { abd: 32.94, flex: 9.44 } },
 };
 const SP_UP: Pose = {
   root: { pos: [0, 0.4, 0], rot: [5.36, 0, 66.12] },
@@ -246,12 +254,12 @@ const WS_TOP: Pose = { root: { rot: [4.86, 0, 0] }, joints: { ankle: { dorsi: 4.
 
 // band row pass keys (see the clip): the palms move on the straight line between the arms-forward and the pulled
 // positions (shoulder flex / abd and elbow solved, scapulae as the blend) — the plain blend dipped the hands ~6 cm
-const ROW_PULL_25: Pose = { joints: { scapula: { elev: -3.25, protr: 1 }, shoulder: { flex: 35.08, abd: 9 }, elbow: { flex: 51.95 } } };
-const ROW_PULL_50: Pose = { joints: { scapula: { elev: -3.5, protr: -6 }, shoulder: { flex: 18.31, abd: 10.38 }, elbow: { flex: 74.73 } } };
-const ROW_PULL_75: Pose = { joints: { scapula: { elev: -3.75, protr: -13 }, shoulder: { flex: 2.17, abd: 12.29 }, elbow: { flex: 91.77 } } };
-const ROW_BACK_25: Pose = { joints: { scapula: { elev: -3.75, protr: -15 }, shoulder: { flex: 1.96, abd: 12.68 }, elbow: { flex: 91.83 } } };
-const ROW_BACK_50: Pose = { joints: { scapula: { elev: -3.5, protr: -10 }, shoulder: { flex: 18.09, abd: 10.79 }, elbow: { flex: 74.85 } } };
-const ROW_BACK_75: Pose = { joints: { scapula: { elev: -3.25, protr: -5 }, shoulder: { flex: 34.93, abd: 9.26 }, elbow: { flex: 52.08 } } };
+const ROW_PULL_25: Pose = { joints: { scapula: { elev: -3.5, protr: 2.25 }, shoulder: { flex: 35.44, abd: 9.27 }, elbow: { flex: 51.26 } } };
+const ROW_PULL_50: Pose = { joints: { scapula: { elev: -4, protr: -3.5 }, shoulder: { flex: 18.94, abd: 10.93 }, elbow: { flex: 73.69 } } };
+const ROW_PULL_75: Pose = { joints: { scapula: { elev: -4.5, protr: -9.25 }, shoulder: { flex: 2.71, abd: 12.95 }, elbow: { flex: 90.95 } } };
+const ROW_BACK_25: Pose = { joints: { scapula: { elev: -4.5, protr: -11.25 }, shoulder: { flex: 2.24, abd: 13.09 }, elbow: { flex: 91.38 } } };
+const ROW_BACK_50: Pose = { joints: { scapula: { elev: -4, protr: -7.5 }, shoulder: { flex: 18.52, abd: 11.18 }, elbow: { flex: 74.13 } } };
+const ROW_BACK_75: Pose = { joints: { scapula: { elev: -3.5, protr: -3.75 }, shoulder: { flex: 35.31, abd: 9.46 }, elbow: { flex: 51.41 } } };
 
 export const clips: Partial<Record<ExerciseId, Clip>> = {
   // ───────────── K1a: shoulder strengthening (rotator cuff / scapula) ─────────────
@@ -270,13 +278,16 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
         wrist_R: { flex: 0 },
       },
     },
+    // isometric (腕は動かしません): the hand only comes the last 1.5 cm to the jamb (2° of rotation) and then stays
+    // there — qa3-fix-clips: it used to start 17° away, so the external rotators visibly shortened in an exercise
+    // where nothing moves
     keys: [
-      { t: 0, pose: { joints: { shoulder_R: { rot: -22 } } }, label: '手の甲をドア枠に当てる' },
-      // back of the hand touches the jamb (hand dorsum x −0.285)
-      { t: 0.12, pose: { joints: { shoulder_R: { rot: -5 } } }, label: '手の甲で外へ押す（力は30〜50%）' },
-      { t: 0.22, pose: { joints: { shoulder_R: { rot: -5 } } }, label: '30秒キープ（呼吸は止めない）' },
-      { t: 0.78, pose: { joints: { shoulder_R: { rot: -5 } } }, label: 'ゆっくり力を抜く' },
-      { t: 0.9, pose: { joints: { shoulder_R: { rot: -22 } } } },
+      { t: 0, pose: { joints: { shoulder_R: { rot: -6.5 } } }, label: '手の甲をドア枠に当てる' },
+      // back of the hand touches the jamb (inner face x −0.285; fingers 0.5 mm)
+      { t: 0.12, pose: { joints: { shoulder_R: { rot: -4.4 } } }, label: '手の甲で外へ押す（力は30〜50%）' },
+      { t: 0.22, pose: { joints: { shoulder_R: { rot: -4.4 } } }, label: '30秒キープ（呼吸は止めない）' },
+      { t: 0.78, pose: { joints: { shoulder_R: { rot: -4.4 } } }, label: 'ゆっくり力を抜く' },
+      { t: 0.9, pose: { joints: { shoulder_R: { rot: -6.5 } } } },
     ],
     loop: 'loop',
     props: [
@@ -343,11 +354,12 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
   // solved for "thumbs up" (radial styloid toward the ceiling): Y = flex 176 / abd 38 / ER 15 (arm in line with
   // the trunk, 37° out); T = flex 90 / horizontal abd 90 / ER 90; W = ext 25 / abd 50 / ER 95 with elbows 90°
   // (forearms point forward-out, level). Shoulder blades: slightly protracted when hanging, set back & down at
-  // each top. Tempo compressed to fit all three letters in one 12 s loop (≈1.3 s up, 0.8 s hold, 1.6 s down per
-  // letter; the dose is 2 s / 2 s / 3 s).
+  // each top (protr −12 / −13: the girdle model's retraction saturates, more only pushes the border onto the spine).
+  // Real tempo of the dose (qa3-fix-clips): 2 s up, 2 s hold, 3 s down for each letter → one 21 s loop (it used to
+  // run all three letters at about twice that speed in 12 s).
   'ex-prone-ytw': {
     id: 'ex-prone-ytw',
-    duration: 12,
+    duration: 21,
     base: 'PRONE',
     pose: {
       root: { pos: [0, 0.788, 0], rot: [90, 0, 0] },
@@ -362,20 +374,17 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       },
     },
     keys: [
-      { t: 0, label: 'Y：親指を上にして斜め前へ' },
-      { t: 0.11, pose: { joints: { scapula: { protr: -12, elev: -5 }, shoulder: { flex: 176, abd: 38, rot: 15 } } }, hold: 0.8, label: '止めて、ゆっくり下ろす' },
-      { t: 0.31 },
-      { t: 0.333, label: 'T：親指を上にして真横へ' },
-      { t: 0.443, pose: { joints: { scapula: { protr: -15, elev: -5 }, shoulder: { flex: 90, abd: 90, rot: 90 } } }, hold: 0.8, label: '止めて、ゆっくり下ろす' },
-      { t: 0.643 },
-      { t: 0.667, label: 'W：ひじを後ろに引き前腕を外へ' },
+      { t: 0, label: 'Y：親指を上にして斜め前へ（2秒）' },
+      { t: 2 / 21, pose: { joints: { scapula: { protr: -12, elev: -5 }, shoulder: { flex: 176, abd: 38, rot: 15 } } }, hold: 2, label: '2秒止めて、3秒で下ろす' },
+      { t: 7 / 21, label: 'T：親指を上にして真横へ（2秒）' },
+      { t: 9 / 21, pose: { joints: { scapula: { protr: -13, elev: -5 }, shoulder: { flex: 90, abd: 90, rot: 90 } } }, hold: 2, label: '2秒止めて、3秒で下ろす' },
+      { t: 14 / 21, label: 'W：ひじを後ろに引き前腕を外へ（2秒）' },
       {
-        t: 0.777,
-        pose: { joints: { scapula: { protr: -15, elev: -6 }, shoulder: { flex: -25, abd: 50, rot: 95 }, elbow: { flex: 90 } } },
-        hold: 0.8,
-        label: '止めて、ゆっくり下ろす',
+        t: 16 / 21,
+        pose: { joints: { scapula: { protr: -13, elev: -6 }, shoulder: { flex: -25, abd: 50, rot: 95 }, elbow: { flex: 90 } } },
+        hold: 2,
+        label: '2秒止めて、3秒で下ろす',
       },
-      { t: 0.977 },
     ],
     loop: 'loop',
     ground: false,
@@ -383,19 +392,11 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     // as standing)
     props: [{ kind: 'box', at: [0, 0.68, -0.225], size: [0.26, 0.68, 1.55], color: '#8d9cab' }],
     // from above the feet end, slightly to the right: the back (trapezius / rhomboids), both arms tracing the letters
-    // and the side of the bench under the body (straight from above the narrow bench is hidden by the body)
-    camera: { dir: [-0.25, 1.5, -0.65] },
-    // the engine frames 5 sample times only, so fixed thorax points mark the Y and T fingertip extents
-    frame: [
-      'hand:fingertips',
-      'hand_L:fingertips',
-      'head:vertex',
-      'thorax:spinous_T12',
-      { bone: 'thorax', rest: [0.93, 1.42, -0.04] },
-      { bone: 'thorax_L', rest: [0.93, 1.42, -0.04] },
-      { bone: 'thorax', rest: [0.72, 1.97, -0.04] },
-      { bone: 'thorax_L', rest: [0.72, 1.97, -0.04] },
-    ],
+    // and the side of the bench under the body (straight from above the narrow bench is hidden by the body); less steep
+    // than before (qa3-fix-clips) so the arms hanging beside the bench at the start are not hidden under the body
+    camera: { dir: [-0.45, 1.0, -0.75] },
+    // (the engine frames every key time, so the Y / T fingertip extents are covered without fixed extra points)
+    frame: ['hand:fingertips', 'hand_L:fingertips', 'head:vertex', 'thorax:spinous_T12'],
     sides: 'both',
     highlights: { trapezius: 'primary', rhomboids: 'primary', infraspinatus: 'secondary', supraspinatus: 'secondary', 'teres-minor': 'secondary', deltoid: 'secondary' },
   },
@@ -506,7 +507,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
   },
   // band row: facing a post, band anchored at lower-chest height (1.13 m), thumbs-up grip, arms forward.
   // Pull: elbows travel back close to the sides (shoulder ext 15 / abd 15, elbows 105°) while the shoulder
-  // blades retract (protr +8 → −20) and stay down (elev −3/−4); 2 s pull, 2 s hold, 3 s return, then the
+  // blades retract (protr +8 → −15; qa3-fix-clips: the girdle model's retraction saturates, −20 only pushed the medial
+  // border toward the spine) and set down (elev −3 → −5); 2 s pull, 2 s hold, 3 s return, then the
   // blades open forward slightly (last second). Trunk and neck stay still. Hand path 1.15 → 1.12 m: `pass` keys
   // (eng-motion) keep the palms on the straight line toward / away from the post (the plain blend dipped ~6 cm).
   'ex-band-row': {
@@ -525,12 +527,12 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       { t: 0.1875, pose: ROW_PULL_75, pass: true },
       {
         t: 0.25,
-        pose: { joints: { shoulder: { flex: -15, abd: 15 }, elbow: { flex: 105 }, scapula: { protr: -20, elev: -4 } } },
+        pose: { joints: { shoulder: { flex: -15, abd: 15 }, elbow: { flex: 105 }, scapula: { protr: -15, elev: -5 } } },
         label: '引ききって2秒止める',
       },
       {
         t: 0.5,
-        pose: { joints: { shoulder: { flex: -15, abd: 15 }, elbow: { flex: 105 }, scapula: { protr: -20, elev: -4 } } },
+        pose: { joints: { shoulder: { flex: -15, abd: 15 }, elbow: { flex: 105 }, scapula: { protr: -15, elev: -5 } } },
         label: '3秒かけて腕を前へ戻す',
       },
       { t: 0.59375, pose: ROW_BACK_25, pass: true },
@@ -598,16 +600,17 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
   // A gentle nod (head flex +13) about the occiput resting on the towel: solved so the back of the head stays
   // on the towel (head low point 0.022 at both keys) — the upper neck drops toward the towel (neck −3.8 → −8.75
   // at C7/T1 = the lordosis flattening) instead of the head lifting or pressing down.
+  // Real tempo (qa3-fix-clips: the 「10秒キープ」 used to last 4.2 s): 1 s nod, 10 s hold, 1.2 s release, 0.8 s rest.
   'ex-chin-tuck': {
     id: 'ex-chin-tuck',
-    duration: 7,
+    duration: 13,
     base: 'SUPINE',
     pose: { joints: { ...HOOK_LYING, neck: { flex: -3.8 }, head: { flex: 0 } } },
     keys: [
       { t: 0, label: 'あごを軽く引いてうなずく' },
-      { t: 0.14, pose: { joints: { neck: { flex: -8.75 }, head: { flex: 13 } } }, label: '10秒キープ（呼吸は止めない）' },
-      { t: 0.74, pose: { joints: { neck: { flex: -8.75 }, head: { flex: 13 } } }, label: 'ゆっくり力を抜く' },
-      { t: 0.9 },
+      { t: 1 / 13, pose: { joints: { neck: { flex: -8.75 }, head: { flex: 13 } } }, label: '10秒キープ（呼吸は止めない）' },
+      { t: 11 / 13, pose: { joints: { neck: { flex: -8.75 }, head: { flex: 13 } } }, label: 'ゆっくり力を抜く' },
+      { t: 12.2 / 13 },
     ],
     loop: 'loop',
     ground: true,
@@ -624,22 +627,24 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     highlights: { 'deep-neck-flexors': 'primary' },
   },
   // cross-body posterior shoulder stretch (right): standing tall, facing forward (no trunk rotation). The right arm
-  // is raised forward to shoulder height and across the chest (flex 90 → horizontal adduction −20, then −42 when
-  // pulled), elbow nearly straight, thumb up; the shoulder blade is held back and down (protr −6 / elev −4) so the
-  // stretch stays in the back of the shoulder instead of the blade sliding forward. Left hand solved for each arm
-  // position: palm on the outside of the right arm just above the elbow, pressing toward the chest, left elbow
-  // below the arm in front of the chest.
+  // is raised forward to shoulder height and a little across the chest (flex 90 / horizontal adduction −15), elbow
+  // nearly straight, thumb up; the pull brings it across to −45 and turns it slightly inward (internal rotation 25°,
+  // as in the infraspinatus stretch) — qa3-fix-clips: the old −20 → −42 pull barely changed the targets (infraspinatus
+  // +4 %, teres minor −4 %); now infraspinatus +11 %, teres minor +4 %, posterior deltoid +5 %. The shoulder blade is
+  // held back and down (protr −6 / elev −4) so the stretch stays in the back of the shoulder. Left hand solved for each
+  // arm position: palm on the back-outer side of the right arm just above the elbow, pressing toward the chest, left
+  // elbow below the arm in front of the chest.
   'ex-cross-body-stretch': {
     id: 'ex-cross-body-stretch',
     duration: 8,
     base: 'STAND',
     keys: [
-      // setup: the arm is already forward at shoulder height, pointing across the body
-      { t: 0, pose: { joints: { ...CROSS_ARM_R(-20) } }, label: '反対の手で肘のすぐ上を持つ' },
-      { t: 0.12, pose: { joints: { ...CROSS_ARM_R(-20), ...CROSS_HAND_L_START } }, label: '胸へゆっくり引き寄せる' },
-      { t: 0.26, pose: { joints: { ...CROSS_ARM_R(-42), ...CROSS_HAND_L_PULL } }, label: '30秒キープ（肩は下げたまま）' },
-      { t: 0.74, pose: { joints: { ...CROSS_ARM_R(-42), ...CROSS_HAND_L_PULL } }, label: 'ゆっくり戻す' },
-      { t: 0.86, pose: { joints: { ...CROSS_ARM_R(-20), ...CROSS_HAND_L_START } } },
+      // setup: the arm is already forward at shoulder height, pointing a little across the body
+      { t: 0, pose: { joints: { ...CROSS_ARM_R(-15) } }, label: '反対の手で肘のすぐ上を持つ' },
+      { t: 0.12, pose: { joints: { ...CROSS_ARM_R(-15), ...CROSS_HAND_L_START } }, label: '胸へゆっくり引き寄せる' },
+      { t: 0.26, pose: { joints: { ...CROSS_ARM_R(-45, -25), ...CROSS_HAND_L_PULL } }, label: '30秒キープ（肩は下げたまま）' },
+      { t: 0.74, pose: { joints: { ...CROSS_ARM_R(-45, -25), ...CROSS_HAND_L_PULL } }, label: 'ゆっくり戻す' },
+      { t: 0.86, pose: { joints: { ...CROSS_ARM_R(-15), ...CROSS_HAND_L_START } } },
     ],
     loop: 'loop',
     // 3/4 front-right, slightly above: the arm across the chest at shoulder height, the left hand holding it just
@@ -654,7 +659,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
   // doorway pec stretch (right): staggered stance in a door frame (left foot forward, heels 0.37 m apart), right
   // elbow bent 90° at shoulder height with the forearm and palm flat on the jamb's face. Shifting the weight onto
   // the front leg moves the pelvis 8 cm forward with a 6° whole-body lean (neutral spine, no lumbar extension);
-  // the shoulder blade sets back and down (protr −10 / elev −4) and the shoulder horizontally abducts ≈ 19°.
+  // the shoulder blade sets back (protr −10, elev −2, upRot +10 — see DOOR_STRETCH) and the shoulder horizontally
+  // abducts.
   // Solved numerically: both feet stay flat at the same spot (heels anchored), and the forearm stays on the jamb
   // face (front z 0.124, same height; slides < 1.5 cm sideways) at both keys.
   'ex-doorway-pec-stretch': {
@@ -708,10 +714,11 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     },
     keys: [
       { t: 0, pose: OB_START, label: '上の手を天井の方へ持ち上げる' },
-      { t: 0.14, pose: OB_MID, label: '目で手を追いながら胸を開く' },
+      // the solved mid pose is passed through (qa3-fix-clips: it used to stop the arc halfway)
+      { t: 0.14, pose: OB_MID, pass: true, label: '目で手を追いながら胸を開く' },
       { t: 0.34, pose: OB_OPEN, label: '息を吐きながら3秒キープ' },
       { t: 0.64, pose: OB_OPEN, label: 'ゆっくり元に戻す' },
-      { t: 0.8, pose: OB_MID },
+      { t: 0.8, pose: OB_MID, pass: true },
       { t: 0.94, pose: OB_START },
     ],
     loop: 'loop',
@@ -746,7 +753,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       { t: 0.38, pose: CAT, label: '息を吸いながら胸を前へ、背中を反らす' },
       { t: 0.55, pose: CAT_COW_MID, pass: true },
       { t: 0.72, pose: COW },
-      { t: 0.8, pose: COW },
+      // back to neutral (0.8 → 1): its own label (it used to play under the cow instruction)
+      { t: 0.8, pose: COW, label: 'ゆっくり元の姿勢に戻す' },
     ],
     loop: 'loop',
     ground: true,
@@ -761,22 +769,22 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
   // thumb up, knee straight, foot relaxed in line with the shin (ankle −45: the toes clear the mat as the knee
   // straightens); the spine and pelvis stay exactly as in the neutral (no lumbar
   // extension, no pelvic rotation), supported on the left hand and the right knee. Then the other side.
-  // Hold shortened to fit one 11 s loop for both sides (≈1.6 s reach, 1.9 s hold, 1.4 s return; the label says the
-  // real 5 s).
+  // Real tempo (qa3-fix-clips: the 「5秒キープ」 used to last 1.9 s): per side 1.65 s reach, 5 s hold, 1.45 s return,
+  // 0.4 s rest → one 17 s loop for both sides.
   'ex-bird-dog': {
     id: 'ex-bird-dog',
-    duration: 11,
+    duration: 17,
     base: 'QUADRUPED',
     pose: QUAD,
     keys: [
       { t: 0, label: '右腕を前へ、左脚を後ろへ伸ばす' },
-      { t: 0.15, pose: BIRD_R, label: '5秒キープ（背中は平らに）' },
-      { t: 0.32, pose: BIRD_R, label: 'ゆっくり戻す' },
-      { t: 0.45 },
-      { t: 0.5, label: '左腕と右脚も同様に伸ばす' },
-      { t: 0.65, pose: BIRD_L, label: '5秒キープ（背中は平らに）' },
-      { t: 0.82, pose: BIRD_L, label: 'ゆっくり戻す' },
-      { t: 0.95 },
+      { t: 1.65 / 17, pose: BIRD_R, label: '5秒キープ（背中は平らに）' },
+      { t: 6.65 / 17, pose: BIRD_R, label: 'ゆっくり戻す' },
+      { t: 8.1 / 17 },
+      { t: 8.5 / 17, label: '左腕と右脚も同様に伸ばす' },
+      { t: 10.15 / 17, pose: BIRD_L, label: '5秒キープ（背中は平らに）' },
+      { t: 15.15 / 17, pose: BIRD_L, label: 'ゆっくり戻す' },
+      { t: 16.6 / 17 },
     ],
     loop: 'loop',
     ground: true,
@@ -831,7 +839,7 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
   },
   // side plank, basic (knee) version, on the right forearm: elbow directly under the shoulder, knees bent 90° and
   // stacked, the top arm resting along the body. From lying on the side (hip on the mat, trunk propped on the
-  // forearm — side-bend lumbar 24° / thoracic 30°) the hips lift ~15 cm until head–hip–knee form one straight line
+  // forearm — side-bend lumbar 15° / thoracic 18°) the hips lift until head–hip–knee form one straight line
   // (bend < 2°, pelvis < 1 cm off the knee–head line; body 24° off the floor), then hold and lower slowly. Solved:
   // forearm, the bottom knee and shin stay on the mat at the same spots in both keys (elbow anchored; elbow→knee
   // vector identical), the upper arm vertical at the top, shoulder blade drawn down (no shrug).

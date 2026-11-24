@@ -163,7 +163,8 @@ function RegionView({ id }: { id: RegionId }) {
           legend={
             selMuscle ? (
               <Link to={`/muscle/${selMuscle}`} className="viewer-frame__link">
-                {muscleName(selMuscle)}のページへ
+                {/* short name (no parenthetical) so the link stays on one line next to 閉じる */}
+                {muscleName(selMuscle).replace(/[（(][^）)]*[）)]/g, '')}のページへ
                 <IconChevron />
               </Link>
             ) : (

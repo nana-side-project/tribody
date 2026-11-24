@@ -280,14 +280,19 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         tendon: [0.0, 0.24],
       },
     ],
-    // external rotation (hip extended) shortens it
-    actionPose: { joints: { hip_R: { rot: 30 } } },
-    // knee to the opposite shoulder with the shin turned in (flexion + adduction + external rotation, the figure-4
-    // / piriformis stretch position: Gulledge et al. — longest at ~115° flexion, 40° ER, 10° adduction)
-    stretchPose: { joints: { hip_R: { flex: 110, abd: -10, rot: 40 }, knee_R: { flex: 110 } } },
-    // posterolateral close-up from slightly above: sacrum → notch → trochanter all visible, plus the thigh (25 %
-    // closer than before: the small muscle filled only ~1/7 of the card width)
-    camera: { position: [-0.6, 1.29, -0.7], target: [-0.07, 0.9, -0.02] },
+    // Demo lying prone with the right knee bent 90° (the shin points up), hip in neutral — where the piriformis is a
+    // pure external rotator. Rotating a STRAIGHT standing leg only spun the thigh about its own axis with the feet
+    // out of frame, so nothing visibly moved (qa3-verify-motion). Now the shin swings like a wiper:
+    // external rotation (the foot swings in, toward the other leg) shortens it (belly 0.75 / 0.70),
+    // internal rotation (the foot swings out) lengthens it (1.25 / 1.30). (In deep hip flexion its rotation action
+    // reverses, so a seated / supine 90-90 demo would teach the wrong direction.)
+    base: 'PRONE',
+    restPose: { joints: { knee_R: { flex: 90 } } },
+    actionPose: { joints: { hip_R: { rot: 35 } } },
+    stretchPose: { joints: { hip_R: { rot: -40 } } },
+    // from behind the feet and above (right side): sacrum → notch → trochanter and the shin swinging left / right are
+    // all in view (checked at 360 / 390 / 430 px; the demo framing refits along this direction when the card is narrow)
+    camera: { position: [-0.99, 1.62, -1.18], target: [-0.02, 0.3, -0.19] },
     focus: 'hip',
   },
   // ── R3a: iliopsoas — psoas major (2 strands: T12–L2 and L2–L4 bodies / transverse processes) + iliacus

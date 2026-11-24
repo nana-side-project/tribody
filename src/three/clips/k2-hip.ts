@@ -26,7 +26,7 @@ const BR_ARMS = { shoulder: { flex: -12.65, abd: 9.64 }, elbow: { flex: 4.95 }, 
 // stay on the floor and the shoulders slide < 1.2 cm; shoulder flex −34 keeps the palms on the floor.
 const BR_TOP_ROOT = { rot: [-112, 0, 0] as [number, number, number] };
 const BR_TOP_LEG = { hip: { flex: 3, abd: 4 }, knee: { flex: 104.4 }, ankle: { dorsi: -10.5 } };
-const BR_TOP_UPPER = { neck: { flex: 20.7 }, shoulder: { flex: -34.57, abd: 8.73 } };
+const BR_TOP_UPPER = { neck: { flex: 20.7 }, shoulder: { flex: -33.72, abd: 8.49 } };
 
 // ── K2a: loop band / belt around both thighs just above the knees ───────────────────────────────────────
 // Drawn as a front strap + a back strap (tangent to both thighs) + 4 short pieces wrapping each thigh's lateral
@@ -66,11 +66,12 @@ const HF_SHIFT = {
   root: { pos: [0, 0.484, 0.07] as [number, number, number], rot: [-10, 0, 0] as [number, number, number] },
   joints: {
     lumbar: { flex: 10 },
-    hip_R: { flex: -24.5 },
-    knee_R: { flex: 89.98 },
-    hip_L: { flex: 80.93, abd: 3 },
-    knee_L: { flex: 100.82 },
-    ankle_L: { dorsi: 9.95 },
+    hip_R: { flex: -23.26 },
+    knee_R: { flex: 89.05 },
+    ankle_R: { dorsi: 15.83 },
+    hip_L: { flex: 78.54, abd: 3 },
+    knee_L: { flex: 98.42 },
+    ankle_L: { dorsi: 10.07 },
   },
 };
 // + right arm overhead and a gentle side bend to the left (lumbar −6°, thorax −8°)
@@ -719,25 +720,26 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
   // 1) squeeze the back-leg glute → posterior pelvic tilt 10° (lumbar flexes 10° so the trunk stays upright);
   // 2) keeping that tilt, shift the pelvis 7 cm forward (right hip −24.5° extension) → 30 s hold;
   // 3) right arm overhead + gentle side bend to the left → deeper stretch; 4) return.
-  // Solved so the right knee, the right toes and the whole front foot stay on the mat (no sliding).
+  // Solved so the right knee rests on a folded towel (膝の下にクッション, 2 cm on the mat; qa3-fix-clips — the knee
+  // used to kneel on the bare mat) while the right toes and the whole front foot stay on the mat (no sliding, ≤ 4 mm).
   'ex-hip-flexor-stretch': {
     id: 'ex-hip-flexor-stretch',
     duration: 9,
     base: 'HALF_KNEEL',
     pose: {
-      root: { pos: [0, 0.496, 0] },
+      root: { pos: [0, 0.5122, 0] },
       joints: {
-        hip_R: { flex: -5.03 },
-        knee_R: { flex: 99.46 },
-        ankle_R: { dorsi: 19.93 },
-        hip_L: { flex: 90.25, abd: 3 },
-        knee_L: { flex: 90.28 },
-        ankle_L: { dorsi: 0.06 },
+        hip_R: { flex: -4.6 },
+        knee_R: { flex: 97.79 },
+        ankle_R: { dorsi: 18 },
+        hip_L: { flex: 88.28, abd: 3 },
+        knee_L: { flex: 88.28 },
+        ankle_L: { dorsi: -0.01 },
       },
     },
     keys: [
       { t: 0, label: '後ろ脚のお尻を締め、骨盤を後ろに傾ける' },
-      { t: 0.1, pose: { root: { rot: [-10, 0, 0] }, joints: { lumbar: { flex: 10 }, hip_R: { flex: -15.03 }, hip_L: { flex: 80.25, abd: 3 } } }, label: '骨盤の向きのまま体重を少し前へ' },
+      { t: 0.1, pose: { root: { pos: [0, 0.5182, 0], rot: [-10, 0, 0] }, joints: { lumbar: { flex: 10 }, hip_R: { flex: -14.6 }, hip_L: { flex: 78.28, abd: 3 } } }, label: '骨盤の向きのまま体重を少し前へ' },
       { t: 0.22, pose: HF_SHIFT, label: '30秒キープ' },
       { t: 0.5, pose: HF_SHIFT, label: '腕を上げ、反対側へ軽く傾ける' },
       { t: 0.6, pose: HF_DEEP, label: 'さらに伸ばしてキープ' },
@@ -747,7 +749,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     loop: 'loop',
     ground: 0.008, // on the mat (8 mm)
     anchor: null,
-    props: [{ kind: 'mat' }],
+    // folded towel under the kneeling knee: 2.1 cm on the mat, the knee sinks ~3 mm into it
+    props: [{ kind: 'mat' }, { kind: 'towel', at: [-0.089, 0.029, -0.025], size: [0.13, 0.021, 0.16] }],
     camera: { dir: [-1, 0.2, 0.45] },
     focus: 'hip',
     frame: ['toes:toe_tips', 'toes_L:toe_tips', 'foot:calcaneus_post', 'head:vertex', 'hand:fingertips'],
@@ -898,6 +901,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     camera: { dir: [-1, 0.14, 0.32] },
     frame: ['head:vertex', 'toes:toe_tips', 'foot_L:calcaneus_post', 'hand_L:palm'],
     sides: 'R',
+    // the gluteus medius that works here is the stance (left) one: it holds the pelvis level on one leg
+    partSides: { 'gluteus-medius': 'L' },
     highlights: {
       iliopsoas: 'primary',
       'rectus-femoris': 'secondary',
@@ -964,6 +969,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     camera: { dir: [0.15, 0.14, 1] },
     frame: ['head:vertex', 'foot_L:calcaneus_post', 'toes:toe_tips', 'forearm_L:olecranon', 'hand_L:fingertips'],
     sides: 'R',
+    // the obliques that hold the hips up are the bottom (left, floor-side) ones; the adductors work on the top leg
+    partSides: { obliques: 'L' },
     highlights: {
       'adductor-longus': 'primary',
       'adductor-magnus': 'secondary',

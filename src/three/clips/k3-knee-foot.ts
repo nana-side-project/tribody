@@ -663,10 +663,10 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     base: 'SUPINE',
     keys: [
       { t: 0, pose: HS_START, label: '膝を伸ばしたまま、脚を天井へ上げる' },
-      { t: 0.12, pose: HS_MID },
+      { t: 0.12, pose: HS_MID, pass: true },
       { t: 0.24, pose: HS_HOLD, label: '太もも裏が伸びたら30秒キープ' },
       { t: 0.7, pose: HS_HOLD, label: 'ゆっくり下ろす' },
-      { t: 0.82, pose: HS_MID },
+      { t: 0.82, pose: HS_MID, pass: true },
       { t: 0.94, pose: HS_START },
     ],
     loop: 'loop',

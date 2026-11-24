@@ -89,6 +89,13 @@ export interface Clip {
   mirror?: boolean;
   /** Which side's muscles to highlight: 'R' (default), 'L', or 'both' (symmetric exercises). */
   sides?: 'R' | 'L' | 'both';
+  /**
+   * Per-part side override of `sides`, for parts that work on the OTHER side in a one-sided exercise (e.g. the
+   * stance-leg gluteus medius while the right knee drives up): 'R' | 'L' (swapped with `mirror` like `sides`) or 'both'.
+   * Compiled into `CompiledClip.partSides`; the engine still has to apply it to the highlight scope and the labels
+   * (see docs/ENGINE.md → Clips → Other fields).
+   */
+  partSides?: Partial<Record<MuscleId | StructureId, 'R' | 'L' | 'both'>>;
   /** Override / fallback highlights when the exercise data has none. */
   highlights?: Partial<Record<MuscleId | StructureId, Highlight3DRole>>;
   /** Extra parts highlighted IN ADDITION to the exercise's own targets (Exercise.primary / secondary, or the

@@ -70,10 +70,13 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         tendon: [0.1, 0.18],
       },
       {
+        // C4 → C1 lies entirely on the rigid neck segment, so as a rigid path it never changed length (the demo check
+        // failed and the chin tuck showed nothing). The rig bends the whole cervical spine at C7/T1: points part-way up
+        // it follow that bend in proportion to their height (C4 47 %, C2 73 %; same mix trick as the lumbar strands).
         name: '頸長筋（上斜部）',
         path: [
-          { ref: 'neck:transverse_C4', off: [-0.006, 0, 0.007] },
-          { bone: 'neck', rest: [0.011, 1.55, 0.016] },
+          { mix: [{ bone: 'thorax', rest: [0.02, 1.515, -0.003] }, { bone: 'neck', rest: [0.02, 1.515, -0.003] }], t: 0.47 },
+          { mix: [{ bone: 'thorax', rest: [0.011, 1.55, 0.016] }, { bone: 'neck', rest: [0.011, 1.55, 0.016] }], t: 0.73 },
           { ref: 'neck:body_C1', off: [-0.004, 0, 0.0] },
         ],
         radius: 0.0032,
@@ -90,8 +93,10 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         tendon: [0.08, 0.12],
       },
     ],
-    // nod + neck flexion (chin to chest) / looking up (head and neck extension)
-    actionPose: { joints: { head: { flex: 30 }, neck: { flex: 32 } } },
+    // nod-dominant (craniocervical flexion: chin in and down, the neck only slightly bent — the content's main
+    // action; it used to be a full chin-to-chest neck flexion, head 30 + neck 32) / looking up (head and neck
+    // extension)
+    actionPose: { joints: { head: { flex: 28 }, neck: { flex: 14 } } },
     stretchPose: { joints: { head: { flex: -26 }, neck: { flex: -38 } } },
     camera: { dir: [-1, 0.05, 0.3] },
     focus: 'neck',
@@ -549,7 +554,11 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     // Its main action (drawing the abdominal wall in) has no skeletal motion in the rig, so the demo uses trunk
     // rotation to the same side, where its middle / lower fibres shorten together with the internal oblique;
     // the stretch is rotation away with the arms overhead (no extension: it would twist the wrapping bands).
-    actionPose: { joints: { lumbar: { rot: 12 }, thorax: { rot: 35 } } },
+    // qa3-verify-motion: the twist was 47° under 「収縮：筋が短くなる」, which taught that the TrA twists the trunk (the
+    // content lists no rotation). Now a smaller twist (30°, belly 0.83–0.90 on the moving bands) under a label that
+    // says what is shown: it shortens when the trunk twists — the page text gives its real actions.
+    actionLabel: '収縮：ひねると短くなる',
+    actionPose: { joints: { lumbar: { rot: 8 }, thorax: { rot: 22 } } },
     stretchPose: { joints: { lumbar: { rot: -14 }, thorax: { rot: -38 }, shoulder: { flex: 165 } } },
     camera: { dir: [-1, 0.2, 0.5] },
     focus: 'lowback',

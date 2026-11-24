@@ -314,7 +314,7 @@ function ConditionView({ c }: { c: Condition }) {
             highlights={highlights3d}
             condition={c.id}
             focus={c.region}
-            sub="傷んでいる組織と関係する筋肉を3Dで確認"
+            sub={sensitive ? '痛みやすい場所と関係する筋肉を3Dで確認' : '傷んでいる組織と関係する筋肉を3Dで確認'}
             legend={
               <span className="legend" style={{ margin: 0 }}>
                 <span className="legend__item">

@@ -29,6 +29,14 @@ export interface MuscleRig {
   stretchPose: Pose;
   /** Base pose for the muscle demo (default 'STAND'). */
   base?: BasePoseName;
+  /**
+   * Phase label of the action part of the demo (default '収縮：筋が短くなる'). Use it only when the demo has to show
+   * the shortening with a movement that is not the muscle's main action (e.g. the transversus abdominis: its
+   * drawing-in has no skeletal motion, so a small trunk twist shows the shortening). Keep it short (≤ 14 characters).
+   */
+  actionLabel?: string;
+  /** Phase label of the stretch part (default 'ストレッチ：筋が伸びる'); same rules as `actionLabel`. */
+  stretchLabel?: string;
   /** Rest configuration on top of the base (e.g. knees bent). */
   restPose?: Pose;
   camera?: CameraSpec;

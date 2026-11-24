@@ -950,9 +950,12 @@ export const BASE_POSES: Record<BasePoseName, BasePoseDef> = {
       joints: {
         hip: { flex: 90, abd: 5 },
         knee: { flex: 90 },
-        shoulder: { flex: 12, abd: 10 },
-        elbow: { flex: 72 },
-        forearm: { sup: -100 },
+        // hands hold the side edges of the seat (palm just outside the edge, fingers under it), arms hanging — they used
+        // to hover ~19 cm above the thighs (qa3-fix-clips); also keeps the thighs free for the seated quadriceps demos
+        shoulder: { flex: -2.61, abd: 3.49, rot: -0.51 },
+        elbow: { flex: 3.94 },
+        forearm: { sup: -88.65 },
+        wrist: { flex: 36.65 },
       },
     },
     props: [
