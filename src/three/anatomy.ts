@@ -37,7 +37,7 @@ interface Visual {
   kind: 'muscle' | 'structure';
   strands: StrandMesh[];
   /** cushions, spots: world-space meshes following a point */
-  blobs: { mesh: Mesh; halo: Mesh | null; cp: CompiledPoint; seg: number; off: Vector3; radii: Vector3 }[];
+  blobs: { mesh: Mesh; halo: Mesh | null; cp: CompiledPoint; seg: number; off: Vector3; radii: Vector3; cushion?: 'cartilage' | 'fatpad' }[];
   bones: { part: string; side: Side | null }[];
   material: MeshStandardMaterial;
   haloMat: ShaderMaterial | null;
@@ -249,7 +249,8 @@ export class AnatomyLayer {
           halo.renderOrder = 5;
           this.group.add(halo);
         }
-        v.blobs.push({ mesh, halo, cp, seg: pointSeg(cp), off, radii });
+        const cushion = part.type === 'cartilage' || part.type === 'fatpad' ? part.type : undefined;
+        v.blobs.push({ mesh, halo, cp, seg: pointSeg(cp), off, radii, cushion });
       }
     }
     if (!v.strands.length && !v.blobs.length && !v.bones.length) {
@@ -370,6 +371,21 @@ export class AnatomyLayer {
           } else m.emissiveIntensity = 0;
         }
         for (const b of v.blobs) {
+          if (b.cushion && b.mesh.material !== m) {
+            // cartilage / fat-pad cushions have their own material: tint it by role like the rest of the structure
+            const cm = b.mesh.material as MeshStandardMaterial;
+            const cb = colorOf(this.structureColor(b.cushion));
+            if (role === 'injured') cm.color.copy(cb).lerp(colorOf(this.pal.injured), 0.78);
+            else if (role === 'involved') cm.color.copy(cb).lerp(colorOf(this.pal.involved), 0.72);
+            else cm.color.copy(cb);
+            if (role === 'injured') {
+              cm.emissive.copy(colorOf(this.pal.injured));
+              cm.emissiveIntensity = 0.15 + 0.45 * this.pulse;
+            } else if (role === 'involved') {
+              cm.emissive.copy(colorOf(this.pal.involved));
+              cm.emissiveIntensity = 0.1;
+            } else cm.emissiveIntensity = 0;
+          }
           evalPoint(b.cp, state, _v);
           _q.copy(state.quat[b.seg]);
           b.mesh.position.copy(b.off).applyQuaternion(_q).add(_v);
