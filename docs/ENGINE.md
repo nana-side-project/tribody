@@ -802,6 +802,13 @@ Condition pages pass `condition={id}` with their `highlights`; region pages pass
 highlights mode the engine then uses a **scene** from `src/three/scenes.ts` (`CONDITION_SCENES[id]`, else
 `REGION_SCENES[focus]` when there is no condition). Exercise and muscle pages never use scenes.
 
+What the app passes (src/pages): a condition page maps each `involved` part to `injured` (roles injured / irritated /
+compressed) or `involved` (the rest), in that order — the part whose role is `injured` comes first in the object, so it
+is the first injured part the engine sees. A region page passes its key muscles as `secondary` (muscle colour — amber
+means 「関係」 on condition pages) and the one the user taps in the chip row under the viewer as `selected`; when that
+muscle lies outside the region's crop (its data names other regions, or `BELLY_ELSEWHERE` in RegionPage.tsx, e.g.
+大腿筋膜張筋 on the knee page) the page passes that muscle's first region as `focus` instead.
+
 ```ts
 'itb-syndrome': {
   base: 'STAND',
