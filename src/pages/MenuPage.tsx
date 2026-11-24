@@ -86,12 +86,25 @@ export default function MenuPage() {
 
 const sourceKey = (it: MenuItem) => (it.from?.condition ? `${it.from.condition}:${it.from.phase ?? ''}` : '');
 
-/** 「膝蓋大腿疼痛症候群・①」 — where a menu item was added from. */
-function sourceLabel(it: MenuItem): string {
+/** Is the item still part of the recovery-plan step it was added from? (plans change: e.g. the step heel drop left
+ * the insertional Achilles plan for the floor-level one) */
+function inPlan(it: MenuItem): boolean {
+  const c = it.from?.condition ? getCondition(it.from.condition) : undefined;
+  if (!c) return true; // content not loaded / not from a plan: nothing to contradict
+  if (!it.from?.phase) return c.phases.some((p) => p.exercises.includes(it.id));
+  return !!c.phases.find((p) => p.id === it.from?.phase)?.exercises.includes(it.id);
+}
+
+/**
+ * 「膝蓋大腿疼痛症候群・①」 — where a menu item was added from. `note`: say so when that step no longer has it, so an
+ * old item is not read as part of the current plan.
+ */
+function sourceLabel(it: MenuItem, note = false): string {
   const c = it.from?.condition;
   if (!c) return '';
   const ph = it.from?.phase;
-  return `${conditionName(c)}${ph ? `・${PHASE_JA[ph].split(' ')[0]}` : ''}`;
+  const label = `${conditionName(c)}${ph ? `・${PHASE_JA[ph].split(' ')[0]}` : ''}`;
+  return note && !inPlan(it) ? `${label}（いまのプランには含まれていません）` : label;
 }
 
 function exerciseLink(it: MenuItem): string {
@@ -207,7 +220,7 @@ function MenuTab() {
             {menu.items.map((it, i) => {
               const ex = getExercise(it.id);
               const isDone = menu.isDone(it.id);
-              const src = sourceLabel(it);
+              const src = sourceLabel(it, true);
               return (
                 <div key={it.id} className={`menu-item${isDone ? ' is-done' : ''}`}>
                   {!edit && (

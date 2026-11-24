@@ -354,13 +354,13 @@ const LABELS_SEC: Lab[] = [
   { id: 'iliopsoas', t: '大腰筋', at: T(214, 206), x: 318, y: 140 },
   { id: 'intervertebral-disc', t: '椎間板', at: T(168, 212), x: 140, y: 52, a: 'end' },
   { id: 'rectus-abdominis', t: '腹直筋', at: T(200, 122), x: 226, y: 56 },
-  { id: 'obliques', t: '腹斜筋', at: T(298, 176), x: 318, y: 96 },
+  { id: 'obliques', t: '腹斜筋', at: T(278, 140), x: 318, y: 96 }, // above the psoas leader: no crossing
   { id: 'transversus-abdominis', t: '腹横筋', at: T(76, 194), x: 43, y: 104, a: 'end' },
   { t: '内臓', at: [0, 0], x: T(112, 178)[0], y: T(112, 178)[1], a: 'middle', bare: true },
   { id: 'erector-spinae', t: '脊柱起立筋', at: T(132, 258), x: 120, y: 322, a: 'end' },
   { id: 'multifidus', t: '多裂筋', at: T(163, 268), x: 150, y: 346, a: 'end' },
   { id: 'lumbar-spine', t: '腰椎', at: T(180, 272), x: 180, y: 368, a: 'middle' },
-  { id: 'thoracolumbar-fascia', t: '胸腰筋膜', at: T(250, 266), x: 214, y: 346 },
+  { id: 'thoracolumbar-fascia', t: '胸腰筋膜', at: T(234, 272), x: 214, y: 346 }, // medial to the QL leader
   { id: 'quadratus-lumborum', t: '腰方形筋', at: T(246, 230), x: 266, y: 322 },
 ];
 const SPOTS_SEC: Spot[] = [{ id: 'lowback-center', at: T(222, 256) }];

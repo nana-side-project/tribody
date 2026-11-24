@@ -14,6 +14,7 @@ import {
   type PointerEvent as RPointerEvent,
 } from 'react';
 import type { PainSpotId } from '../../data/registry';
+import { openOverlayEntry } from '../../lib/overlayHistory';
 import type { BodyMapProps } from '../types';
 import { CX, FIG_H, FIG_W, buildFigure } from './figure';
 import { SOLE, buildSole, solePt } from './sole';
@@ -179,6 +180,12 @@ export default function BodyMapView(props: BodyMapViewProps) {
       document.removeEventListener('pointerdown', onDown);
       document.removeEventListener('keydown', onKey);
     };
+  }, [popupOpen, closePopups]);
+  // Android / browser Back closes the lens or popover instead of leaving the page (same history helper as the
+  // bottom sheets: a tap that closes it and navigates — a tab, a link, the view switch — is not undone)
+  useEffect(() => {
+    if (!popupOpen) return;
+    return openOverlayEntry(() => closePopups(true));
   }, [popupOpen, closePopups]);
   useEffect(() => {
     if (chooser) wrapRef.current?.querySelector<HTMLButtonElement>('.tb-chooser button')?.focus({ preventScroll: true });

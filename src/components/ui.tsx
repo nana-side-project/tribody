@@ -262,3 +262,18 @@ export function Bullets({ items, check, color }: { items: string[]; check?: bool
     </ul>
   );
 }
+
+/**
+ * A name with a 「（…）」 note, e.g. 「ヒールドロップ（床の高さで）」: the note moves to the next line as a whole
+ * instead of breaking inside it (「…床の高さ / で）」).
+ */
+export function NameText({ text }: { text: string }) {
+  const i = text.search(/[（(]/);
+  if (i <= 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, i)}
+      <span className="name-note">{text.slice(i)}</span>
+    </>
+  );
+}

@@ -753,6 +753,11 @@ button.row:active {
 .nowrap {
   white-space: nowrap;
 }
+/* 「（…）」 note of a long name: wraps as a whole (ui.tsx NameText) */
+.name-note {
+  display: inline-block;
+  text-spacing-trim: trim-start; /* no blank half em before 「（」 at the start of the line */
+}
 .small {
   font-size: 12.5px;
   line-height: 1.65;
@@ -2381,10 +2386,52 @@ a.involve:active {
   font-weight: 700;
 }
 
-/* home: the whole figure (down to the feet) fits above the tab bar on common phones */
+/* a page whose code is still downloading (App.tsx lazy routes): page-sized blank, a note only after a while */
+.route-loading {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+.route-loading__note {
+  margin-top: 96px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-3);
+  opacity: 0;
+  animation: route-note 0.3s ease 0.6s forwards;
+}
+@keyframes route-note {
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .route-loading__note {
+    animation-duration: 0.01s;
+  }
+}
+
+/* home: the whole figure (down to the feet) fits above the tab bar on common phones. HomePage measures the real
+   space and sets --tb-bodymap-max-h before the first paint; this is the fallback (intro on three lines). */
 .bodymap-frame--home {
-  --tb-bodymap-max-h: max(400px, calc(100vh - var(--tabbar-h) - var(--safe-bottom) - 296px));
-  --tb-bodymap-max-h: max(400px, calc(100dvh - var(--tabbar-h) - var(--safe-bottom) - 296px));
+  --tb-bodymap-max-h: max(400px, calc(100vh - var(--tabbar-h) - var(--safe-bottom) - 340px));
+  --tb-bodymap-max-h: max(400px, calc(100dvh - var(--tabbar-h) - var(--safe-bottom) - 340px));
+}
+/* the line under the home map: hint + 一覧から選ぶ, each on one line from 360 px up */
+.map-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.map-foot .tiny {
+  padding-left: 4px;
+  min-width: 0;
+}
+.map-foot__btn {
+  flex: none;
+  white-space: nowrap;
+  gap: 2px;
+  padding-right: 6px;
 }
 
 /* guide: walk-run stage table */

@@ -6,7 +6,7 @@ import { IconMuscle, IconSearch } from '../components/icons';
 import { Page } from '../components/Layout';
 import { EmptyState, SearchInput } from '../components/ui';
 import { muscleName, regionName } from '../lib/labels';
-import { matches } from '../lib/search';
+import { muscleScores, queryTerms } from '../lib/search';
 import { useUrlSearchText } from '../lib/useUrlSearchText';
 
 export default function MusclesPage() {
@@ -27,26 +27,34 @@ export default function MusclesPage() {
       { replace: true },
     );
 
-  const filtered = useMemo(
-    () =>
-      muscles.filter(
-        (m) =>
-          (!region || m.regions.includes(region)) &&
-          matches(q, [m.nameJa, m.kana, m.nameEn, m.group, ...(m.parts ?? []).map((p) => p.nameJa)]),
-      ),
-    [q, region],
-  );
+  const searching = queryTerms(q).length > 0;
+  const filtered = useMemo(() => {
+    const scores = muscleScores(q);
+    const list = muscles
+      .map((m, i) => ({ m, i, score: scores.get(m.id) ?? 0 }))
+      .filter((x) => x.score > 0 && (!region || x.m.regions.includes(region)));
+    // searching: best match first (name > group / part > region / related condition > description)
+    if (searching) list.sort((a, b) => b.score - a.score || a.i - b.i);
+    return list.map((x) => x.m);
+  }, [q, region, searching]);
 
   // Group by primary region (first listed) unless filtered to one region. Muscles that also belong to a
   // region (listed second) are shown there as compact links, so the group total matches the chip count.
   const groups = useMemo(() => {
     if (region) return [{ region, list: filtered, also: [] as typeof filtered }];
-    return REGIONS.map((reg) => ({
+    const gs = REGIONS.map((reg) => ({
       region: reg.id as RegionId,
       list: filtered.filter((m) => m.regions[0] === reg.id),
       also: filtered.filter((m) => m.regions[0] !== reg.id && m.regions.includes(reg.id as RegionId)),
     })).filter((g) => g.list.length || g.also.length);
-  }, [filtered, region]);
+    if (!searching) return gs;
+    // searching: the group with the best match first (filtered is ranked, so its first muscle is the best one)
+    const rank = (g: (typeof gs)[number]) => {
+      const i = filtered.findIndex((m) => g.list.includes(m));
+      return i < 0 ? filtered.length + filtered.findIndex((m) => g.also.includes(m)) : i;
+    };
+    return [...gs].sort((a, b) => rank(a) - rank(b));
+  }, [filtered, region, searching]);
 
   const counts = useMemo(() => {
     const c: Partial<Record<RegionId, number>> = {};
@@ -67,7 +75,7 @@ export default function MusclesPage() {
           value={search.text}
           onChange={search.setText}
           inputProps={search.inputProps}
-          placeholder="筋肉名・ひらがな・英語名"
+          placeholder="筋肉名・ひらがな・部位・障害名"
           label="筋肉を検索"
         />
       </div>

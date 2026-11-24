@@ -19,6 +19,7 @@ import {
   type Lab,
   type P,
   type Spot,
+  type XY,
 } from './hip';
 
 const W = 360;
@@ -143,7 +144,7 @@ function KneeFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'fibula', t: '腓骨', at: [120, 300], x: 96, y: 296, a: 'end' },
     { id: 'tibialis-anterior', t: '前脛骨筋', at: [152, 360], x: 96, y: 352, a: 'end' },
     { id: 'fibularis-longus', t: '長腓骨筋', at: [116, 404], x: 96, y: 404, a: 'end' },
-    { id: 'rectus-femoris', t: '大腿直筋', at: [176, 30], x: 266, y: 33 },
+    { id: 'rectus-femoris', t: '大腿直筋', at: [176, 30], x: 266, y: 35 }, // clear of the 「内側 →」 caption
     { id: 'vastus-medialis', t: '内側広筋', at: [228, 120], x: 266, y: 100 },
     { id: 'sartorius', t: '縫工筋', at: [255, 140], x: 268, y: 140 },
     { id: 'quadriceps-tendon', t: '大腿四頭筋腱', at: [182, 144], x: 266, y: 176 },
@@ -340,7 +341,7 @@ function KneeLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'patellofemoral-cartilage', t: '膝蓋大腿関節\nの軟骨', at: [219, 208], x: 256, y: 212 },
     { id: 'patellar-tendon', t: '膝蓋腱', at: [236, 266], x: 256, y: 268 },
     // inset: TFL (front) is labelled above gluteus maximus (back) so neither leader crosses the other muscle
-    { id: 'gluteus-medius', t: '中殿筋', at: [290, 321], x: 314, y: 320 },
+    { id: 'gluteus-medius', t: '中殿筋', at: [290, 321], x: 314, y: 324 }, // clear of the inset title
     { id: 'tensor-fasciae-latae', t: '大腿筋\n膜張筋', at: [301, 336], x: 314, y: 350 },
     { id: 'gluteus-maximus', t: '大殿筋', at: [274, 360], x: 314, y: 388 },
     { id: 'iliotibial-band', t: '腸脛\n靱帯', at: [290, 398], x: 314, y: 410 },
@@ -558,6 +559,10 @@ const KMM = {
   sol: muscle({ r: [[[208, 300], [198, 300]], [[212, 380], [196, 380]], [[210, 460], [196, 460]]], n: 3 }),
 };
 
+/** adductor tubercle and the adductor magnus tendon ending on it */
+const AM_TUB: XY = [211, 171];
+const AM_TEN: P[] = [[202, -30], [202, 50], [204, 110], [207, 146], [AM_TUB[0], AM_TUB[1] - 4]];
+
 function KneeMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const labels: Lab[] = [
     { id: 'rectus-femoris', t: '大腿直筋', at: [126, 44], x: 104, y: 36, a: 'end' },
@@ -572,8 +577,9 @@ function KneeMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'semitendinosus', t: '半腱様筋', at: [262, 34], x: 282, y: 40 },
     { id: 'sartorius', t: '縫工筋', at: [218, 74], x: 282, y: 72 },
     { id: 'gracilis', t: '薄筋', at: [242, 104], x: 282, y: 104 },
-    { id: 'semimembranosus', t: '半膜様筋', at: [252, 170], x: 282, y: 140 },
-    { id: 'adductor-magnus', t: '大内転筋の腱', at: [218, 150], x: 278, y: 174 },
+    // adductor magnus tendon (in front of sartorius) above semimembranosus (behind the ST tendon): leaders do not cross
+    { id: 'adductor-magnus', t: '大内転筋の腱', at: [204, 118], x: 278, y: 140 },
+    { id: 'semimembranosus', t: '半膜様筋', at: [264, 170], x: 282, y: 174 },
     { id: 'mcl', t: '内側側副靱帯', at: [189, 238], x: 278, y: 224 },
     { id: 'meniscus', t: '半月板', at: [222, 252], x: 282, y: 262 },
     { id: 'gastrocnemius', t: '腓腹筋', at: [252, 340], x: 282, y: 334 },
@@ -600,7 +606,7 @@ function KneeMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <path className="body" d={KMD.body} />
         <path className="bone" d={KMD.femur} />
         <path className="bone-ln" d={KMD.femLn} />
-        <path className="bone" d={ell(218, 172, 6, 5)} />
+        <path className="bone" d={ell(AM_TUB[0], AM_TUB[1], 6, 5)} />
         <path className="bone" d={ell(194, 208, 8, 9)} />
       </Ctxt>
       <Part k={k} id="tibia">
@@ -628,11 +634,13 @@ function KneeMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       <Part k={k} id="semimembranosus">
         <M g={KMM.sm} />
       </Part>
-      <Part k={k} id="adductor-magnus">
-        <Ten c={[[214, -30], [216, 60], [218, 130], [218, 168]]} w={[11, 10, 9, 7]} cls="ten" lines={2} />
-      </Part>
       <Part k={k} id="vastus-medialis">
         <M g={KMM.vm} />
+      </Part>
+      {/* adductor magnus tendon: along the posterior border of VM (whose lowest fibres arise from it), in front of
+          sartorius, down to the adductor tubercle */}
+      <Part k={k} id="adductor-magnus">
+        <Ten c={AM_TEN} w={[10, 9, 8, 7]} cls="ten" lines={2} />
       </Part>
       <Part k={k} id="rectus-femoris">
         <M g={KMM.rf} />
@@ -777,7 +785,7 @@ function KneeBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const labels: Lab[] = [
     { id: 'sartorius', t: '縫工筋', at: [104, 66], x: 92, y: 50, a: 'end' },
     { id: 'gracilis', t: '薄筋', at: [115, 104], x: 92, y: 92, a: 'end' },
-    { id: 'semitendinosus', t: '半腱様筋', at: [146, 64], x: 92, y: 134, a: 'end' },
+    { id: 'semitendinosus', t: '半腱様筋', at: [144, 104], x: 92, y: 134, a: 'end' }, // below the gracilis leader
     { id: 'semimembranosus', t: '半膜様筋', at: [130, 186], x: 92, y: 180, a: 'end' },
     { id: 'gastrocnemius', t: '腓腹筋・内側頭', at: [140, 330], x: 96, y: 320, a: 'end' },
     { id: 'soleus', t: 'ヒラメ筋', at: [118, 410], x: 92, y: 404, a: 'end' },

@@ -1747,7 +1747,7 @@ export const conditions: Condition[] = [
       },
     ],
     anatomyNote:
-      '足のつりは筋肉の一時的な強い収縮で、筋肉の線維が傷ついているわけではありません。赤い部分は、つりやすい筋肉を示しています。',
+      '足のつりは筋肉の一時的な強い収縮で、肉離れのように筋肉の線維が傷ついているわけではありません。赤い部分は、つりやすい筋肉を示しています。',
     whyTriathlon: [
       {
         discipline: 'swim',
@@ -2196,6 +2196,7 @@ export const muscles: Muscle[] = [
       'ex-calf-raise-straight',
       'ex-isometric-calf-hold',
       'ex-eccentric-heel-drop',
+      'ex-heel-drop-floor',
       'ex-towel-heel-raise',
       'ex-pogo-hops',
     ],
@@ -2240,6 +2241,7 @@ export const muscles: Muscle[] = [
       'ex-calf-raise-straight',
       'ex-isometric-calf-hold',
       'ex-eccentric-heel-drop',
+      'ex-heel-drop-floor',
       'ex-towel-heel-raise',
       'ex-pogo-hops',
     ],

@@ -98,6 +98,7 @@ export function RegionFigure({
   caption,
   footer,
   zoomable,
+  zoomLabel = '傷んでいる部分を拡大',
   diagram: diagramOverride,
 }: {
   region: RegionId;
@@ -119,6 +120,8 @@ export function RegionFigure({
   onViewChange?: (view: string) => void;
   /** Offer a 「拡大」 button when the 'injured' parts are small in the current view. */
   zoomable?: boolean;
+  /** Text of that button: what the red parts are (「つりやすい筋肉を拡大」 where nothing is damaged). */
+  zoomLabel?: string;
   caption?: ReactNode;
   footer?: ReactNode;
 }) {
@@ -222,7 +225,32 @@ export function RegionFigure({
     };
     measure();
     const t = setTimeout(measure, 300); // diagrams may settle (fonts / labels) after the first paint
-    return () => clearTimeout(t);
+    // the box is in canvas px: measure again when the canvas changes size (rotation, window resize, wrapping)
+    let raf = 0;
+    let last = '';
+    const ro =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            const c = canvasRef.current;
+            const size = c ? `${c.clientWidth}x${c.clientHeight}` : '';
+            if (size === last) return;
+            last = size;
+            if (!raf)
+              raf = requestAnimationFrame(() => {
+                raf = 0;
+                measure();
+              });
+          })
+        : null;
+    if (ro && canvasRef.current) {
+      last = `${canvasRef.current.clientWidth}x${canvasRef.current.clientHeight}`;
+      ro.observe(canvasRef.current);
+    }
+    return () => {
+      clearTimeout(t);
+      ro?.disconnect();
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, [zoomable, injuredIds, shown, region]);
   // only worth it when the injured tissue covers a small part of the figure
   const small = !!focusBox && focusBox.w * focusBox.h < 0.06 * focusBox.cw * focusBox.ch && Math.max(focusBox.w / focusBox.cw, focusBox.h / focusBox.ch) < 0.4;
@@ -322,7 +350,7 @@ export function RegionFigure({
         <div className="figure__tools">
           <button type="button" className="figure__zoom-btn" aria-pressed={zoomed} onClick={() => setZoomed((z) => !z)}>
             <IconSearch />
-            {zoomed ? '全体を表示' : '傷んでいる部分を拡大'}
+            {zoomed ? '全体を表示' : zoomLabel}
           </button>
         </div>
       )}

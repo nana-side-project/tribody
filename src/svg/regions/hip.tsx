@@ -1558,7 +1558,7 @@ function HipSide({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const win = `${k.uid}-sw`;
   const labels: Lab[] = [
     { id: 'gluteus-medius', t: '中殿筋', at: [160, 104], x: 88, y: 70, a: 'end' },
-    { id: 'gluteus-maximus', t: '大殿筋', at: [116, 196], x: 70, y: 150, a: 'end' },
+    { id: 'gluteus-maximus', t: '大殿筋', at: [114, 170], x: 70, y: 150, a: 'end' }, // above the tendon leader: no crossing
     { id: 'gluteal-tendons', t: '中・小殿筋の腱', at: [176, 204], x: 96, y: 196, a: 'end' },
     { id: 'greater-trochanter', t: '大転子', at: [186, 238], x: 70, y: 228, a: 'end' },
     { id: 'trochanteric-bursa', t: '大転子滑液包', at: [156, 236], x: 88, y: 262, a: 'end' },

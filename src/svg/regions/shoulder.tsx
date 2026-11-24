@@ -1350,7 +1350,7 @@ const LABELS_DEEP: Lab[] = [
   { id: 'humeral-head', t: '上腕骨頭', at: [106, 116], x: 70, y: 132, a: 'end' },
   { id: 'biceps-long-head-tendon', t: '上腕二頭筋\n長頭腱', at: [110, 160], x: 70, y: 170, a: 'end' },
   { id: 'biceps-brachii', t: '上腕二頭筋', at: [90, 262], x: 69, y: 246, a: 'end' },
-  { id: 'trapezius', t: '僧帽筋', at: [192, 44], x: 172, y: 33, a: 'end' },
+  { id: 'trapezius', t: '僧帽筋', at: [192, 44], x: 172, y: 35, a: 'end' }, // clear of the view title
   { id: 'supraspinatus', t: '棘上筋', at: [196, 88], x: 214, y: 40 },
   { t: '鎖骨', at: [262, 79], x: 306, y: 60 },
   { id: 'pectoralis-minor', t: '小胸筋', at: [192, 134], x: 306, y: 122 },

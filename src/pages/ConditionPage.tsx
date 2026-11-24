@@ -25,7 +25,7 @@ import {
 } from '../components/icons';
 import { Page } from '../components/Layout';
 import { RegionFigure, drawnParts } from '../components/RegionFigure';
-import { Bullets, Disclaimer, EmptyState, PainRuleCallout, Section, Tabs } from '../components/ui';
+import { Bullets, Disclaimer, EmptyState, NameText, PainRuleCallout, Section, Tabs } from '../components/ui';
 import { Viewer3DToggle } from '../components/Viewer3D';
 import {
   DISCIPLINE_JA,
@@ -59,7 +59,9 @@ function ConditionWip({ id }: { id: string }) {
     <Page title={conditionName(id)} back={region ? `/region/${region}` : '/'}>
       <header className="page-head">
         {region && <span className="kicker">{regionName(region)}</span>}
-        <h1>{conditionName(id)}</h1>
+        <h1>
+          <NameText text={conditionName(id)} />
+        </h1>
       </header>
       <div style={{ marginTop: 20 }}>
         <EmptyState title="解説を準備中です" text="この障害の詳しい解説・回復プランは現在作成中です。">
@@ -102,6 +104,57 @@ const CONDITION_VIEW: Partial<Record<ConditionId, { region: RegionId; view: stri
   'patellofemoral-pain': { region: 'knee', view: 'front' },
   'cyclist-neck-pain': { region: 'neck', view: 'side' },
 };
+
+/** How the anatomy section names the red highlight. */
+interface RedWording {
+  /** section title and its table-of-contents chip */
+  title: string;
+  /** under the figure (legend) */
+  legend: string;
+  /** the section intro: 「赤く示したのが◯◯、…」 */
+  desc: string;
+  /** 3D viewer: button sub text and the short legend next to 閉じる */
+  sub3d: string;
+  short: string;
+  /** zoom button of the 2D figure */
+  zoom: string;
+}
+const DAMAGED: RedWording = {
+  title: 'どこが傷んでいる？',
+  legend: '傷んでいる・刺激/圧迫されている',
+  desc: '赤く光っているのが痛みの中心になっている組織、オレンジ色で示したのが関係する筋肉・組織です。',
+  sub3d: '傷んでいる組織と関係する筋肉を3Dで確認',
+  short: '傷んでいる',
+  zoom: '傷んでいる部分を拡大',
+};
+/**
+ * Non-specific pain (low back, neck): the content's anatomyNote says nothing is damaged and the red marks the places
+ * where pain is felt more easily — never 「傷んでいる」.
+ */
+const OVERSENSITIVE: RedWording = {
+  title: 'どこが痛む？',
+  legend: '痛みを感じやすくなっている場所',
+  desc: '赤く示したのが痛みを感じやすくなっている場所、オレンジ色で示したのが関係する筋肉・組織です。',
+  sub3d: '痛みやすい場所と関係する筋肉を3Dで確認',
+  short: '痛みやすい場所',
+  zoom: '痛みやすい部分を拡大',
+};
+/** Conditions whose anatomyNote gives the red another meaning (it must read the same as the note). */
+const RED_WORDING: Partial<Record<ConditionId, RedWording>> = {
+  // note: 「赤い部分は、つりやすい筋肉を示しています」 (a cramp is not a damaged muscle)
+  'muscle-cramps': {
+    title: 'どこがつる？',
+    legend: 'つりやすい筋肉',
+    desc: '赤く示したのがつりやすい筋肉、オレンジ色で示したのが関係する筋肉です。',
+    sub3d: 'つりやすい筋肉と関係する筋肉を3Dで確認',
+    short: 'つりやすい筋肉',
+    zoom: 'つりやすい筋肉を拡大',
+  },
+};
+
+function redWording(c: Condition): RedWording {
+  return RED_WORDING[c.id] ?? (c.anatomyNote ? OVERSENSITIVE : DAMAGED);
+}
 
 const TOC: { id: string; label: string }[] = [
   { id: 'anatomy', label: 'どこが傷んでいる？' },
@@ -173,9 +226,9 @@ function ConditionView({ c }: { c: Condition }) {
   const primary = involved.filter((i) => isPrimaryRole(i.role));
   const secondary = involved.filter((i) => !isPrimaryRole(i.role));
   const primaryRefs = primary.map((i) => i.ref as string);
-  // non-specific pain (low back, neck, cramps): the content's anatomyNote says nothing is damaged, so the red is
-  // 「痛みを感じやすくなっている場所」, never 「傷んでいる」
-  const sensitive = !!c.anatomyNote;
+  // non-specific pain (low back, neck) and cramps: the content's anatomyNote says nothing is damaged, so the red is
+  // named the way the note names it, never 「傷んでいる」
+  const red = redWording(c);
 
   // The selected step lives in the URL (?phase=), so it survives opening an exercise and coming back.
   const [params, setParams] = useSearchParams();
@@ -204,7 +257,9 @@ function ConditionView({ c }: { c: Condition }) {
         <Link to={`/region/${c.region}`} className="kicker hit">
           {regionName(c.region)}
         </Link>
-        <h1>{c.nameJa}</h1>
+        <h1>
+          <NameText text={c.nameJa} />
+        </h1>
         <p className="page-head__en">{c.nameEn}</p>
         {(c.aka.length > 0 || c.disciplines.length > 0) && (
           <div className="meta-row">
@@ -233,7 +288,7 @@ function ConditionView({ c }: { c: Condition }) {
             style={t.id === 'redflags' ? { color: 'var(--danger)' } : undefined}
             onClick={() => document.getElementById(t.id)?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })}
           >
-            {t.id === 'anatomy' && sensitive ? 'どこが痛む？' : t.label}
+            {t.id === 'anatomy' ? red.title : t.label}
           </button>
         ))}
       </nav>
@@ -241,12 +296,8 @@ function ConditionView({ c }: { c: Condition }) {
       <Section
         id="anatomy"
         kicker="Anatomy"
-        title={sensitive ? 'どこが痛む？' : 'どこが傷んでいる？'}
-        desc={
-          sensitive
-            ? '赤く示したのが痛みを感じやすくなっている場所、オレンジ色で示したのが関係する筋肉・組織です。'
-            : '赤く光っているのが痛みの中心になっている組織、オレンジ色で示したのが関係する筋肉・組織です。'
-        }
+        title={red.title}
+        desc={red.desc}
       >
         <RegionFigure
           region={figRegion}
@@ -257,11 +308,12 @@ function ConditionView({ c }: { c: Condition }) {
           initialView={figMemo.initialView ?? figView}
           onViewChange={figMemo.onViewChange}
           zoomable
+          zoomLabel={red.zoom}
         />
         <div className="legend" style={{ marginTop: 10, paddingLeft: 4 }}>
           <span className="legend__item">
             <span className="dot dot--injured dot--ring" />
-            {sensitive ? '痛みを感じやすくなっている場所' : '傷んでいる・刺激/圧迫されている'}
+            {red.legend}
           </span>
           <span className="legend__item">
             <span className="dot dot--involved" />
@@ -314,12 +366,12 @@ function ConditionView({ c }: { c: Condition }) {
             highlights={highlights3d}
             condition={c.id}
             focus={c.region}
-            sub={sensitive ? '痛みやすい場所と関係する筋肉を3Dで確認' : '傷んでいる組織と関係する筋肉を3Dで確認'}
+            sub={red.sub3d}
             legend={
               <span className="legend" style={{ margin: 0 }}>
                 <span className="legend__item">
                   <span className="dot dot--injured" />
-                  {sensitive ? '痛みやすい場所' : '傷んでいる'}
+                  {red.short}
                 </span>
                 <span className="legend__item">
                   <span className="dot dot--involved" />

@@ -4,7 +4,7 @@ import { LevelBadge, TypeBadge } from '../components/badges';
 import { ConditionCard } from '../components/cards';
 import { DISCIPLINE_ICON, IconAlert, IconCheck, IconChevron, IconPlus, IconTarget } from '../components/icons';
 import { Page } from '../components/Layout';
-import { Bullets, EmptyState, PainRuleCallout, Section } from '../components/ui';
+import { Bullets, EmptyState, NameText, PainRuleCallout, Section } from '../components/ui';
 import { SafeViewer } from '../components/Viewer3D';
 import { DISCIPLINE_JA, DISCIPLINE_ORDER, PHASE_JA, doseParts, exerciseName, isKnownExercise, muscleName, regionName } from '../lib/labels';
 import { toast, toastSaved } from '../lib/toast';
@@ -20,7 +20,9 @@ export default function ExercisePage() {
       <Page title={exerciseName(id)} back="/exercises">
         <header className="page-head">
           <span className="kicker">Exercise</span>
-          <h1>{exerciseName(id)}</h1>
+          <h1>
+            <NameText text={exerciseName(id)} />
+          </h1>
         </header>
         <div style={{ marginTop: 20 }}>
           <EmptyState title="解説を準備中です" text="このエクササイズの手順と3Dアニメーションは現在作成中です。">
@@ -121,7 +123,9 @@ function ExerciseView({ e }: { e: Exercise }) {
 
       <header className="page-head">
         <span className="kicker">{e.regions.map(regionName).join(' · ')}</span>
-        <h1>{e.nameJa}</h1>
+        <h1>
+          <NameText text={e.nameJa} />
+        </h1>
         <p className="page-head__en">{e.nameEn}</p>
         <div className="meta-row">
           <TypeBadge type={e.type} />

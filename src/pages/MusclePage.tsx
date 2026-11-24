@@ -5,7 +5,7 @@ import { ConditionCard, ExerciseCard } from '../components/cards';
 import { DISCIPLINE_ICON, IconHand } from '../components/icons';
 import { Page } from '../components/Layout';
 import { RegionFigure, findDiagramFor } from '../components/RegionFigure';
-import { EmptyState, Section } from '../components/ui';
+import { EmptyState, NameText, Section } from '../components/ui';
 import { SafeViewer } from '../components/Viewer3D';
 import { DISCIPLINE_JA, DISCIPLINE_ORDER, isKnownMuscle, muscleName, regionName } from '../lib/labels';
 import { useRememberedView } from '../lib/useRememberedView';
@@ -20,7 +20,9 @@ export default function MusclePage() {
       <Page title={muscleName(id)} back="/muscles">
         <header className="page-head">
           <span className="kicker">Muscle</span>
-          <h1>{muscleName(id)}</h1>
+          <h1>
+            <NameText text={muscleName(id)} />
+          </h1>
         </header>
         <div style={{ marginTop: 20 }}>
           <EmptyState title="解説を準備中です" text="この筋肉の解説は現在作成中です。">
@@ -94,7 +96,9 @@ function MuscleView({ m }: { m: Muscle }) {
 
       <header className="page-head">
         <span className="kicker">{m.regions.map(regionName).join(' · ')}</span>
-        <h1>{m.nameJa}</h1>
+        <h1>
+          <NameText text={m.nameJa} />
+        </h1>
         <p className="page-head__en">
           {m.kana} · {m.nameEn}
         </p>

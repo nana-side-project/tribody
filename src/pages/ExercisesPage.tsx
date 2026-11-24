@@ -15,7 +15,7 @@ import {
   regionName,
   type EquipmentTag,
 } from '../lib/labels';
-import { normalize, queryTerms, tierScore } from '../lib/search';
+import { exerciseScores, queryTerms } from '../lib/search';
 import { useMenu } from '../lib/useMenu';
 import { useUrlSearchText } from '../lib/useUrlSearchText';
 
@@ -23,24 +23,7 @@ const TYPES = Object.keys(EXERCISE_TYPE_JA) as ExerciseType[];
 /** Selected-value forms that fit the narrow select. */
 const TYPE_SHORT: Partial<Record<ExerciseType, string>> = { isometric: 'アイソメ', plyometric: 'プライオ', 'nerve-glide': '神経滑走' };
 
-/** Pre-normalised search fields per exercise, best tier first. */
-const INDEX = exercises.map((e) => {
-  const muscleFields = (ids: string[]) =>
-    ids.flatMap((m) => {
-      const mu = getMuscle(m);
-      return [muscleName(m), mu?.kana ?? '', mu?.nameEn ?? ''];
-    });
-  const conds = conditionsUsingExercise(e.id);
-  const tiers = [
-    [e.nameJa, e.nameEn],
-    muscleFields(e.primary),
-    e.regions.map(regionName),
-    conds.flatMap((c) => [c.nameJa, ...c.aka, c.nameEn]),
-    [...muscleFields(e.secondary), EXERCISE_TYPE_JA[e.type] ?? ''],
-  ].map((t) => t.filter(Boolean).map(normalize));
-  return { e, tiers, tags: equipmentTags(e) };
-});
-
+const INDEX = exercises.map((e) => ({ e, tags: equipmentTags(e) }));
 
 export default function ExercisesPage() {
   const [params, setParams] = useSearchParams();
@@ -75,7 +58,8 @@ export default function ExercisesPage() {
   const typeOptions = useMemo(() => TYPES.filter((ty) => exercises.some((e) => e.type === ty)), []);
 
   const filtered = useMemo(() => {
-    const terms = queryTerms(q);
+    const searching = queryTerms(q).length > 0;
+    const scores = exerciseScores(q);
     const out = INDEX.filter(
       (x) =>
         (!region || x.e.regions.includes(region)) &&
@@ -83,10 +67,10 @@ export default function ExercisesPage() {
         (!level || x.e.level === level) &&
         (!equip || x.tags.includes(equip)),
     )
-      .map((x, i) => ({ e: x.e, i, score: tierScore(terms, x.tiers) }))
+      .map((x, i) => ({ e: x.e, i, score: scores.get(x.e.id) ?? 0 }))
       .filter((x) => x.score > 0);
-    // best match first (name hits before muscle / region / condition hits); original order otherwise
-    if (terms.length) out.sort((a, b) => b.score - a.score || a.i - b.i);
+    // best match first (name > target muscle / region / condition > description, see lib/search); original order otherwise
+    if (searching) out.sort((a, b) => b.score - a.score || a.i - b.i);
     return out.map((x) => x.e);
   }, [q, region, type, level, equip]);
 

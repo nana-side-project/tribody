@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { GUIDES, PAIN_SPOTS, REGIONS, getPainSpot, type GuideId, type PainSpotId, type RegionId, type Side } from '../data';
 import { BottomSheet, afterSheetClose } from '../components/BottomSheet';
@@ -22,6 +22,74 @@ const VIEWS: { id: View; label: string }[] = [
 ];
 const FEATURED: GuideId[] = ['pain-monitoring', 'load-management', 'red-flags'];
 
+/**
+ * Smallest home figure (px) = 0.40 CSS px per figure unit, the smallest scale the tap rules and the magnifier layout
+ * are verified at (bodymap/lens.test.ts). On shorter screens the page scrolls instead.
+ */
+const MAP_MIN_H = 400;
+/** svg bottom → tab bar when the figure fits (the lowest hotspots then sit ≥ 30 px above the tab bar). */
+const MAP_FIT_GAP = 16;
+/** A hotspot this close above the tab bar (centre, px) is too easy to miss onto a tab… */
+const SPOT_CLEAR = 24;
+/** …so when the figure cannot fit, its lowest hotspots go at least this far under the tab bar top instead. */
+const SPOT_HIDDEN = 30;
+
+/**
+ * Size the home body map from the real space between the controls above it and the tab bar (the intro wraps to two
+ * or three lines with the width, so a fixed allowance is wrong on some phones). The whole figure fits with its lowest
+ * hotspots well clear of the tab bar — a finger that slips must not land on a tab. On screens too short for the
+ * smallest figure the page scrolls, and the lowest hotspots then start clearly under the tab bar instead of a few px
+ * above it.
+ */
+function useFitHomeMap(frameRef: RefObject<HTMLDivElement | null>, view: string) {
+  useLayoutEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    let raf = 0;
+    const fit = () => {
+      raf = 0;
+      const svg = frame.querySelector('.tb-bodymap > svg');
+      const tabbar = document.querySelector('.tabbar');
+      if (!svg || !tabbar) return;
+      const box = svg.getBoundingClientRect();
+      // space from the top of the map (page coordinates: the same at any scroll position) to the fixed tab bar
+      const space = tabbar.getBoundingClientRect().top - (box.top + window.scrollY);
+      // the lowest hotspot of this view as a share of the map height (the drawing scales with the height)
+      let low = 0.96;
+      if (box.height > 0) {
+        let y = -Infinity;
+        frame.querySelectorAll('.tb-spots .tb-spot-dot').forEach((d) => {
+          const r = d.getBoundingClientRect();
+          y = Math.max(y, r.top + r.height / 2);
+        });
+        if (y > -Infinity) low = Math.min(1, Math.max(0.5, (y - box.top) / box.height));
+      }
+      let h = space - MAP_FIT_GAP;
+      if (h < MAP_MIN_H) {
+        h = MAP_MIN_H;
+        if (space - low * h < SPOT_CLEAR) h = Math.max(h, (space + SPOT_HIDDEN) / low);
+      }
+      frame.style.setProperty('--tb-bodymap-max-h', `${Math.round(h)}px`);
+    };
+    const later = () => {
+      if (!raf) raf = requestAnimationFrame(fit);
+    };
+    fit();
+    window.addEventListener('resize', later);
+    window.addEventListener('orientationchange', later);
+    // the intro / controls above the map change height (text wrap, font load)
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(later) : null;
+    const head = document.querySelector('#main .page-head');
+    if (ro && head) ro.observe(head);
+    return () => {
+      window.removeEventListener('resize', later);
+      window.removeEventListener('orientationchange', later);
+      ro?.disconnect();
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [frameRef, view]);
+}
+
 export default function HomePage() {
   const [params, setParams] = useSearchParams();
   const v = params.get('view');
@@ -41,6 +109,8 @@ export default function HomePage() {
   const [picker, setPicker] = useState(false);
   const [q, setQ] = useState('');
   const pickerBtnRef = useRef<HTMLButtonElement>(null);
+  const mapFrameRef = useRef<HTMLDivElement>(null);
+  useFitHomeMap(mapFrameRef, view);
   const menu = useMenu();
   const log = usePainLog();
   const recent = useMemo(() => Object.keys(log.recentIntensity(14)) as PainSpotId[], [log]);
@@ -57,9 +127,9 @@ export default function HomePage() {
         <Segmented label="からだの向き" value={view} options={VIEWS} onChange={setView} />
         {/* keyboard users can skip the ~30 hotspots */}
         <button type="button" className="skip-link" onClick={() => pickerBtnRef.current?.focus()}>
-          図をとばして「リストから選ぶ」へ
+          図をとばして「一覧から選ぶ」へ
         </button>
-        <div className="bodymap-frame bodymap-frame--home">
+        <div className="bodymap-frame bodymap-frame--home" ref={mapFrameRef}>
           <SafeBodyMap
             view={view}
             activeSpots={recent}
@@ -67,12 +137,10 @@ export default function HomePage() {
             onSelect={(id, side) => setSel({ id, side })}
           />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          <p className="tiny" style={{ paddingLeft: 4 }}>
-            痛む側をタップ（左右を記録）
-          </p>
-          <button type="button" className="btn btn--ghost btn--sm" ref={pickerBtnRef} onClick={() => setPicker(true)}>
-            リストから選ぶ
+        <div className="map-foot">
+          <p className="tiny">痛む側をタップ（左右を記録）</p>
+          <button type="button" className="btn btn--ghost btn--sm map-foot__btn" ref={pickerBtnRef} onClick={() => setPicker(true)}>
+            一覧から選ぶ
             <IconChevron />
           </button>
         </div>

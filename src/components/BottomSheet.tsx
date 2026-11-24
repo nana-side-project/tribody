@@ -1,43 +1,23 @@
 // Modal bottom sheet: backdrop tap / Esc / swipe-down / browser Back to close, focus moved in and restored,
 // body scroll locked, the page behind made inert (screen readers can't wander into it).
-import { useEffect, useRef, type ReactNode, type PointerEvent as RPointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, type ReactNode, type PointerEvent as RPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { afterOverlayClose, openOverlayEntry } from '../lib/overlayHistory';
 import { IconClose } from './icons';
 
-// ── history entry per open sheet, so the Android back gesture / browser Back closes the sheet first ──
-// The entry keeps the same URL and copies the router's state (same location key), so the router treats
-// the pops as no-ops. A sheet closed by other means removes its entry with history.back(); anything that
-// navigates right after closing a sheet must wait for that (afterSheetClose).
-let pendingBack: Promise<void> | null = null;
-let sheetSeq = 0;
-
-function historyBack(): Promise<void> {
-  const p = new Promise<void>((resolve) => {
-    let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      window.removeEventListener('popstate', finish);
-      if (pendingBack === p) pendingBack = null;
-      resolve();
-    };
-    window.addEventListener('popstate', finish);
-    setTimeout(finish, 500); // safety net
-    try {
-      window.history.back();
-    } catch {
-      finish();
-    }
-  });
-  pendingBack = p;
-  return p;
-}
-
+// Back closes the sheet: it gets its own history entry (shared helper with the body-map magnifier, see
+// lib/overlayHistory). Anything that navigates right after closing a sheet must wait for that entry to be
+// removed: afterSheetClose.
 /** Run `fn` once a just-closed sheet has removed its history entry (e.g. navigate from a sheet button). */
-export function afterSheetClose(fn: () => void) {
-  if (pendingBack) void pendingBack.then(() => setTimeout(fn, 0));
-  else setTimeout(fn, 0);
-}
+export const afterSheetClose = afterOverlayClose;
+
+/**
+ * A press that starts less than this long after the sheet opened does nothing: the second tap of a quick double tap
+ * on the spot / magnifier name that opened the sheet would otherwise land on the new backdrop and close the sheet,
+ * or on a row sliding up under the finger (the sheet-up animation is 0.32 s) and open a condition nobody chose.
+ * A tap on the backdrop also has to start on the backdrop (not the pointerup of the tap that opened the sheet).
+ */
+const OPEN_GUARD_MS = 350;
 
 export function BottomSheet({
   open,
@@ -56,6 +36,18 @@ export function BottomSheet({
   const drag = useRef<{ y: number; dy: number } | null>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  /** when the sheet opened / when the current press on the backdrop started (performance.now) */
+  const openedAt = useRef(0);
+  const backdropDownAt = useRef(-1);
+  /** when the current press inside the sheet started (performance.now) */
+  const sheetDownAt = useRef(-1);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    openedAt.current = performance.now();
+    backdropDownAt.current = -1;
+    sheetDownAt.current = -1;
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -68,29 +60,7 @@ export function BottomSheet({
     if (root) root.inert = true;
 
     // Back closes the sheet
-    const myId = ++sheetSeq;
-    let pushed = false;
-    let closedByBack = false;
-    let disposed = false;
-    const onPop = (e: PopStateEvent) => {
-      const st = e.state as { tbSheet?: number } | null;
-      if (st?.tbSheet === myId) return;
-      closedByBack = true;
-      closeRef.current();
-    };
-    const push = () => {
-      if (disposed) return;
-      try {
-        const st = (window.history.state ?? {}) as Record<string, unknown>;
-        window.history.pushState({ ...st, tbSheet: myId }, '');
-        pushed = true;
-        window.addEventListener('popstate', onPop);
-      } catch {
-        /* history unavailable (sandboxed preview) — Back just won't close the sheet */
-      }
-    };
-    if (pendingBack) void pendingBack.then(push);
-    else push();
+    const releaseEntry = openOverlayEntry(() => closeRef.current());
 
     const t = setTimeout(() => sheetRef.current?.focus(), 30);
     const onKey = (e: KeyboardEvent) => {
@@ -114,11 +84,9 @@ export function BottomSheet({
     };
     document.addEventListener('keydown', onKey);
     return () => {
-      disposed = true;
       clearTimeout(t);
       document.removeEventListener('keydown', onKey);
-      window.removeEventListener('popstate', onPop);
-      if (pushed && !closedByBack && (window.history.state as { tbSheet?: number } | null)?.tbSheet === myId) void historyBack();
+      releaseEntry();
       html.style.overflow = prevOverflow;
       if (root) root.inert = prevInert;
       try {
@@ -151,8 +119,40 @@ export function BottomSheet({
 
   return createPortal(
     <div className="sheet-root">
-      <div className="sheet-backdrop" onClick={onClose} aria-hidden="true" />
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={label} ref={sheetRef} tabIndex={-1}>
+      <div
+        className="sheet-backdrop"
+        aria-hidden="true"
+        onPointerDown={() => {
+          backdropDownAt.current = performance.now();
+        }}
+        onClick={() => {
+          const down = backdropDownAt.current;
+          backdropDownAt.current = -1;
+          if (down < 0 || down - openedAt.current < OPEN_GUARD_MS) return;
+          onClose();
+        }}
+      />
+      <div
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        ref={sheetRef}
+        tabIndex={-1}
+        onPointerDownCapture={() => {
+          sheetDownAt.current = performance.now();
+        }}
+        onClickCapture={(e) => {
+          if (e.detail === 0) return; // keyboard / assistive-technology activation
+          const down = sheetDownAt.current;
+          sheetDownAt.current = -1;
+          const started = down >= 0 ? down : performance.now();
+          if (started - openedAt.current >= OPEN_GUARD_MS) return;
+          // a tap that began while the sheet was still sliding in (the 2nd tap of a double tap): ignore it
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
         <div
           className="sheet__grab"
           onPointerDown={onDown}

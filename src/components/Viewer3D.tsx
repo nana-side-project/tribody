@@ -2,7 +2,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { AnatomyViewer, type AnatomyViewerProps } from '../three';
 import { usePrefersReducedMotion } from '../lib/useMedia';
-import { useLeavingPage } from '../lib/useLeavingPage';
 import { ErrorBoundary } from './ErrorBoundary';
 import { IconChevron, IconClose, IconCube } from './icons';
 
@@ -48,12 +47,26 @@ function ViewerFallback({ height }: { height: number | string }) {
   );
 }
 
+/**
+ * false on the first render, true once the page around it has been painted. Navigation renders synchronously
+ * (HashRouter useTransitions={false}), and effects of a tap-driven render run before the browser paints: mounting
+ * the viewer (WebGL context, scene build) in the same task would hold back the first paint of the new page.
+ */
+function useAfterFirstPaint(): boolean {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    // the state update from a frame callback is not tied to the tap, so React renders it after this frame
+    const id = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  return ready;
+}
+
 export function SafeViewer(props: AnatomyViewerProps) {
   const reduced = usePrefersReducedMotion();
-  // leaving the page: drop the viewer at once so its render loop does not slow down building the next page
-  const leaving = useLeavingPage();
+  const ready = useAfterFirstPaint();
   const height = props.height ?? 320;
-  if (leaving) return <div style={{ height }} aria-hidden="true" />;
+  if (!ready) return <div className={props.className} style={{ height }} aria-hidden="true" />;
   return (
     <ErrorBoundary fallback={<ViewerFallback height={height} />} resetKey={JSON.stringify([props.muscle, props.exercise, props.focus])}>
       <AnatomyViewer autoPlay={!reduced} {...props} height={height} />

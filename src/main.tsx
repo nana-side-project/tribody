@@ -12,8 +12,21 @@ const root = createRoot(document.getElementById('root')!);
 
 // App (and the content modules it pulls in) is imported dynamically so that a failure while
 // evaluating any module shows a friendly message instead of a blank page.
+/** Longest wait for the opening page's code before rendering anyway (the route fallback then shows 読み込み中…). */
+const INITIAL_PAGE_WAIT_MS = 2000;
+
 import('./App')
-  .then(({ default: App }) => {
+  .then(async ({ default: App, preloadInitialRoute }) => {
+    // Opened on a page other than home: fetch that page's code first, so the first render shows the page itself.
+    // A failure here is left to the route's error boundary (再読み込み).
+    try {
+      await Promise.race([
+        preloadInitialRoute().catch(() => {}),
+        new Promise((resolve) => setTimeout(resolve, INITIAL_PAGE_WAIT_MS)),
+      ]);
+    } catch {
+      /* render anyway */
+    }
     root.render(
       <StrictMode>
         <App />

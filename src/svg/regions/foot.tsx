@@ -84,6 +84,12 @@ const PF_SLIPS: { c: P[]; w: number[] }[] = [
   { c: [[172, 242], [167, 210], [163, 186]], w: [7, 5, 4.5] },
   { c: [[156, 250], [147, 222], [140, 198]], w: [7, 5, 4.5] },
 ];
+/** soft tissue that covers the metatarsal bases in the sole view (clip of their see-through copy) */
+const SOLE_COVER = [
+  PF_BODY,
+  ...PF_SLIPS.map((s) => tube(s.c, s.w)),
+  ...[SM.fdb, SM.abh, SM.adm].flatMap((g) => [g.body, ...g.ten]),
+];
 const FHL_SOLE: P[] = [[232, 300], [237, 250], [242, 206], [247, 172], [250, 130], [252, 96], [253, 70]];
 
 function FootSole({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
@@ -101,7 +107,9 @@ function FootSole({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'abductor-hallucis', t: '母趾外転筋', at: [240, 252], x: 282, y: 236 },
     // navicular above plantar fascia: its anchor is higher, so the two leaders do not cross
     { id: 'navicular', t: '舟状骨', at: [227, 312], x: 282, y: 296 },
-    { id: 'plantar-fascia', t: '足底腱膜', at: [196, 326], x: 282, y: 340 },
+    // on the central band of the fascia between the talar head and the heel fat pad (clear of the see-through bone
+    // outlines, so the dot cannot be read as the talus)
+    { id: 'plantar-fascia', t: '足底腱膜', at: [194, 358], x: 282, y: 340 },
   ];
   const spots: Spot[] = [
     { id: 'forefoot-ball', at: [175, 172] },
@@ -122,9 +130,16 @@ function FootSole({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <>
           <LfStyle />
           <style>{XRAY_CSS}</style>
-          {/* metatarsals are seen through only where the plantar fascia / short flexor cover them (bases, proximal shafts) */}
+          {/* metatarsals are seen through only where the plantar fascia / short muscles cover them (bases, proximal
+              shafts): the band y 238–318 intersected with the soft tissue, so where a bone is not covered (the 5th
+              metatarsal beside the fascia) only its own dashed outline shows, not a solid x-ray copy on top of it */}
           <clipPath id={`${k.uid}-mtx`}>
             <rect x={0} y={238} width={W} height={80} />
+          </clipPath>
+          <clipPath id={`${k.uid}-mtc`}>
+            {SOLE_COVER.map((d, i) => (
+              <path key={i} d={d} />
+            ))}
           </clipPath>
         </>
       }
@@ -198,7 +213,9 @@ function FootSole({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       {/* metatarsal bases / proximal shafts under the fascia (the rest is drawn below the soft tissue) */}
       <XRay k={k} id="metatarsals">
         <g clipPath={`url(#${k.uid}-mtx)`}>
-          <Metatarsals cls="bone-x" />
+          <g clipPath={`url(#${k.uid}-mtc)`}>
+            <Metatarsals cls="bone-x" />
+          </g>
         </g>
       </XRay>
       {/* deepest layer: fibularis longus tendon round the lateral border of the cuboid, along its groove and obliquely
@@ -285,7 +302,7 @@ function FootMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'abductor-hallucis', t: '母趾外転筋', at: [140, 286], x: 54, y: 330, a: 'middle' },
     { id: 'medial-arch', t: '内側縦アーチ', at: [176, 253], x: 140, y: 348, a: 'middle' },
     { id: 'plantar-fascia', t: '足底腱膜', at: [230, 296], x: 216, y: 330, a: 'middle' },
-    { id: 'calcaneus', t: '踵骨', at: [322, 262], x: 278, y: 348, a: 'middle' },
+    { id: 'calcaneus', t: '踵骨', at: [322, 262], x: 262, y: 348, a: 'middle' },
     { id: 'heel-fat-pad', t: '踵の脂肪体', at: [336, 292], x: 354, y: 330, a: 'end' },
   ];
   const spots: Spot[] = [

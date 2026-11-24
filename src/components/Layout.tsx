@@ -1,7 +1,8 @@
 // App shell: page wrapper (top bar on detail pages), bottom tab bar, scroll management, toasts.
-import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ReactNode, type SVGProps } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ReactNode, type SVGProps } from 'react';
 import { Link, Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import { dismissToast, useToast } from '../lib/toast';
+import { ErrorBoundary } from './ErrorBoundary';
 import { AppMark } from './Logo';
 import { IconBack, IconBody, IconBook, IconCheck, IconChecklist, IconDumbbell, IconInfo, IconMuscle } from './icons';
 
@@ -132,12 +133,51 @@ function Toaster() {
   );
 }
 
+/**
+ * While a page's code is still downloading (it is fetched ahead on idle and on a press on its link, so this is
+ * rare): an empty page of the usual height — no spinner flash; a quiet note fades in only if it takes a while.
+ */
+function RouteLoading() {
+  return (
+    <main className="page page--root route-loading" id="main" aria-busy="true">
+      <p className="route-loading__note" role="status">
+        読み込み中…
+      </p>
+    </main>
+  );
+}
+
+/** A page's code could not be downloaded (offline): say so instead of a blank screen. */
+function RouteLoadError() {
+  return (
+    <main className="page page--root" id="main">
+      <div className="empty" style={{ marginTop: 48 }}>
+        <p className="empty__title">ページを読み込めませんでした</p>
+        <p className="empty__text">通信状態を確認して、もう一度読み込んでください。</p>
+        <div className="empty__actions">
+          <button type="button" className="btn btn--primary" onClick={() => location.reload()}>
+            再読み込み
+          </button>
+          <Link to="/" className="btn btn--secondary">
+            ホームへ
+          </Link>
+        </div>
+      </div>
+    </main>
+  );
+}
+
 export function AppLayout() {
+  const { pathname } = useLocation();
   return (
     <div className="app">
       <ScrollManager />
       <RouteFocus />
-      <Outlet />
+      <ErrorBoundary resetKey={pathname} fallback={<RouteLoadError />}>
+        <Suspense fallback={<RouteLoading />}>
+          <Outlet />
+        </Suspense>
+      </ErrorBoundary>
       <TabBar />
       <Toaster />
     </div>
