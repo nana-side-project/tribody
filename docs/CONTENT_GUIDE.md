@@ -30,9 +30,9 @@ label format: `著者 et al. タイトル要約. 雑誌 年`):
 
 - Patellofemoral pain: Willy RW et al. JOSPT CPG 2019; Crossley KM et al. Consensus (Manchester) BJSM 2016 — hip + knee strengthening, education, load management, (short-term) taping/foot orthoses.
 - Patellar tendinopathy: Malliaras P / Cook JL & Purdam continuum model (BJSM 2009); Kongsgaard 2009 HSR; isometrics for short-term pain (Rio 2015; later evidence mixed — say so).
-- Achilles tendinopathy: Martin RL et al. JOSPT CPG 2018 (revised 2024); Alfredson 1998 eccentric; Silbernagel 2007 pain-monitoring model; insertional: **do not drop the heel below floor level** (Jonsson 2008), avoid stretching into dorsiflexion compression early.
+- Achilles tendinopathy: Martin RL et al. JOSPT CPG 2018; revision Chimenti RL et al. JOSPT 2024; Alfredson 1998 eccentric; Silbernagel 2007 pain-monitoring model; insertional: **do not drop the heel below floor level** (Jonsson 2008), avoid stretching into dorsiflexion compression early.
 - Plantar heel pain: Koc TA et al. JOSPT CPG 2023; Rathleff 2015 high-load strength (towel under toes); plantar fascia–specific stretching; taping; footwear.
-- Gluteal tendinopathy: Mellor R et al. LEAP trial BMJ 2018 (education + exercise > injection); Grimaldi A 2015 — **avoid compression positions** (crossing legs, hip adduction, side-lying on painful side, ITB/figure-4 style stretches that pull the thigh across).
+- Gluteal tendinopathy: Mellor R et al. LEAP trial BMJ 2018 (education + exercise > injection); Grimaldi A 2015 — **avoid compression positions** (crossing legs, hip adduction, side-lying on painful side, cross-body knee-to-opposite-shoulder / cross-leg ITB stretches; figure-4 (FABER-like) is often provocative too).
 - Proximal hamstring tendinopathy: Goom T et al. JOSPT 2016 — avoid compressive stretches early (deep hip flexion stretches), isometrics → progressive loading; cycling saddle pressure.
 - Groin pain: Weir A et al. Doha agreement BJSM 2015 (adductor-, iliopsoas-, inguinal-, pubic-related); Harøy J 2019 Copenhagen adduction programme.
 - ITB syndrome: friction theory is outdated — compression of a richly innervated fat/connective layer at the lateral femoral epicondyle (Fairclough 2006). ITB itself **cannot be meaningfully stretched or lengthened by foam rolling**; say so honestly. Hip abductor strengthening, load/downhill management, cadence.
@@ -41,7 +41,7 @@ label format: `著者 et al. タイトル要約. 雑誌 年`):
 - Exercise-associated muscle cramps: altered neuromuscular control from fatigue is the leading theory; dehydration/electrolyte theory has weak evidence (Schwellnus 2008/2011). Stretching relieves an acute cramp. Recommend pacing, conditioning, and seeing a doctor for frequent cramps without exertion.
 - Shoulder (swimmers): subacromial pain is multifactorial (rotator cuff tendinopathy ± bursa); **"impingement" as a purely mechanical cause is outdated** — explain overload + reduced tolerance; scapular control & cuff strength; stroke technique (crossover entry, thumb-first entry, dropped elbow, unilateral breathing, sudden paddle use); Kibler scapular dyskinesis consensus (BJSM 2013, 2015); Lewis J 2016.
 - Ankle sprain: Vuurberg G et al. BJSM 2018 guideline — functional rehab, balance training, early weight bearing; Ottawa ankle rules (can't bear weight 4 steps / bony tenderness → X-ray).
-- Acute soft-tissue injury: PEACE & LOVE (Dubois & Burgess BJSM 2019) — avoid anti-inflammatories / icing as default early on; relative rest, not total rest.
+- Acute soft-tissue injury: PEACE & LOVE (Dubois B & Esculier JF, BJSM 2020) — avoid anti-inflammatories / icing as default early on; relative rest, not total rest.
 - Low back pain: non-specific LBP — stay active, reassurance, exercise; red flags (cauda equina: saddle numbness, bladder/bowel; fever; trauma; unexplained weight loss; night pain). Cyclist: saddle height/reach, core endurance, hip flexor/hamstring mobility.
 - Neck (cyclist): aero position → prolonged cervical extension; deep neck flexor endurance, thoracic extension mobility, bike fit (stack/reach, helmet).
 

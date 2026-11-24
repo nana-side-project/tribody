@@ -142,7 +142,7 @@ export type StructureId = (typeof STRUCTURES)[number]['id'];
 export const CONDITIONS = [
   // A
   { id: 'swimmers-shoulder', ja: '水泳肩（肩峰下の痛み・腱板腱障害）', region: 'shoulder', owner: 'A' },
-  { id: 'biceps-tendinopathy', ja: '上腕二頭筋長頭腱炎', region: 'shoulder', owner: 'A' },
+  { id: 'biceps-tendinopathy', ja: '上腕二頭筋長頭腱障害', region: 'shoulder', owner: 'A' },
   { id: 'scapular-dyskinesis', ja: '肩甲骨ジスキネジア（肩甲骨の動きの乱れ）', region: 'shoulder', owner: 'A' },
   { id: 'cyclist-neck-pain', ja: '首・肩上部の痛み（バイク姿勢）', region: 'neck', owner: 'A' },
   // B
@@ -152,14 +152,14 @@ export const CONDITIONS = [
   { id: 'proximal-hamstring-tendinopathy', ja: '近位ハムストリング腱障害', region: 'hip', owner: 'B' },
   { id: 'adductor-groin-pain', ja: '内転筋関連の鼠径部痛', region: 'hip', owner: 'B' },
   // C
-  { id: 'patellofemoral-pain', ja: '膝蓋大腿疼痛症候群（ランナー膝）', region: 'knee', owner: 'C' },
-  { id: 'itb-syndrome', ja: '腸脛靱帯炎（ITBS）', region: 'knee', owner: 'C' },
+  { id: 'patellofemoral-pain', ja: '膝蓋大腿疼痛症候群', region: 'knee', owner: 'C' },
+  { id: 'itb-syndrome', ja: '腸脛靱帯症候群（ITBS）', region: 'knee', owner: 'C' },
   { id: 'patellar-tendinopathy', ja: '膝蓋腱障害（ジャンパー膝）', region: 'knee', owner: 'C' },
   { id: 'pes-anserine-pain', ja: '鵞足炎（鵞足部の痛み）', region: 'knee', owner: 'C' },
   { id: 'calf-strain', ja: 'ふくらはぎの肉離れ（腓腹筋・ヒラメ筋）', region: 'calf', owner: 'C' },
   { id: 'mtss', ja: 'シンスプリント（内側脛骨ストレス症候群）', region: 'calf', owner: 'C' },
   { id: 'tibial-stress-fracture', ja: '脛骨疲労骨折', region: 'calf', owner: 'C' },
-  { id: 'muscle-cramps', ja: '運動中の足のつり（ふくらはぎ）', region: 'calf', owner: 'C' },
+  { id: 'muscle-cramps', ja: '運動中の足のつり（運動関連性筋けいれん）', region: 'calf', owner: 'C' },
   // D
   { id: 'achilles-midportion', ja: 'アキレス腱障害（腱の中央部）', region: 'ankle', owner: 'D' },
   { id: 'achilles-insertional', ja: 'アキレス腱付着部症（かかとの後ろ）', region: 'ankle', owner: 'D' },
