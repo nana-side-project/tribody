@@ -19,17 +19,17 @@ const SIDE_LUNGE: Pose = {
     ankle_L: { dorsi: 26.6 },
   },
 };
-// The same side lunge with the trunk leaning 20° forward (hips flexed): adds hip flexion, which lengthens the
-// hamstring part of the adductor magnus as well.
+// A side lunge with the trunk leaning 30° forward (hips flexed, right leg 30° out): adds hip flexion, which
+// lengthens the hamstring part of the adductor magnus as well. Both soles flat (right ankle inversion 30°).
 const SIDE_LUNGE_LEAN: Pose = {
-  root: { rot: [20, 0, 0] },
+  root: { rot: [30, 0, 0] },
   joints: {
-    hip_R: { flex: 22.3, abd: 35, rot: 10 },
+    hip_R: { flex: 25.9, abd: 30, rot: 10 },
     knee_R: { flex: 0 },
-    ankle_R: { dorsi: -13, inv: 34.1 },
-    hip_L: { flex: 56.2 },
-    knee_L: { flex: 69.7 },
-    ankle_L: { dorsi: 31.1 },
+    ankle_R: { dorsi: -4, inv: 30.4 },
+    hip_L: { flex: 55 },
+    knee_L: { flex: 59.8 },
+    ankle_L: { dorsi: 32.4 },
   },
 };
 // Runner's lunge with the back (right) leg straight, on the ball of the foot: hip extended to the 35° limit with a

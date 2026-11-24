@@ -717,7 +717,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         path: [
           { ref: 'thorax:spinous_T8', off: [0.005, 0.0, -0.001] },
           { bone: 'thorax', rest: [0.05, 1.262, -0.119] },
-          { bone: 'scapula', rest: [0.09, 1.232, -0.112] },
+          { bone: 'thorax', rest: [0.09, 1.232, -0.112] },
           { bone: 'humerus', rest: [0.166, 1.33, -0.012] },
           { ref: 'humerus:crest_lesser_tubercle', off: [0.004, 0.0, 0.0] },
         ],

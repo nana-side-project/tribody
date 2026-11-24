@@ -262,15 +262,17 @@ const CP_TOP = {
   },
 };
 
-// ── K2b: 90/90 hip mobility. All keys solved with FK + grounding (lowest skin point = floor):
-// N_P (right leg in front): front hip flex 85° / abd 31° / ER 65°, knee 100° — the lateral knee & ankle rest on the
-// floor, the shin runs across the front of the body; back hip flex 23° / abd 39° / IR 36°, knee 93° — medial knee on
-// the floor, the shin points backward; the thighs are ~90° apart. Sitting on the front-leg buttock the pelvis tilts
-// 26° (back-leg hip higher, as in real 90/90 sitting) and the lumbar spine side-bends 20° so the trunk stays upright,
-// leaning back ~10° with a straight back; both palms rest on the floor ~21 cm behind the hips.
-// N_MID (switch): both knees up (hips 121°, knees 95°, soles flat, feet ~47 cm apart), hands stay behind.
-// N_LEAN: from N_P the pelvis tilts forward 35° with the spine kept straight (trunk ~25° forward over the front
-// shin); hips re-solved so the knees/feet stay within 2 cm; hands rest on the front shin.
+// ── K2b: 90/90 hip mobility (windshield-wiper switch with the hands planted behind). Solved with FK + grounding:
+// the ankles stay planted at (±0.42, 0.37) m and both palms at (±0.25, −0.20) m in EVERY key, so the knees swing
+// over from one side to the other while the feet and hands stay put (the mirrored position has the same contacts).
+// N_P (right leg in front): right hip flex 89° / abd 40° / ER 65°, knee 97° — lateral knee & ankle on the floor, the
+// shin runs in front of the body; left hip flex 41° / abd 28° / IR 47°, knee 108° — medial knee on the floor, to the
+// side; thighs ~90° apart. The pelvis turns 53° toward the front leg and tilts 24° (sitting on the front-leg
+// buttock); the lumbar spine side-bends 20° and the thorax counter-rotates 30° so the chest stays upright, leaning
+// back ~10° with a straight back.
+// N_MID: both knees up toward the ceiling (hips 135°, knees 107°, soles flat on the same spots).
+// N_LEAN: from N_P the pelvis tilts forward 35° with the spine straight, the chest turns to the front shin, the hips
+// are re-solved so the knees/feet stay within 2 cm; the hands rest on the front shin.
 type Joints = NonNullable<Pose['joints']>;
 function mirrorLR(p: { root?: Pose['root']; joints: Joints }): { root?: Pose['root']; joints: Joints } {
   const j: Record<string, Record<string, number>> = {};
@@ -287,69 +289,70 @@ function mirrorLR(p: { root?: Pose['root']; joints: Joints }): { root?: Pose['ro
   return { root: r ? { ...p.root, rot: [r[0], -r[1], -r[2]] } : p.root, joints: j as Joints };
 }
 const N_ROOT_POS: [number, number, number] = [0, 0.3, 0];
-const N_ARMS_BEHIND: Joints = {
-  shoulder_R: { flex: -18.8, abd: -16.1, rot: 57.3 },
-  elbow_R: { flex: 22.8 },
-  forearm_R: { sup: -78.3 },
-  wrist_R: { flex: -81.8 },
-  shoulder_L: { flex: -10, abd: -2.7, rot: 61.6 },
-  elbow_L: { flex: 0 },
-  forearm_L: { sup: -91.6 },
-  wrist_L: { flex: -72.5 },
-};
 const N_LEGS_P: Joints = {
-  lumbar: { flex: -7.71, lat: -20.32, rot: -7.89 },
+  lumbar: { flex: -7.91, lat: -19.54, rot: -10.35 },
+  thorax: { rot: -30 },
   neck: { flex: 12 },
-  hip_R: { flex: 84.88, abd: 31.2, rot: 64.85 },
-  hip_L: { flex: 22.81, abd: 38.58, rot: -35.72 },
-  knee_R: { flex: 100.45 },
-  knee_L: { flex: 92.65 },
+  hip_R: { flex: 89.17, abd: 40.06, rot: 65 },
+  hip_L: { flex: 40.51, abd: 27.5, rot: -47.16 },
+  knee_R: { flex: 96.9 },
+  knee_L: { flex: 108.12 },
   ankle: { dorsi: -10, inv: 0 },
 };
-const N_P = { root: { pos: N_ROOT_POS, rot: [-10.71, -1.86, 25.78] as [number, number, number] }, joints: { ...N_LEGS_P, ...N_ARMS_BEHIND } };
+const N_P = {
+  root: { pos: N_ROOT_POS, rot: [-10.69, -52.97, 24.42] as [number, number, number] },
+  joints: {
+    ...N_LEGS_P,
+    shoulder_R: { flex: -2.7, abd: 3.1, rot: 105 },
+    elbow_R: { flex: 0.1 },
+    forearm_R: { sup: -155.5 },
+    wrist_R: { flex: -67.6 },
+    shoulder_L: { flex: -17.3, abd: -14.7, rot: 72 },
+    elbow_L: { flex: 19.5 },
+    forearm_L: { sup: -76.3 },
+    wrist_L: { flex: -78.5 },
+  } as Joints,
+};
 const N_P_MIRROR = mirrorLR(N_P);
 const N_MID = {
-  root: { pos: N_ROOT_POS, rot: [-12, 0, 0] as [number, number, number] },
+  root: { pos: N_ROOT_POS, rot: [-10.7, 0, 0] as [number, number, number] },
   joints: {
-    lumbar: { flex: -6, lat: 0, rot: 0 },
+    lumbar: { flex: -7.9, lat: 0, rot: 0 },
+    thorax: { rot: 0 },
     neck: { flex: 12 },
-    hip: { flex: 121.39, abd: 15.16, rot: -7.26 },
-    knee: { flex: 95 },
-    ankle: { dorsi: -36.66, inv: -4.82 },
-    shoulder: { flex: -7.7, abd: -12.5, rot: 105 },
-    elbow: { flex: 25.3 },
-    forearm: { sup: -131.9 },
-    wrist: { flex: -68.2 },
+    hip: { flex: 135, abd: 28.07, rot: -32.56 },
+    knee: { flex: 106.66 },
+    ankle: { dorsi: -29.94, inv: -1.35 },
+    shoulder: { flex: -6.2, abd: -11, rot: 105 },
+    elbow: { flex: 25.5 },
+    forearm: { sup: -135.1 },
+    wrist: { flex: -68.3 },
   } as Joints,
 };
 // hands off the floor (beside the hips) between "hands behind" and "hands on the shin"
 const N_HANDS_UP = {
   root: N_P.root,
-  joints: {
-    ...N_LEGS_P,
-    shoulder: { flex: 12, abd: 14, rot: 0 },
-    elbow: { flex: 80 },
-    forearm: { sup: -110 },
-    wrist: { flex: 0 },
-  } as Joints,
+  joints: { ...N_LEGS_P, shoulder: { flex: 12, abd: 14, rot: 0 }, elbow: { flex: 80 }, forearm: { sup: -110 }, wrist: { flex: 0 } } as Joints,
 };
 const N_LEAN = {
-  root: { pos: N_ROOT_POS, rot: [24.29, -1.86, 25.78] as [number, number, number] },
+  root: { pos: N_ROOT_POS, rot: [24.31, -52.97, 24.42] as [number, number, number] },
   joints: {
     ...N_LEGS_P,
+    lumbar: { flex: -7.91, lat: -19.54, rot: 0 },
+    thorax: { rot: -10 },
     neck: { flex: -5 },
-    hip_R: { flex: 118.81, abd: 13.64, rot: 65 },
-    hip_L: { flex: 39.88, abd: 50.36, rot: -15.6 },
-    knee_R: { flex: 97.13 },
-    knee_L: { flex: 91.57 },
-    shoulder_R: { flex: 17.1, abd: 11.4, rot: -31 },
-    elbow_R: { flex: 79.6 },
-    forearm_R: { sup: -174.3 },
-    wrist_R: { flex: -14.4 },
-    shoulder_L: { flex: 31.2, abd: -12.8, rot: -18.3 },
-    elbow_L: { flex: 51.4 },
-    forearm_L: { sup: -174.2 },
-    wrist_L: { flex: -25.4 },
+    hip_R: { flex: 122.9, abd: 22.92, rot: 65 },
+    hip_L: { flex: 67.1, abd: 43.12, rot: -37.05 },
+    knee_R: { flex: 93.57 },
+    knee_L: { flex: 108.18 },
+    shoulder_R: { flex: 8.2, abd: 10.5, rot: -11.1 },
+    elbow_R: { flex: 85.4 },
+    forearm_R: { sup: -174.4 },
+    wrist_R: { flex: -14.7 },
+    shoulder_L: { flex: 44.9, abd: -17.3, rot: -48.7 },
+    elbow_L: { flex: 31.2 },
+    forearm_L: { sup: -156.3 },
+    wrist_L: { flex: -32 },
   } as Joints,
 };
 
@@ -831,7 +834,7 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     ],
     loop: 'loop',
     ground: true,
-    props: [{ kind: 'mat', size: [1.5, 1.3], at: [0.12, 0, 0.1] }],
+    props: [{ kind: 'mat', size: [1.5, 1.3], at: [0, 0, 0.12] }],
     camera: { dir: [-0.35, 0.85, 1] },
     frame: ['head:vertex', 'tibia:plateau', 'tibia_L:plateau', 'foot:talus', 'foot_L:talus', 'hand:palm', 'hand_L:palm'],
     sides: 'R',
