@@ -366,17 +366,18 @@ export type LandmarkRef = `${string}:${string}`;
  *   and when a muscle is mirrored the explicit sides swap too, so "_L" in a right muscle means "contralateral").
  * - `{ ref, off }` landmark + offset [lat, y, z] in the bone's frame (lateral-positive, metres).
  * - `{ bone, rest }` any point rigidly on a bone, given in rest coordinates [lat, y, z].
- * - `{ mix: [a, b], t }` world-space interpolation between two attachments (may be on different bones).
+ * - `{ mix: [a, b], t, off? }` world-space interpolation between two attachments (may be on different bones), plus an
+ *   optional offset [lat, y, z] in the frame of the FIRST attachment's bone (lateral-positive, like `{ ref, off }`).
  */
 export type AttachRef =
   | LandmarkRef
   | { ref: LandmarkRef; off: Vec3 }
   | { bone: BoneName | `${BoneName}_${Side}`; rest: Vec3 }
-  | { mix: [AttachRef, AttachRef]; t: number };
+  | { mix: [AttachRef, AttachRef]; t: number; off?: Vec3 };
 
 export type CompiledPoint =
   | { k: 0; seg: number; local: Vector3 }
-  | { k: 1; a: CompiledPoint; b: CompiledPoint; t: number };
+  | { k: 1; a: CompiledPoint; b: CompiledPoint; t: number; off: Vector3 | null };
 
 const byKey = new Map<string, LandmarkDef>();
 for (const l of L) byKey.set(`${l.bone}:${l.name}`, l);
@@ -401,7 +402,11 @@ function suggest(bone: string, name: string): string {
 /** Compile a ref for a side ('R' for right-side muscles; 'L' when mirrored). */
 export function compileRef(ref: AttachRef, side: Side): CompiledPoint {
   if (typeof ref === 'string') return compileLandmark(ref, side, null);
-  if ('mix' in ref) return { k: 1, a: compileRef(ref.mix[0], side), b: compileRef(ref.mix[1], side), t: ref.t };
+  if ('mix' in ref) {
+    // `off` is a direction in the first leaf's bone frame: lateral-positive → x = −lat on the right side
+    const off = ref.off ? new Vector3(side === 'R' ? -ref.off[0] : ref.off[0], ref.off[1], ref.off[2]) : null;
+    return { k: 1, a: compileRef(ref.mix[0], side), b: compileRef(ref.mix[1], side), t: ref.t, off };
+  }
   if ('ref' in ref) return compileLandmark(ref.ref, side, ref.off);
   // { bone, rest }
   const m = /^([a-z]+)(?:_(R|L))?$/.exec(ref.bone);
@@ -455,8 +460,10 @@ export function evalPoint(cp: CompiledPoint, state: RigState, out: Vector3): Vec
     az = out.z;
   evalPoint(cp.b, state, out);
   out.set(ax + (out.x - ax) * cp.t, ay + (out.y - ay) * cp.t, az + (out.z - az) * cp.t);
+  if (cp.off) out.add(_off.copy(cp.off).applyQuaternion(state.quat[pointSeg(cp.a)]));
   return out;
 }
+const _off = new Vector3();
 
 /** The segment a compiled point is rigid on (first leaf for mixes). */
 export function pointSeg(cp: CompiledPoint): number {
