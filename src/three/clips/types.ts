@@ -8,9 +8,9 @@ import type { Anchor, BasePoseName, CameraPresetName, Pose, Vec3 } from '../rig'
 export type PropPoint = Vec3 | AttachRef | { at: AttachRef; off: Vec3 };
 
 /**
- * Props. Furniture-like props (step, box, wall, mat, roller, slant, chair, bench, doorframe, bike) are
- * placed ONCE from the clip's first key (after grounding / anchoring); band, ball and dumbbell follow
- * the body every frame. Colours are neutral by default.
+ * Props. Furniture-like props (step, box, wall, mat, roller, pillow, slant, chair, bench, doorframe, bike) are
+ * placed ONCE from the clip's first key (after grounding / anchoring); band, ball, dumbbell and a towel on a body
+ * point follow the body every frame. Colours are neutral by default.
  */
 export type Prop =
   /** Elastic band between two points; thins & deepens in colour as it stretches. */
@@ -22,9 +22,17 @@ export type Prop =
   /** Exercise mat lying on the floor. `at` = centre on the floor; `rotY` in degrees. */
   | { kind: 'mat'; at?: PropPoint; size?: [number, number]; rotY?: number; color?: string }
   /** Foam roller. `at` = centre of the roller; `axis` = direction of the roller's long axis. */
-  | { kind: 'roller'; at: PropPoint; axis?: 'x' | 'z'; length?: number; radius?: number }
+  | { kind: 'roller'; at: PropPoint; axis?: 'x' | 'z'; length?: number; radius?: number; color?: string }
   /** Small soft ball (follows `at` every frame, e.g. between the knees). */
   | { kind: 'ball'; at: PropPoint; radius?: number; color?: string }
+  /**
+   * Rolled towel (soft cream roll with a spiral on its ends). On a body point it follows that bone every frame
+   * (position AND orientation, `axis` in the bone's rest frame, e.g. between the elbow and the waist); on a world
+   * point it lies still (`axis` in world, e.g. 'x' across the toes). `length` / `radius` in m.
+   */
+  | { kind: 'towel'; at: PropPoint; axis?: 'x' | 'y' | 'z' | Vec3; length?: number; radius?: number; color?: string }
+  /** Pillow / cushion: soft rounded box placed once. `at` = centre of the TOP face; size = [x, height, z]; rotY (deg). */
+  | { kind: 'pillow'; at: PropPoint; size?: Vec3; rotY?: number; color?: string }
   /** Dumbbell held in a hand. */
   | { kind: 'dumbbell'; hand?: 'R' | 'L'; size?: number }
   /** Slant board: `at` = centre of the board's bottom on the floor; `angle` deg (rises toward +z unless rotY). */

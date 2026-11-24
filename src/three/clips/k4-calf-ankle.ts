@@ -8,8 +8,8 @@ import type { Clip, ClipKey, Prop } from './types';
 /**
  * Hands on a wall in front (palms toward the wall, fingers up). Arm + wrist angles were solved per key so the
  * fingers lie flat on the wall (finger capsule touching along its length), the palm skin is 3–7 mm off it, the
- * forearm stays ≥ 1.2 cm in front of it and the wrist stays within −82.5° (no clamping). The rig's thumb sits
- * ~2 cm palmar of the palm plane, so with a flat hand its tip always dips ~2 cm into the (translucent) wall.
+ * forearm stays ≥ 1.2 cm in front of it and the wrist stays within −82.5° (no clamping). The thumb lies in the palm
+ * plane (eng-motion), so a flat hand no longer pushes the thumb tip into the wall.
  */
 const HANDS_ON_WALL = (flex: number, abd: number, elbow: number, wrist: number) => ({
   shoulder: { flex, abd },
@@ -59,6 +59,11 @@ const WALL_LEAN = (lean: number, front: [number, number, number], arm: [number, 
 // (arms of START / HOLD solved together so the hands stay on the wall along the whole eased lean, ≤ 6 mm in)
 const GASTROC_START = WALL_LEAN(16, [36.6, 9.8, -10.9], [78.1, -7.8, 45.3, -63.9]);
 const GASTROC_HOLD = WALL_LEAN(22, [51.7, 39.2, 9.5], [71.9, -13, 87.6, -43.9]);
+// pass keys at 25 / 50 / 75 % of the lean (eng-motion): lean as the blend, front leg and arms re-solved so both feet
+// stay flat on their spots and the palms on the wall (the plain blend lifted the back heel ~7 mm mid-lean)
+const GASTROC_25 = WALL_LEAN(17.5, [42.33, 21.1, -3.82], [75, -8.88, 58.33, -57.83]);
+const GASTROC_50 = WALL_LEAN(19, [46.06, 28.36, 1.2], [73.08, -10.07, 69.26, -52.77]);
+const GASTROC_75 = WALL_LEAN(20.5, [49.08, 34.19, 5.51], [72.07, -11.43, 78.88, -48.22]);
 // soleus: shorter stance (0.30 m heel to heel), trunk ~upright. Knees straight → both knees bent (back knee 18°,
 // back ankle 20°) → back knee pushed forward over the toes, hips lower (back knee 36°, back ankle 31°, front knee 40°)
 const SOLEUS_START = WALL_LEAN(10, [21.8, 2.5, -9.3], [58, -6.8, 52.7, -73.5]);
@@ -151,7 +156,7 @@ const POGO_CLIP = pogoKeys();
  * buttock). UP / OVER = the left foot lifted straight up off the step / hovering above its landing spot, so it never
  * scrapes the step edge (A_OVER already bends the right knee for the B rep, B_OVER already straightens it).
  * `arms` = [shoulder flex, shoulder abd, elbow, wrist] per side (R, L), solved for every key so both palms stay on the
- * same spot of the wall (they come off it by ≤ 1 cm mid-movement).
+ * same spot of the wall; `pass` keys (A_RISE, A_DOWN*, B_RISE, B_DOWN*) keep them there mid-movement (≤ 2.5 mm).
  */
 interface HeelDropKey {
   rot: number;
@@ -175,6 +180,16 @@ const HD: Record<string, HeelDropKey> = {
   B_TOP1: { rot: 5, R: [17, 25, -17, 30], shift: 6, L: [15, 105, -15, 0], arms: [[23.1, -33.6, 95.8, -64.3], [22, 11.6, 91, -63.5]] },
   B_BOT1: { rot: 7, R: [19, 25, 30, -17], shift: 6, L: [15, 105, -15, 0], arms: [[42.1, -30.1, 95.3, -52.1], [40.8, 8, 92.9, -44.8]] },
   B_OVER: { rot: 4, R: [4, 4, 24, -20], shift: 4, L: [5.7, 7.3, 33, 0], arms: [[37.6, -23.4, 95.2, -50.7], [36.8, 1.7, 93.5, -46.2]] },
+  // `pass` keys (eng-motion): body and legs as the straight blend of their neighbours, arms re-solved so both palms
+  // stay exactly on their spot of the wall (the plain blend let them come ~1 cm off it mid-rise / mid-lowering)
+  A_RISE: { rot: 3, R: [3, 3, -3.5, 6.5], arms: [[28.9, -9.8, 90.2, -58], [28.9, -9.8, 90.2, -58]] },
+  A_DOWN25: { rot: 2.5, R: [2.5, 2.5, -17.25, 19.75], shift: 6, L: [0, 100, -15, 0], arms: [[24.6, -29.2, 88.6, -67.2], [24.1, 10.1, 84.3, -65.6]] },
+  A_DOWN50: { rot: 3, R: [3, 3, -3.5, 6.5], shift: 6, L: [0, 100, -15, 0], arms: [[29.3, -28.5, 88.8, -63.7], [28.8, 9.2, 85.2, -60.3]] },
+  A_DOWN75: { rot: 3.5, R: [3.5, 3.5, 10.25, -6.75], shift: 6, L: [0, 100, -15, 0], arms: [[33.6, -28.5, 90.7, -59.2], [32.9, 8.4, 87.6, -54.3]] },
+  B_RISE: { rot: 6, R: [18, 25, 6.5, 6.5], arms: [[32.8, -10.7, 94.5, -53.3], [32.8, -10.7, 94.5, -53.3]] },
+  B_DOWN25: { rot: 5.5, R: [17.5, 25, -5.25, 18.25], shift: 6, L: [15, 105, -15, 0], arms: [[28.2, -31.8, 93.9, -62.5], [27.4, 10.5, 89.8, -59.7]] },
+  B_DOWN50: { rot: 6, R: [18, 25, 6.5, 6.5], shift: 6, L: [15, 105, -15, 0], arms: [[33.1, -30.6, 93.2, -59.8], [32.2, 9.5, 89.7, -55.4]] },
+  B_DOWN75: { rot: 6.5, R: [18.5, 25, 18.25, -5.25], shift: 6, L: [15, 105, -15, 0], arms: [[37.7, -30.1, 93.7, -56.3], [36.7, 8.7, 90.8, -50.4]] },
 };
 function heelDrop(k: keyof typeof HD): Pose {
   const d = HD[k];
@@ -389,7 +404,7 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
   },
   // Gastrocnemius wall stretch: both hands on the wall, right leg back with the knee straight, toes forward.
   // The front knee bends and the body moves forward in one line; the back heel stays on the floor.
-  // Back heel pinned (xz) + grounded; mid-transition the back heel stays within ~7 mm of the floor.
+  // Back heel pinned (xz) + grounded; `pass` keys keep both feet flat and the palms on the wall during the lean.
   'ex-gastroc-stretch': {
     id: 'ex-gastroc-stretch',
     duration: 9,
@@ -397,8 +412,14 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     keys: [
       { t: 0, pose: GASTROC_START, label: '後ろの膝を伸ばし、かかとを床につける' },
       { t: 0.06, pose: GASTROC_START, label: '前の膝を曲げ、体重をゆっくり前へ' },
+      { t: 0.115, pose: GASTROC_25, pass: true },
+      { t: 0.17, pose: GASTROC_50, pass: true },
+      { t: 0.225, pose: GASTROC_75, pass: true },
       { t: 0.28, pose: GASTROC_HOLD, label: 'ふくらはぎの上が伸びたら30秒キープ' },
       { t: 0.78, pose: GASTROC_HOLD, label: 'ゆっくり戻す' },
+      { t: 0.825, pose: GASTROC_75, pass: true },
+      { t: 0.87, pose: GASTROC_50, pass: true },
+      { t: 0.915, pose: GASTROC_25, pass: true },
       { t: 0.96, pose: GASTROC_START },
     ],
     loop: 'loop',
@@ -492,15 +513,23 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     base: 'STAND_STEP',
     keys: [
       { t: 0, pose: heelDrop('A_LOW'), label: '膝を伸ばし、両脚でつま先立ち' },
+      { t: 0.05, pose: heelDrop('A_RISE'), pass: true },
       { t: 0.1, pose: heelDrop('A_TOP'), label: '痛む側の片脚に乗る' },
-      { t: 0.1167, pose: heelDrop('A_UP') },
+      { t: 0.1167, pose: heelDrop('A_UP'), pass: true },
       { t: 0.1444, pose: heelDrop('A_TOP1'), label: '3秒かけて段差より下まで下ろす' },
+      { t: 0.2222, pose: heelDrop('A_DOWN25'), pass: true },
+      { t: 0.3, pose: heelDrop('A_DOWN50'), pass: true },
+      { t: 0.3778, pose: heelDrop('A_DOWN75'), pass: true },
       { t: 0.4556, pose: heelDrop('A_BOT1'), label: '反対の足を下ろす' },
       { t: 0.4833, pose: heelDrop('A_OVER') },
       { t: 0.5, pose: heelDrop('B_LOW'), label: '膝を軽く曲げ、両脚でつま先立ち' },
+      { t: 0.55, pose: heelDrop('B_RISE'), pass: true },
       { t: 0.6, pose: heelDrop('B_TOP'), label: '片脚に乗る' },
-      { t: 0.6167, pose: heelDrop('B_UP') },
+      { t: 0.6167, pose: heelDrop('B_UP'), pass: true },
       { t: 0.6444, pose: heelDrop('B_TOP1'), label: '膝を曲げたまま3秒かけて下ろす' },
+      { t: 0.7222, pose: heelDrop('B_DOWN25'), pass: true },
+      { t: 0.8, pose: heelDrop('B_DOWN50'), pass: true },
+      { t: 0.8778, pose: heelDrop('B_DOWN75'), pass: true },
       { t: 0.9556, pose: heelDrop('B_BOT1'), label: '反対の足を下ろし、膝を伸ばす' },
       { t: 0.9833, pose: heelDrop('B_OVER') },
     ],

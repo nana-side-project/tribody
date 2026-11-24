@@ -292,6 +292,21 @@ const CP_TOP = {
     forearm_L: { sup: -175 },
   },
 };
+// Pass keys at 25 / 50 / 75 % of the lift (eng-motion): trunk roll, lumbar side-bend and both hips re-solved so the
+// top knee and shin stay on their spot of the bench (≤ 3 mm; the plain blend slid them ~4 cm along the bench and
+// pushed the thigh 5 mm into it). Arms as the blend of the two solved arms.
+const CP_UP_25 = {
+  root: { rot: [0, 0, -70.83] as [number, number, number] },
+  joints: { lumbar: { lat: 8.87 }, shoulder_R: { flex: -40.77, abd: 37.25, rot: -56.65 }, elbow_R: { flex: 123.35 }, forearm_R: { sup: -149.03 }, hip_R: { flex: -0.66, abd: 25.05, rot: -2.31 }, shoulder_L: { flex: -2.25, abd: 52.85, rot: -8.5 }, forearm_L: { sup: -170.5 }, hip_L: { flex: 0, abd: -19.5 } },
+};
+const CP_UP_50 = {
+  root: { rot: [0, 0, -73.29] as [number, number, number] },
+  joints: { lumbar: { lat: 4.66 }, shoulder_R: { flex: -35.45, abd: 40.6, rot: -62 }, elbow_R: { flex: 119.8 }, forearm_R: { sup: -150.95 }, hip_R: { flex: -0.57, abd: 15.25, rot: -2.38 }, shoulder_L: { flex: -3.1, abd: 59.8, rot: -7.8 }, forearm_L: { sup: -172 }, hip_L: { flex: 0, abd: -14 } },
+};
+const CP_UP_75 = {
+  root: { rot: [0, 0, -75.69] as [number, number, number] },
+  joints: { lumbar: { lat: 1.98 }, shoulder_R: { flex: -30.12, abd: 43.95, rot: -67.35 }, elbow_R: { flex: 116.25 }, forearm_R: { sup: -152.87 }, hip_R: { flex: -0.35, abd: 7.13, rot: -2.5 }, shoulder_L: { flex: -3.95, abd: 66.75, rot: -7.1 }, forearm_L: { sup: -173.5 }, hip_L: { flex: 0, abd: -8.5 } },
+};
 
 // ── K2b: 90/90 hip mobility (windshield-wiper switch with the hands planted behind). Solved with FK + grounding:
 // the ankles stay planted at (±0.42, 0.37) m and both palms at (±0.25, −0.20) m in EVERY key, so the knees swing
@@ -860,8 +875,9 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     loop: 'loop',
     anchor: { point: 'foot_L:calcaneus_plantar', axes: 'xz' },
     ground: true,
-    // the wall surface touches the left palm (palm skin ~7 mm beyond the palm landmark)
-    props: [{ kind: 'wall', at: { at: 'hand_L:palm', off: [0.007, 0, 0] }, normal: [-1, 0, 0], width: 0.9, height: 1.9 }, ...feetLoop()],
+    // the wall surface touches the left hand: the fingers (their skin is ~14 mm beyond the palm landmark; at 7 mm they
+    // sank into the wall), the palm skin ~7 mm off it
+    props: [{ kind: 'wall', at: { at: 'hand_L:palm', off: [0.014, 0, 0] }, normal: [-1, 0, 0], width: 0.9, height: 1.9 }, ...feetLoop()],
     camera: { dir: [-1, 0.14, 0.32] },
     frame: ['head:vertex', 'toes:toe_tips', 'foot_L:calcaneus_post', 'hand_L:palm'],
     sides: 'R',
@@ -911,8 +927,14 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     pose: { ...CP_BOTTOM, joints: { ...CP_COMMON, ...CP_BOTTOM.joints } },
     keys: [
       { t: 0, label: '上の脚でベンチを押し、腰を持ち上げる（3秒）' },
+      { t: 0.0925, pose: CP_UP_25, pass: true },
+      { t: 0.185, pose: CP_UP_50, pass: true },
+      { t: 0.2775, pose: CP_UP_75, pass: true },
       { t: 0.37, pose: CP_TOP, hold: 1, label: '頭から膝まで一直線、下の脚も引き上げる' },
       { t: 0.5, pose: CP_TOP, label: '3秒かけて下ろす' },
+      { t: 0.5925, pose: CP_UP_75, pass: true },
+      { t: 0.685, pose: CP_UP_50, pass: true },
+      { t: 0.7775, pose: CP_UP_25, pass: true },
       { t: 0.87, label: '腰が床に軽く触れたら繰り返す' },
     ],
     loop: 'loop',

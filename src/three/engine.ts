@@ -146,7 +146,6 @@ const STRUCTURE_REGION = new Map<string, RegionId>(STRUCTURES.map((x) => [x.id, 
 const _right = new Vector3();
 const _up = new Vector3();
 const _back = new Vector3();
-const _proj = new Vector3();
 
 function blobTexture(inner: number, outer: number) {
   const c = document.createElement('canvas');
@@ -501,6 +500,147 @@ export class Engine {
     return role === 'injured' ? P.injured : role === 'involved' ? P.involved : role === 'secondary' ? P.muscleLight : P.muscle;
   }
 
+  /** Label dot colour: role colour, except non-injured structures keep their own colour (nerve yellow, bursa blue…). */
+  private swatch(id: PartId, role: Highlight3DRole) {
+    if (role === 'injured' || role === 'involved' || isMuscleId(id)) return this.roleSwatch(role);
+    const P = this.pal;
+    const type = STRUCTURE_RIGS[id as StructureId]?.parts?.[0]?.type;
+    if (type === 'nerve') return P.nerve;
+    if (type === 'bursa') return P.bursa;
+    if (type === 'tendon' || type === 'ligament' || type === 'fascia') return P.tendon;
+    return this.roleSwatch(role);
+  }
+
+  /** Label items (one per part, on the highlighted side nearest the home camera) + the overlap mask's cords. */
+  private setupLabels(scope: Partial<Record<PartId, Highlight3DRole>>, sides: Side[], st0: RigState) {
+    const sideOf = new Map<string, Side>();
+    if (sides.length > 1) {
+      this.anatomy.update(st0, 0, false);
+      const dist = new Map<string, number>();
+      const cam = this.camera.position;
+      this.anatomy.labelAnchors(st0, (key, id, _role, p) => {
+        const d = p.distanceTo(cam);
+        if (!(d >= (dist.get(id) ?? Infinity))) {
+          dist.set(id, d);
+          sideOf.set(id, key.slice(key.lastIndexOf(':') + 1) as Side);
+        }
+      });
+      this.needsPose = true;
+    }
+    const items: (LabelSpec & { order: number })[] = [];
+    for (const [id, role] of Object.entries(scope) as [PartId, Highlight3DRole][]) {
+      if (!role) continue;
+      items.push({
+        key: `${id}:${sideOf.get(id) ?? sides[0]}`,
+        text: labelName(id),
+        color: this.swatch(id, role),
+        tier: MINOR_ROLES.has(role) ? 1 : 0,
+        order: ROLE_ORDER.indexOf(role),
+      });
+    }
+    items.sort((a, b) => a.order - b.order);
+    this.labels.setItems(items.slice(0, MAX_LABELS).map(({ order: _o, ...it }) => it));
+    // highlighted anatomy, so labels avoid covering it
+    const cords: MaskCord[] = [];
+    for (const [id, role] of Object.entries(scope) as [PartId, Highlight3DRole][]) {
+      if (!role) continue;
+      for (const side of sides) {
+        if (isMuscleId(id)) {
+          for (const st of MUSCLE_RIGS[id]?.strands ?? []) {
+            const cps = st.path.map((r) => quietCompile(r, side));
+            if (cps.every(Boolean)) cords.push({ cps: cps as CompiledPoint[], r: st.radius * 1.15 + (st.flat ? st.flat.width * 0.4 : 0) });
+          }
+        } else {
+          for (const part of STRUCTURE_RIGS[id as StructureId]?.parts ?? []) {
+            if ('path' in part) {
+              const cps = part.path.map((r) => quietCompile(r, side));
+              if (cps.every(Boolean)) cords.push({ cps: cps as CompiledPoint[], r: part.radius + (part.flat ? part.flat.width * 0.4 : 0) });
+            } else if ('at' in part) {
+              const cp = quietCompile(part.at, side);
+              const r = part.type === 'spot' ? part.radius : Math.max(...part.radii);
+              if (cp) cords.push({ cps: [cp], r });
+            }
+          }
+        }
+      }
+    }
+    this.labels.setCords(cords);
+  }
+
+  /** Pre-pass over the clip with the home camera: decides which minor labels collapse into 「+N」. */
+  private planLabels() {
+    const cc = this.clip;
+    if (!cc || !this.spec.labels) return;
+    const all = framingTimes(cc);
+    const step = Math.max(1, Math.ceil(all.length / 18));
+    const ts = all.filter((_, i) => i % step === 0);
+    const longest = cc.labels.reduce((m, l) => Math.max(m, l.label.length), 0);
+    const zones = LabelLayer.guessZones(this.width, this.height, {
+      bar: this.uiControls && cc.animated,
+      float: this.uiControls && !cc.animated,
+      phaseW: this.uiControls && cc.animated && longest ? longest * 12 + 36 : 0,
+      legend: this.legend,
+    });
+    this.camera.updateMatrixWorld();
+    const st = new RigState();
+    const vec = newPoseVec();
+    this.labels.planBegin();
+    for (const t of ts) {
+      solveFK(evalClip(cc, t, vec), st);
+      placeState(cc, st);
+      this.anatomy.update(st, 0, false);
+      this.anatomy.labelAnchors(st, this.setLabelAnchor);
+      this.labels.planFrame(this.camera, this.width, this.height, zones, st);
+    }
+    this.labels.planEnd();
+    this.needsPose = true;
+  }
+
+  /** Nerves in scope get a see-through copy (drawn over bones / muscles, under the skin layer). */
+  private buildXray(scope: Partial<Record<PartId, Highlight3DRole>>, sides: Side[]) {
+    for (const x of this.xray) {
+      this.scene.remove(x.sm.mesh);
+      x.sm.dispose();
+    }
+    this.xray = [];
+    for (const [id, role] of Object.entries(scope) as [PartId, Highlight3DRole][]) {
+      if (!role || isMuscleId(id)) continue;
+      for (const part of STRUCTURE_RIGS[id as StructureId]?.parts ?? []) {
+        if (part.type !== 'nerve' || !('path' in part)) continue;
+        for (const side of sides) {
+          const cps = part.path.map((r) => quietCompile(r, side));
+          if (cps.length < 2 || !cps.every(Boolean)) continue;
+          const sm = new StrandMesh(cps as CompiledPoint[], { radius: part.radius, tendon: [0, 0], kind: 'cord' }, this.xrayMat, side);
+          sm.setRest(sm.measure(this.refState));
+          sm.mesh.renderOrder = 6;
+          this.scene.add(sm.mesh);
+          this.xray.push({ sm, role });
+        }
+      }
+    }
+  }
+
+  private updateXray() {
+    for (const x of this.xray) {
+      const c = colorOf(x.role === 'injured' ? this.pal.injured : x.role === 'involved' ? this.pal.involved : this.pal.nerve);
+      x.sm.update(this.state, c, c, x.role === 'primary' || x.role === 'selected' ? 1.12 : 1);
+    }
+  }
+
+  /** Muscle demo: insertion → distal-joint pairs (keeps the moving limb in the frame). */
+  private muscleContext(id: MuscleId, side: Side) {
+    const out: { ins: CompiledPoint; dist: CompiledPoint }[] = [];
+    for (const st of MUSCLE_RIGS[id]?.strands ?? []) {
+      const ins = quietCompile(st.path[st.path.length - 1], side);
+      if (!ins) continue;
+      const base = SEGMENTS[pointSeg(ins)].replace(/_[RL]$/, '');
+      const ref = DISTAL_REF[base];
+      const dist = ref ? quietCompile(ref as Parameters<typeof compileRef>[0], side) : null;
+      if (dist) out.push({ ins, dist });
+    }
+    return out;
+  }
+
   private computeFraming(cc: CompiledClip, extraCam: CameraSpec | undefined, focus: RegionId | undefined) {
     const spec = this.spec;
     const aspect = this.width / Math.max(1, this.height);
@@ -524,8 +664,10 @@ export class Engine {
     if (cc.mirror) dir.x = -dir.x;
     const pts: Vector3[] = [];
     const st = new RigState();
-    const ts = cc.animated ? [0, 0.2, 0.4, 0.6, 0.8] : [0];
+    const ts = framingTimes(cc);
     let minSize = 0;
+    const a = new Vector3();
+    const b = new Vector3();
     for (const t of ts) {
       solveFK(evalClip(cc, t, newPoseVec()), st);
       placeState(cc, st);
@@ -537,6 +679,7 @@ export class Engine {
       if (this.mode === 'muscle' && this.anatomy.hasVisuals) {
         this.anatomy.update(st, 0, false);
         this.anatomy.collectPoints(pts);
+        for (const c of this.ctxPts) pts.push(evalPoint(c.ins, st, a).clone().lerp(evalPoint(c.dist, st, b), DISTAL_FRACTION));
         minSize = focus ? regionMinSize(focus) * 0.85 : 0.42;
       } else if (focus) {
         regionPoints(focus, st, cc.side, pts);
@@ -613,8 +756,11 @@ export class Engine {
     if (!this.clip) return;
     this.playing = false;
     this.frozenT = null;
-    this.time = Math.min(1, Math.max(0, t)) * this.clip.duration * 0.99999;
+    // exact (a key time shows that key's label); only t = 1 stays just before the wrap to 0
+    const u = Math.min(1, Math.max(0, t));
+    this.time = (u >= 1 ? 1 - 1e-6 : u) * this.clip.duration;
     this.needsPose = true;
+    this.labels.snap();
     this.emitUi();
     this.kick();
   }
@@ -668,6 +814,7 @@ export class Engine {
     if (this.disposed || this.lost || !this.visible || this.docHidden) return;
     const dt = Math.min(0.05, Math.max(0, (now - this.last) / 1000));
     this.last = now;
+    this.frameDt = dt;
     let render = this.needsRender;
     if (this.playing && this.clip) {
       this.time += dt * this.speed;
@@ -714,6 +861,7 @@ export class Engine {
       }
     }
     this.anatomy.update(this.state, this.reducedMotion ? 0 : seconds, !this.reducedMotion);
+    if (this.xray.length) this.updateXray();
     this.needsPose = false;
   }
 
@@ -752,8 +900,8 @@ export class Engine {
     // labels
     if (this.labels.visible) {
       this.anatomy.labelAnchors(this.state, this.setLabelAnchor);
-      const c = _proj.copy(tgt).project(cam);
-      this.labels.layout(cam, this.width, this.height, ((c.x + 1) / 2) * this.width);
+      // keep rendering while labels glide to new positions
+      if (this.labels.layout(cam, this.width, this.height, this.frameDt, this.state)) this.needsRender = true;
     }
     if (this.spec.debug) this.renderDebug();
     if (!this.readyFired) {
@@ -891,6 +1039,10 @@ export class Engine {
     if (this.clip && !this.userMoved) {
       this.home = this.computeFraming(this.clip, this.lastCam, this.lastFocus);
       this.applyHome();
+      if (this.configured) {
+        this.camera.lookAt(this.home.target);
+        this.planLabels();
+      }
     }
     this.needsRender = true;
     this.kick();
@@ -946,6 +1098,9 @@ export class Engine {
     this.anatomy.dispose();
     this.props.dispose();
     this.labels.dispose();
+    for (const x of this.xray) x.sm.dispose();
+    this.xray = [];
+    this.xrayMat.dispose();
     this.figure.dispose();
     for (const m of [this.floor, this.shadow]) {
       m.geometry.dispose();

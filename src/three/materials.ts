@@ -263,6 +263,13 @@ export function haloMaterial(color: string): ShaderMaterial {
   });
 }
 
+// ── see-through copy of a thin deep structure (nerves): drawn after the opaque bones / muscles without depth
+// test, before the skin layer, so the cord stays visible where muscles or bones hide it (vertex colours)
+
+export function xrayMaterial(opacity = 0.5): MeshBasicMaterial {
+  return new MeshBasicMaterial({ vertexColors: true, transparent: true, opacity, depthTest: false, depthWrite: false });
+}
+
 export function solid(color: string, opts: { roughness?: number; emissive?: string; emissiveIntensity?: number; transparent?: boolean; opacity?: number; side?: typeof FrontSide | typeof DoubleSide } = {}) {
   return new MeshStandardMaterial({
     color,

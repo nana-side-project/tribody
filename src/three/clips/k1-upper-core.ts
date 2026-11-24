@@ -84,49 +84,61 @@ const OB_OPEN: Pose = {
   },
 };
 // quadruped (improved neutral): thighs vertical, hands under / just in front of the shoulders (shoulder width),
-// shins and the tops of the feet on the mat, flat back. Solved with FK + grounding.
+// shins and the tops of the feet on the mat, flat back. Solved with FK + grounding. (eng-motion: re-solved after the
+// thumb was moved into the palm plane — the hands had rested on the drooping thumb with the palms 2.2 cm up; trunk
+// pitch, hips and shoulders +3.4° bring the palms and fingers flat onto the mat.)
 const QUAD: Pose = {
-  root: { pos: [0, 0.49, 0], rot: [74.99, 0, 0] },
+  root: { pos: [0, 0.49, 0], rot: [78.42, 0, 0] },
   joints: {
-    hip: { flex: 75.55 },
+    hip: { flex: 78.98 },
     knee: { flex: 89.73 },
     ankle: { dorsi: -60 },
     toes: { ext: 0 },
-    shoulder: { flex: 77.19, abd: -11.92, rot: 15 },
+    shoulder: { flex: 80.72, abd: -11.92, rot: 15 },
     elbow: { flex: 3 },
     forearm: { sup: -150 },
-    wrist: { flex: -81.9 },
+    wrist: { flex: -85 },
     neck: { flex: -8 },
   },
 };
-// cat / cow with hands & knees pinned (solved; see the clip comment)
+// cat / cow with hands & knees pinned (solved; see the clip comment; re-solved with QUAD by eng-motion)
 const CAT: Pose = {
-  root: { pos: [0, 0.49, -0.02], rot: [45.7, 0, 0] },
+  root: { pos: [0, 0.49, -0.0232], rot: [48.77, 0, 0] },
   joints: {
-    hip: { flex: 49.35 },
+    hip: { flex: 52.41 },
     knee: { flex: 92.77 },
     lumbar: { flex: 20 },
     thorax: { flex: 6 },
     neck: { flex: 20 },
     head: { flex: 12 },
     scapula: { protr: 30 },
-    shoulder: { flex: 78.53, abd: -12.96, rot: 15 },
+    shoulder: { flex: 81.96, abd: -12.88, rot: 15 },
     wrist: { flex: -85 },
   },
 };
 const COW: Pose = {
-  root: { pos: [0, 0.49, 0.01], rot: [96.89, 0, 0] },
+  root: { pos: [0, 0.49, 0.0095], rot: [99.9, 0, 0] },
   joints: {
-    hip: { flex: 96.2 },
+    hip: { flex: 99.19 },
     knee: { flex: 88.75 },
     lumbar: { flex: -20 },
     thorax: { flex: -4 },
     neck: { flex: -15 },
     head: { flex: -6 },
     scapula: { protr: -12 },
-    shoulder: { flex: 73.34, abd: -10.31, rot: 15 },
+    shoulder: { flex: 76.75, abd: -10.27, rot: 15 },
     wrist: { flex: -85 },
   },
+};
+// `pass` keys halfway neutral → cat and cat → cow (eng-motion), pinned the same way (hands and knees stay on their
+// spots within 3 mm; the plain blend slid the palms 1.5 cm and lifted them 7 mm mid-way)
+const QUAD_CAT_MID: Pose = {
+  root: { pos: [0, 0.49, -0.01], rot: [63.55, 0, 0] },
+  joints: { lumbar: { flex: 10 }, thorax: { flex: 3 }, neck: { flex: 6 }, head: { flex: 6 }, scapula: { protr: 15 }, shoulder: { flex: 81.11, abd: -12.95, rot: 15 }, wrist: { flex: -85 }, hip: { flex: 65.4 }, knee: { flex: 91.25 } },
+};
+const CAT_COW_MID: Pose = {
+  root: { pos: [0, 0.49, -0.0058], rot: [74.84, 0, 0] },
+  joints: { lumbar: { flex: 0 }, thorax: { flex: 1 }, neck: { flex: 2.5 }, head: { flex: 3 }, scapula: { protr: 9 }, shoulder: { flex: 78.97, abd: -12.65, rot: 15 }, wrist: { flex: -85 }, hip: { flex: 76.17 }, knee: { flex: 90.76 } },
 };
 // bird dog: right arm forward + left leg back, both parallel to the floor (on top of QUAD)
 const BIRD_R: Pose = {
@@ -478,8 +490,9 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     loop: 'loop',
     anchor: { point: 'toes:toes_mid', axes: 'xyz' },
     ground: true,
-    // box top at the palms' lowest skin point (y 0.45), wide enough for both hands
-    props: [{ kind: 'box', at: [0, 0.45, 0.52], size: [0.95, 0.45, 0.4] }],
+    // box top at the palms' lowest skin point (y 0.4645 — it used to be the drooping thumb tip, 1.5 cm lower than the
+    // palm), wide enough for both hands
+    props: [{ kind: 'box', at: [0, 0.4645, 0.52], size: [0.95, 0.4645, 0.4] }],
     camera: { dir: [-1, 0.35, 0.05] },
     frame: ['hand:palm', 'head:vertex', 'scapula:inferior_angle', 'scapula_L:acromion', 'pelvis:psis', 'thorax:spinous_T4', 'toes:toe_tips'],
     sides: 'both',
@@ -722,8 +735,10 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     pose: QUAD,
     keys: [
       { t: 0, label: '息を吐きながら背中を丸める' },
+      { t: 0.15, pose: QUAD_CAT_MID, pass: true },
       { t: 0.3, pose: CAT, label: '床を押して肩甲骨の間を広げる' },
       { t: 0.38, pose: CAT, label: '息を吸いながら胸を前へ、背中を反らす' },
+      { t: 0.55, pose: CAT_COW_MID, pass: true },
       { t: 0.72, pose: COW },
       { t: 0.8, pose: COW },
     ],

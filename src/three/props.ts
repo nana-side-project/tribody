@@ -1,17 +1,23 @@
-// Exercise props (band, step, wall, mat, roller, ball, dumbbell, slant board, chair/bench, door frame, bike).
+// Exercise props (band, step, wall, mat, roller, ball, towel, pillow, dumbbell, slant board, chair/bench, door frame,
+// bike).
 import {
   BoxGeometry,
   type BufferGeometry,
+  CatmullRomCurve3,
   Color,
   CylinderGeometry,
   ExtrudeGeometry,
   Group,
+  LatheGeometry,
   type Material,
   Mesh,
   type MeshStandardMaterial,
+  Quaternion,
   Shape,
   SphereGeometry,
   TorusGeometry,
+  TubeGeometry,
+  Vector2,
   Vector3,
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
@@ -28,6 +34,56 @@ type Resolved = { kind: 'world'; p: Vector3 } | { kind: 'body'; cp: CompiledPoin
 const _v = new Vector3();
 const _t = new Vector3();
 const UP = new Vector3(0, 1, 0);
+
+/** Soft roll along +Y (length `len`, radius `r`): a lathe with rounded, slightly sunken ends. */
+function rollGeometry(r: number, len: number) {
+  const h = len / 2;
+  const e = Math.min(r * 0.45, h * 0.5);
+  const pts: Vector2[] = [new Vector2(0, -h + e * 0.25), new Vector2(r * 0.55, -h + e * 0.12)];
+  for (let i = 0; i <= 6; i++) {
+    const a = (i / 6) * (Math.PI / 2);
+    pts.push(new Vector2(r - e + e * Math.sin(a), -h + e - e * Math.cos(a)));
+  }
+  for (let i = 0; i <= 6; i++) {
+    const a = (i / 6) * (Math.PI / 2);
+    pts.push(new Vector2(r - e + e * Math.cos(a), h - e + e * Math.sin(a)));
+  }
+  pts.push(new Vector2(r * 0.55, h - e * 0.12), new Vector2(0, h - e * 0.25));
+  return new LatheGeometry(pts, 32);
+}
+/** Spiral line on an end face of a towel roll (the rolled layers). */
+function spiralGeometry(r: number, y: number) {
+  const pts: Vector3[] = [];
+  const turns = 2.6;
+  for (let i = 0; i <= 90; i++) {
+    const u = i / 90;
+    const a = u * turns * Math.PI * 2;
+    const rr = r * (0.12 + 0.72 * u);
+    pts.push(new Vector3(Math.cos(a) * rr, y, Math.sin(a) * rr));
+  }
+  return new TubeGeometry(new CatmullRomCurve3(pts), 120, r * 0.035, 5, false);
+}
+/** Rounded box with a puffed (pillow-like) top and bottom; its top centre is at the origin. */
+function pillowGeometry(sx: number, h: number, sz: number) {
+  const g = new RoundedBoxGeometry(sx, h, sz, 5, Math.min(h * 0.45, sx / 4, sz / 4));
+  const pos = g.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = (2 * pos.getX(i)) / sx;
+    const z = (2 * pos.getZ(i)) / sz;
+    const puff = Math.max(0, 1 - x * x) * Math.max(0, 1 - z * z);
+    pos.setY(i, pos.getY(i) * (1 + 0.35 * puff));
+  }
+  g.computeVertexNormals();
+  g.computeBoundingBox();
+  g.translate(0, -g.boundingBox!.max.y, 0);
+  return g;
+}
+function axisVec(a: 'x' | 'y' | 'z' | Vec3 | undefined, fallback: Vec3): Vector3 {
+  if (a === 'x') return new Vector3(1, 0, 0);
+  if (a === 'y') return new Vector3(0, 1, 0);
+  if (a === 'z') return new Vector3(0, 0, 1);
+  return new Vector3(...(a ?? fallback)).normalize();
+}
 
 function isVec3(p: unknown): p is Vec3 {
   return Array.isArray(p) && p.length === 3 && p.every((x) => typeof x === 'number');
@@ -130,7 +186,7 @@ export class PropLayer {
           const r = prop.radius ?? 0.075;
           const len = prop.length ?? 0.9;
           const at = place(prop.at, new Vector3(pelvis.x, r, pelvis.z));
-          const m = new Mesh(this.geo(new CylinderGeometry(r, r, len, 28, 1)), this.mat(P.dark ? '#5b7487' : '#8aa5b8', { roughness: 0.85 }));
+          const m = new Mesh(this.geo(new CylinderGeometry(r, r, len, 28, 1)), this.mat(prop.color ?? (P.dark ? '#5b7487' : '#8aa5b8'), { roughness: 0.85 }));
           if ((prop.axis ?? 'x') === 'x') m.rotation.z = Math.PI / 2;
           else m.rotation.x = Math.PI / 2;
           m.position.copy(at);
@@ -144,6 +200,53 @@ export class PropLayer {
           const m = new Mesh(this.geo(new SphereGeometry(rad, 24, 16)), this.mat(prop.color ?? (P.dark ? '#c9a04f' : '#e9be62'), { roughness: 0.55 }));
           this.group.add(m);
           this.dyn.push({ update: (st) => void this.evalR(r, st, m.position) });
+          break;
+        }
+        case 'towel': {
+          const r = this.resolve(prop.at, side, mirror, ctx);
+          if (!r) break;
+          const rad = prop.radius ?? 0.03;
+          const len = prop.length ?? 0.2;
+          const g = new Group();
+          const cloth = this.mat(prop.color ?? (P.dark ? '#d3cab9' : '#f3ede2'), { roughness: 0.97 });
+          const line = this.mat(P.dark ? '#9a907f' : '#cbbfa9', { roughness: 0.97 });
+          const stripe = this.mat(P.dark ? '#a99a80' : '#ddcfb6', { roughness: 0.97 });
+          g.add(new Mesh(this.geo(rollGeometry(rad, len)), cloth));
+          for (const sgn of [-1, 1]) {
+            g.add(new Mesh(this.geo(spiralGeometry(rad * 0.93, sgn * (len / 2 - rad * 0.08))), line));
+            // woven border stripes near both ends
+            const band = new Mesh(this.geo(new TorusGeometry(rad * 1.003, rad * 0.06, 6, 32)), stripe);
+            band.rotation.x = Math.PI / 2;
+            band.position.y = sgn * (len / 2 - Math.min(0.03, len * 0.15));
+            g.add(band);
+          }
+          const ax = axisVec(prop.axis, [0, 0, 1]);
+          if (mirror) ax.x = -ax.x;
+          const qAxis = new Quaternion().setFromUnitVectors(UP, ax);
+          this.group.add(g);
+          if (r.kind === 'world') {
+            g.position.copy(r.p);
+            g.quaternion.copy(qAxis);
+            this.framing.push(r.p.clone().addScaledVector(ax, len / 2), r.p.clone().addScaledVector(ax, -len / 2));
+          } else {
+            const seg = pointSeg(r.cp);
+            this.dyn.push({
+              update: (st) => {
+                this.evalR(r, st, g.position);
+                g.quaternion.copy(st.quat[seg]).multiply(qAxis);
+              },
+            });
+          }
+          break;
+        }
+        case 'pillow': {
+          const s = prop.size ?? [0.45, 0.12, 0.3];
+          const top = place(prop.at, new Vector3(pelvis.x, s[1], pelvis.z));
+          const m = new Mesh(this.geo(pillowGeometry(s[0], s[1], s[2])), this.mat(prop.color ?? (P.dark ? '#8f969e' : '#eef0f3'), { roughness: 0.92 }));
+          m.position.copy(top);
+          m.rotation.y = (((prop.rotY ?? 0) * (mirror ? -1 : 1)) * Math.PI) / 180;
+          this.group.add(m);
+          this.pushBox(new Vector3(top.x, top.y - s[1] / 2, top.z), [Math.max(s[0], s[2]), s[1], Math.max(s[0], s[2])]);
           break;
         }
         case 'dumbbell': {

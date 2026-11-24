@@ -62,6 +62,9 @@ interface Item extends LabelSpec {
   /** target / displayed label position (top-left) */
   tx: number;
   ty: number;
+  /** target offset from the anchor at the last placement (coherence: follow the anchor) */
+  ox: number;
+  oy: number;
   dx: number;
   dy: number;
   /** a previous target exists (coherence) */
@@ -90,6 +93,8 @@ const DIST = [10, 22, 38, 58, 84, 118, 160];
 /** vertical candidate offsets in multiples of (h/2 + 2) */
 const VSTEP = [0, -1, 1, -2, 2, -3, 3, -4, 4, -6, 6, -8, 8];
 const ABOVE = [10, 22, 38, 58, 84];
+/** cost of moving a label to a different spot (hysteresis) */
+const SWITCH = 110;
 // mirrors viewer.css (.tb3d-bar: left/right/bottom 8, 48 px tall; .tb3d-float 44 px at right/bottom 8;
 // .tb3d-phase / .tb3d-legend at top 10, ~26 px tall)
 const BAR_H = 48;
@@ -475,6 +480,8 @@ export class LabelLayer {
           sy: 0,
           tx: 0,
           ty: 0,
+          ox: 0,
+          oy: 0,
           dx: 0,
           dy: 0,
           placed: false,
@@ -660,7 +667,11 @@ export class LabelLayer {
     }
     // covering another label's dot
     for (const o of this.vis) if (o !== it && o.sx > x - 4 && o.sx < x + w + 4 && o.sy > y - 4 && o.sy < y + h + 4) c += 140;
-    if (coherent && it.placed) c += 0.75 * Math.hypot(x - it.tx, y - it.ty);
+    if (coherent && it.placed) {
+      // hysteresis: staying put or moving along with the anchor is cheap; any other spot must be clearly better
+      const d = Math.min(Math.hypot(x - it.tx, y - it.ty), Math.hypot(x - it.sx - it.ox, y - it.sy - it.oy));
+      c += 0.35 * d + (d > 6 ? SWITCH : 0);
+    }
     return c;
   }
 
@@ -695,7 +706,10 @@ export class LabelLayer {
         this.tryAt(it, x, it.sy - d - h, W, H, zones, coherent, strict);
         this.tryAt(it, x, it.sy + d, W, H, zones, coherent, strict);
       }
-    if (coherent && it.placed) this.tryAt(it, it.tx, it.ty, W, H, zones, coherent, strict);
+    if (coherent && it.placed) {
+      this.tryAt(it, it.tx, it.ty, W, H, zones, coherent, strict);
+      this.tryAt(it, it.sx + it.ox, it.sy + it.oy, W, H, zones, coherent, strict);
+    }
     return b.c < Infinity;
   }
 
@@ -703,6 +717,8 @@ export class LabelLayer {
     it.committed = true;
     it.tx = x;
     it.ty = y;
+    it.ox = x - it.sx;
+    it.oy = y - it.sy;
     it.placed = true;
     const m = this.mask;
     m.frac(x, y, it.w, it.h);
