@@ -1,5 +1,6 @@
 // k3 — knee + foot exercise clips. Owner after the engine agent: clip agent k3. See docs/ENGINE.md.
 import type { ExerciseId } from '../../data/registry';
+import type { AttachRef } from '../landmarks';
 import type { Clip, Prop } from './types';
 
 // ───────────────────────────────────────────── knee strengthening (K3a)
@@ -160,7 +161,9 @@ const TKE_END = {
 // pelvis level) and the right thigh adducts the same 5° so both knees stay together. The right hand holds the
 // lateral side of the right instep (palm on the skin). Hold: posterior pelvic tilt 6° (glutes squeezed) with the
 // lumbar spine flexed by the same 6° — the trunk stays upright, the low back does not arch — so the right hip
-// extends to 9° (thigh ~3° behind vertical, knee pointing straight down) and the heel comes to the buttock (knee 148°).
+// extends to 9° (thigh ~3° behind vertical, knee pointing straight down) and the heel comes to the buttock
+// (knee 148°). The left heel is pinned (xyz); heel-off keys keep the right forefoot on the floor (≤ 2 mm) while
+// the weight shifts, and the hand reaches the foot from the side so it never passes through the ankle.
 const QS_WALL = (a: [number, number, number, number]) => ({
   shoulder_L: { flex: a[0], abd: a[1] },
   elbow_L: { flex: a[2] },
@@ -234,6 +237,16 @@ const QS_GRAB = {
     ...QS_WALL([53.7, -10.7, 49.5, -71.7]),
   },
 };
+// approach / release: the leg as in GRAB, the right hand ~12 cm lateral to the foot (not yet holding it), so
+// the hand never passes through the ankle on the way in or out
+const QS_REACH = {
+  joints: {
+    ...QS_GRAB.joints,
+    shoulder_R: { flex: -24.2, abd: 9, rot: -49.8 },
+    elbow_R: { flex: 2 },
+    wrist_R: { flex: 15 },
+  },
+};
 const QS_HOLD = {
   root: { rot: [-6, 0, 0] as [number, number, number] },
   joints: {
@@ -253,10 +266,11 @@ const QS_HOLD = {
 
 // Supine hamstring stretch with a towel (right leg), left leg straight on the floor. The towel runs under the ball of
 // the right foot (a short band across the sole) and its two ends go to the hands (right hand: lateral end, left hand:
-// medial end). Start: leg on the floor, foot up, hands by the thighs. Hold: hip 76° / knee 10° ("膝は少し曲がって
-// いても構いません"), ankle 5° up; elbows rest on the floor and the forearms pull the towel. The pelvis, the low back
-// and the left leg stay on the floor at every key. Palm positions solved numerically; the towel strands stay clear
-// of the body (≥ 1 cm) at every key and keep ~the same length (0.65–0.8 m), so the towel stays taut.
+// medial end). Start: leg on the floor (right heel and sacrum both on the mat, hip −2.6°), foot up, hands by the
+// thighs. Hold: hip 76° / knee 10° ("膝は少し曲がっていても構いません"), ankle 5° up; the elbows rest on the floor beside
+// the trunk and the forearms pull the towel. The pelvis, the low back and the left leg stay on the floor at every key.
+// Palm positions solved numerically; the towel strands stay clear of the body (≥ 1 cm) at every key and keep about the
+// same length (0.67–0.82 m), so the towel stays taut.
 const HS_ARMS = (r: number[], l: number[]) => ({
   shoulder_R: { flex: r[0], abd: r[1], rot: r[2] },
   elbow_R: { flex: r[3] },
@@ -267,13 +281,19 @@ const HS_ARMS = (r: number[], l: number[]) => ({
   forearm_L: { sup: l[4] },
   wrist_L: { flex: l[5] },
 });
-const HS_START = { joints: { ankle_R: { dorsi: 0 }, ...HS_ARMS([8, -0.2, -3.4, -4.2, -55.8, -8.7], [11.3, -15.8, -2.4, -4.2, -54.4, -8.8]) } };
+const HS_START = {
+  joints: {
+    hip_R: { flex: -2.6, rot: 8 },
+    ankle_R: { dorsi: 0 },
+    ...HS_ARMS([8, -0.2, -3.4, -4.2, -55.8, -8.7], [10.2, -6, -0.3, -4.1, -56.5, -8.6]),
+  },
+};
 const HS_MID = {
   joints: {
     hip_R: { flex: 40, rot: 4 },
     knee_R: { flex: 4 },
     ankle_R: { dorsi: 2 },
-    ...HS_ARMS([-2.7, 0.8, -2.5, 56.2, -52.9, 3.1], [2.7, -19.9, -4.3, 47.7, -52, 2.2]),
+    ...HS_ARMS([-2.8, -0.1, -3, 56.5, -52.8, 3.3], [0.6, -6.5, -0.1, 53.9, -53.7, 2.7]),
   },
 };
 const HS_HOLD = {
@@ -281,14 +301,17 @@ const HS_HOLD = {
     hip_R: { flex: 76, rot: 0 },
     knee_R: { flex: 10 },
     ankle_R: { dorsi: 5 },
-    ...HS_ARMS([6.6, -1.2, -4.5, 77.5, -51.7, 7], [11.7, -24.3, -7.3, 66.7, -51, 6]),
+    ...HS_ARMS([6.6, -2.3, -5.1, 77.6, -51.6, 7.2], [8.6, -7.1, -1.2, 75.8, -52.5, 6.6]),
   },
 };
 const TOWEL = '#6fb7b0';
+// the towel's medial / lateral edges under the ball of the foot (4 mm outside the plantar skin)
+const SOLE_MED: AttachRef = { bone: 'foot', rest: [0.05, 0.004, 0.125] };
+const SOLE_LAT: AttachRef = { bone: 'foot', rest: [0.135, 0.004, 0.105] };
 const HS_TOWEL: Prop[] = [
-  { kind: 'band', from: { bone: 'foot', rest: [0.05, 0.004, 0.125] }, to: { bone: 'foot', rest: [0.135, 0.004, 0.105] }, width: 0.07, color: TOWEL },
-  { kind: 'band', from: 'hand:palm', to: { bone: 'foot', rest: [0.135, 0.004, 0.105] }, width: 0.05, color: TOWEL },
-  { kind: 'band', from: 'hand_L:palm', to: { bone: 'foot', rest: [0.05, 0.004, 0.125] }, width: 0.05, color: TOWEL },
+  { kind: 'band', from: SOLE_MED, to: SOLE_LAT, width: 0.07, color: TOWEL },
+  { kind: 'band', from: 'hand:palm', to: SOLE_LAT, width: 0.05, color: TOWEL },
+  { kind: 'band', from: 'hand_L:palm', to: SOLE_MED, width: 0.05, color: TOWEL },
 ];
 
 // Rathleff high-load plantar fascia heel raise on a 15 cm step, right leg, a rolled towel (Ø 2.8 cm) on the step
@@ -320,24 +343,66 @@ const TR_WALL = (r: number[], l: number[]) => ({
 });
 const trPose = (legs: ReturnType<typeof TR_LEGS>, arms: ReturnType<typeof TR_WALL>) => {
   const { lean, ...joints } = legs;
-  return { root: { pos: [0, 1.0422, 0] as [number, number, number], rot: [lean, 0, 0] as [number, number, number] }, joints: { ...joints, ...arms } };
+  return {
+    root: { pos: [0, 1.0422, 0] as [number, number, number], rot: [lean, 0, 0] as [number, number, number] },
+    joints: { ...joints, ...arms },
+  };
 };
 const TR_BOTTOM = trPose(TR_LEGS(6.86, 13.95, 42), TR_WALL([53.5, -9.4, 66.1, -62], [53.5, -9.4, 66.1, -62]));
 const TR_TOP = trPose(TR_LEGS(3.06, -28.24, 77.8), TR_WALL([56.4, -9, 50.9, -70.2], [56.4, -7, 50.8, -69.7]));
 
-// Plantar fascia-specific stretch (DiGiovanni), seated, right foot crossed over the left knee.
+// Plantar fascia-specific stretch (DiGiovanni), seated on a chair, right (painful) foot crossed over the left knee:
+// the right lateral malleolus rests on top of the left knee (solved numerically; pelvis tilted back 8°, so the right
+// hip is flexed 125° / horizontally abducted 22° / externally rotated 65° with the knee at 117°; the lowest point of
+// the ankle rests 2 mm above the knee's skin), left foot flat on the floor. Trunk bent forward and turned slightly
+// left to reach the foot. The left hand lies across the plantar
+// base of the toes and pulls them back toward the shin (MTP extension 60°, ankle 10° dorsiflexed: windlass → the
+// fascia tightens); the right hand's palm rests on the medial arch to feel the tense fascia. Both palms were solved
+// numerically onto the skin (palm normal into the foot) at rest and at full stretch.
 const PF_SIT = {
   root: { rot: [-8, 0, 0] as [number, number, number] },
   joints: {
     lumbar: { flex: 18 },
-    thorax: { flex: 10 },
+    thorax: { flex: 10, rot: -12 },
+    neck: { flex: 22, rot: 8 },
     hip_L: { flex: 82, abd: 5 },
     ankle_L: { dorsi: 0 },
-    hip_R: { flex: 121.6, abd: 21.6, rot: 65 },
-    knee_R: { flex: 117.5 },
+    hip_R: { flex: 125.3, abd: 21.7, rot: 65 },
+    knee_R: { flex: 116.8 },
     ankle_R: { dorsi: 0 },
   },
 };
+const PF_ARMS = (r: number[], l: number[]) => ({
+  shoulder_R: { flex: r[0], abd: r[1], rot: r[2] },
+  elbow_R: { flex: r[3] },
+  forearm_R: { sup: r[4] },
+  wrist_R: { flex: r[5] },
+  shoulder_L: { flex: l[0], abd: l[1], rot: l[2] },
+  elbow_L: { flex: l[3] },
+  forearm_L: { sup: l[4] },
+  wrist_L: { flex: l[5] },
+});
+const PF_REST = {
+  joints: {
+    toes_R: { ext: 0 },
+    ...PF_ARMS([55, -49.6, 37.5, 19.4, 4.7, 49.9], [49.6, -10.3, -1.9, 55.5, -88, 31.5]),
+  },
+};
+const PF_PULL = {
+  joints: {
+    toes_R: { ext: 60 },
+    ankle_R: { dorsi: 10 },
+    ...PF_ARMS([58.9, -48.5, 38.4, 16.2, 9.7, 61.4], [57.1, -5.7, -24.2, 59.8, -117.7, 57.9]),
+  },
+};
+
+// Short foot (seated, barefoot, both feet flat, knees and ankles ~90°). The rig's foot is one rigid segment (no
+// midfoot joint), so the arch itself cannot dome (engine limitation, reported). What is shown truthfully: heel, ball of
+// the foot and the straight, relaxed toes stay on the floor (no toe curling), and the intrinsic muscles that raise the
+// arch (abductor hallucis along the medial arch, flexor digitorum brevis) are highlighted in a close-up of the medial
+// side of the right foot. The −3° MTP change is only a token (below what the eye can see, toes still flat on the floor)
+// so the clip is animated and the phase labels (set → 5 s hold → relax) are shown.
+const SF_ON = { joints: { toes: { ext: -3 } } };
 
 export const clips: Partial<Record<ExerciseId, Clip>> = {
   // Wall sit (isometric, 45 s holds): slide down 2 s, hold, stand up 2 s.
@@ -358,7 +423,7 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     anchor: { point: 'foot:dorsum_mid', axes: 'xz' },
     ground: true,
     // the wall touches the back of the thorax (the thoracic skin is 1 mm behind the T6 spinous process at t = 0)
-    props: [{ kind: 'wall', at: { at: 'thorax:spinous_T6', off: [0, 0, -0.005] }, normal: [0, 0, 1] }],
+    props: [{ kind: 'wall', at: { at: 'thorax:spinous_T6', off: [0, 0, -0.005] }, normal: [0, 0, 1], height: 1.85 }],
     camera: { dir: [-1, 0.2, 0.3] },
     sides: 'both',
     highlights: {
@@ -472,6 +537,9 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       { kind: 'band', from: [-0.055, 0.5, 0.648], to: { bone: 'femur', rest: [0.028, 0.515, -0.045] } },
     ],
     camera: { dir: [-1, 0.2, 0.35] },
+    // knee close-up: frame from the lower chest to the feet plus the band's anchor on the post (not the 2 m post and
+    // the head), so the knee and the band fill the card while the trunk's lean (no arching back) stays visible
+    frame: ['thorax:xiphoid', 'toes:toe_tips', 'foot:calcaneus_post', 'toes_L:toe_tips', 'foot_L:calcaneus_post', { bone: 'pelvis', rest: [0.085, 0.5, 0.66] }],
     sides: 'R',
     highlights: { 'vastus-medialis': 'primary', 'vastus-lateralis': 'primary', 'rectus-femoris': 'secondary' },
   },
@@ -500,8 +568,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       'erector-spinae': 'secondary',
     },
   },
-  // Standing quadriceps stretch (right leg): grab the instep ~1.4 s, knees together + glutes → posterior tilt,
-  // 30 s hold shown as ~3.8 s, let go slowly. Left heel pinned (xz), body grounded.
+  // Standing quadriceps stretch (right leg): lift the foot and take hold of it (~1.4 s), knees together + glutes →
+  // posterior pelvic tilt, 30 s hold shown as ~3.8 s, let go and put the foot down slowly (~1.9 s).
   'ex-quad-stretch': {
     id: 'ex-quad-stretch',
     duration: 8.5,
@@ -511,9 +579,11 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       { t: 0.018, pose: QS_HEEL_HALF },
       { t: 0.036, pose: QS_HEEL_OFF },
       { t: 0.075, pose: QS_LIFT },
+      { t: 0.13, pose: QS_REACH },
       { t: 0.17, pose: QS_GRAB, label: '膝をそろえ、お尻を締める' },
       { t: 0.27, pose: QS_HOLD, label: '太もも前が伸びたら30秒キープ' },
       { t: 0.72, pose: QS_HOLD, label: 'ゆっくり戻す' },
+      { t: 0.76, pose: QS_REACH },
       { t: 0.83, pose: QS_LIFT },
       { t: 0.885, pose: QS_HEEL_OFF },
       { t: 0.912, pose: QS_HEEL_HALF },
@@ -579,7 +649,9 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       { kind: 'roller', at: [-0.011, 0.164, 0.077], axis: 'x', radius: 0.014, length: 0.14 },
       { kind: 'wall', at: [0, 0, 0.54], normal: [0, 0, -1], width: 1.0 },
     ],
-    camera: { dir: [-1, 0.25, -0.38] },
+    // side view (from the right, slightly behind): the heel rising, the ankle plantarflexing and the toes kept
+    // extended over the towel (windlass) are all seen in profile, with the step and the hanging heel
+    camera: { dir: [-1, 0.22, -0.1] },
     focus: 'ankle',
     frame: ['toes:toe_tips', 'foot:calcaneus_post', 'tibia:fibular_head'],
     sides: 'R',
@@ -592,16 +664,56 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       'tibialis-posterior': 'secondary',
     },
   },
+  // Plantar fascia-specific stretch: pull the toes back ~1.4 s, 10 s hold shown as ~3.9 s, release ~1.2 s (10 reps).
   'ex-plantar-fascia-stretch': {
     id: 'ex-plantar-fascia-stretch',
     duration: 7,
     base: 'SIT_CHAIR',
     pose: PF_SIT,
-    keys: [{ t: 0, label: '足の指の付け根を持ち、すねの方へ反らす' }, { t: 0.2, pose: { joints: { toes_R: { ext: 60 }, ankle_R: { dorsi: 10 } } } }],
+    keys: [
+      { t: 0, pose: PF_REST, label: '足の指の付け根を持ち、すねの方へ反らす' },
+      { t: 0.2, pose: PF_PULL, label: '土踏まずの張りを確かめて10秒キープ' },
+      { t: 0.75, pose: PF_PULL, label: 'ゆっくり緩める' },
+      { t: 0.92, pose: PF_REST },
+    ],
     loop: 'loop',
     ground: true,
-    camera: 'isoLeft',
+    // over the left shoulder, roughly along the foot's medial–lateral axis (the person's own view): the toes bending
+    // back toward the shin turn in the image plane instead of toward the camera (the old front view saw the foot
+    // end-on); close-up of the foot and both hands, with the supporting left shin below it
+    camera: { dir: [0.5, 0.8, -0.4] },
+    focus: 'foot',
+    frame: ['hand:palm', 'hand_L:palm'],
     sides: 'R',
-    highlights: { 'flexor-digitorum-brevis': 'primary', 'abductor-hallucis': 'primary', 'flexor-hallucis-longus': 'secondary' },
+    highlights: {
+      'flexor-digitorum-brevis': 'primary',
+      'abductor-hallucis': 'primary',
+      'flexor-hallucis-longus': 'secondary',
+    },
+  },
+  // Short foot: ~1 s to set the arch, 5 s hold, ~1.2 s relax (10 reps).
+  'ex-short-foot': {
+    id: 'ex-short-foot',
+    duration: 8,
+    base: 'SIT_CHAIR',
+    pose: { joints: { ankle: { dorsi: 0 } } },
+    keys: [
+      { t: 0, label: '指を伸ばしたまま、母趾球をかかとへ引き寄せる' },
+      { t: 0.13, pose: SF_ON, label: '土踏まずを持ち上げて5秒キープ' },
+      { t: 0.75, pose: SF_ON, label: 'ゆっくり力を抜く' },
+      { t: 0.9 },
+    ],
+    loop: 'loop',
+    ground: true,
+    // close-up of the medial arch of the right foot from the front-medial side, low; the line of sight passes in front
+    // of the left toes, so the left foot does not hide the right one (exact camera: the default region framing
+    // would leave half of the card empty below the floor)
+    camera: { position: [0.255, 0.22, 0.942], target: [-0.115, 0.035, 0.48] },
+    sides: 'both',
+    highlights: {
+      'abductor-hallucis': 'primary',
+      'flexor-digitorum-brevis': 'primary',
+      'tibialis-posterior': 'secondary',
+    },
   },
 };

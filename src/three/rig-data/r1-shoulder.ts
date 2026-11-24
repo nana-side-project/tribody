@@ -71,7 +71,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { bone: 'scapula', rest: [0.09, 1.368, -0.1] },
           { bone: 'scapula', rest: [0.132, 1.374, -0.068] },
           { bone: 'scapula', rest: [0.158, 1.398, -0.046] },
-          { bone: 'humerus', rest: [0.187, 1.404, -0.034] },
+          { mix: [{ bone: 'scapula', rest: [0.187, 1.404, -0.042] }, { bone: 'humerus', rest: [0.187, 1.404, -0.042] }], t: 0.4 },
           { ref: 'humerus:greater_tubercle_mid', off: [0.002, 0.003, -0.004] },
         ],
         radius: 0.0075,
@@ -83,7 +83,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { bone: 'scapula', rest: [0.093, 1.328, -0.104] },
           { bone: 'scapula', rest: [0.126, 1.354, -0.076] },
           { bone: 'scapula', rest: [0.156, 1.386, -0.048] },
-          { bone: 'humerus', rest: [0.187, 1.396, -0.036] },
+          { mix: [{ bone: 'scapula', rest: [0.187, 1.396, -0.044] }, { bone: 'humerus', rest: [0.187, 1.396, -0.044] }], t: 0.4 },
           { ref: 'humerus:greater_tubercle_mid', off: [0.002, -0.002, -0.004] },
         ],
         radius: 0.008,
@@ -95,7 +95,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { bone: 'scapula', rest: [0.092, 1.303, -0.106] },
           { bone: 'scapula', rest: [0.12, 1.333, -0.083] },
           { bone: 'scapula', rest: [0.155, 1.381, -0.049] },
-          { bone: 'humerus', rest: [0.186, 1.392, -0.037] },
+          { mix: [{ bone: 'scapula', rest: [0.186, 1.392, -0.045] }, { bone: 'humerus', rest: [0.186, 1.392, -0.045] }], t: 0.4 },
           { ref: 'humerus:greater_tubercle_mid', off: [0.001, -0.005, -0.005] },
         ],
         radius: 0.0075,
@@ -107,7 +107,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { bone: 'scapula', rest: [0.092, 1.272, -0.108] },
           { bone: 'scapula', rest: [0.112, 1.305, -0.09] },
           { bone: 'scapula', rest: [0.152, 1.372, -0.052] },
-          { bone: 'humerus', rest: [0.186, 1.385, -0.039] },
+          { mix: [{ bone: 'scapula', rest: [0.186, 1.385, -0.047] }, { bone: 'humerus', rest: [0.186, 1.385, -0.047] }], t: 0.4 },
           { ref: 'humerus:greater_tubercle_mid', off: [0.0, -0.009, -0.006] },
         ],
         radius: 0.007,
@@ -117,7 +117,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     // external rotation with the elbow at the side
     actionPose: { joints: { shoulder_R: { abd: 10, rot: 60 }, elbow_R: { flex: 90 }, forearm_R: { sup: -85 } } },
     // cross-body stretch (ex-cross-body-stretch): arm forward at shoulder height pulled across the chest
-    stretchPose: { joints: { shoulder_R: { flex: 90, abd: -40 }, elbow_R: { flex: 5 }, forearm_R: { sup: -70 } } },
+    stretchPose: { joints: { shoulder_R: { flex: 90, abd: -40, rot: -25 }, elbow_R: { flex: 5 }, forearm_R: { sup: -70 } } },
     camera: { dir: [-0.8, 0.12, -0.75] },
     focus: 'shoulder',
   },
@@ -166,12 +166,11 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         path: [
           { bone: 'scapula', rest: [0.084, 1.42, -0.079] },
           { bone: 'scapula', rest: [0.115, 1.4, -0.053] },
-          { bone: 'scapula', rest: [0.142, 1.402, -0.004] },
-          { bone: 'scapula', rest: [0.152, 1.404, 0.022] },
-          { mix: [{ bone: 'scapula', rest: [0.163, 1.403, 0.026] }, { bone: 'humerus', rest: [0.163, 1.403, 0.026] }], t: 0.5 },
+          { bone: 'scapula', rest: [0.142, 1.402, 0.008] },
+          { mix: [{ bone: 'scapula', rest: [0.162, 1.403, 0.028] }, { bone: 'humerus', rest: [0.162, 1.403, 0.028] }], t: 0.65 },
           { ref: 'humerus:lesser_tubercle', off: [0.0, 0.004, 0.003] },
         ],
-        radius: 0.0045,
+        radius: 0.0055,
         tendon: [0.0, 0.3],
       },
       {
@@ -179,12 +178,11 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         path: [
           { bone: 'scapula', rest: [0.086, 1.354, -0.087] },
           { bone: 'scapula', rest: [0.115, 1.37, -0.057] },
-          { bone: 'scapula', rest: [0.145, 1.387, -0.006] },
-          { bone: 'scapula', rest: [0.153, 1.392, 0.023] },
-          { mix: [{ bone: 'scapula', rest: [0.165, 1.393, 0.027] }, { bone: 'humerus', rest: [0.165, 1.393, 0.027] }], t: 0.5 },
+          { bone: 'scapula', rest: [0.145, 1.387, 0.008] },
+          { mix: [{ bone: 'scapula', rest: [0.162, 1.392, 0.028] }, { bone: 'humerus', rest: [0.162, 1.392, 0.028] }], t: 0.65 },
           { ref: 'humerus:lesser_tubercle', off: [0.0, -0.002, 0.003] },
         ],
-        radius: 0.005,
+        radius: 0.006,
         tendon: [0.0, 0.3],
       },
       {
@@ -192,12 +190,11 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         path: [
           { bone: 'scapula', rest: [0.089, 1.3, -0.09] },
           { bone: 'scapula', rest: [0.103, 1.326, -0.073] },
-          { bone: 'scapula', rest: [0.146, 1.374, -0.01] },
-          { bone: 'scapula', rest: [0.155, 1.381, 0.021] },
-          { mix: [{ bone: 'scapula', rest: [0.167, 1.383, 0.025] }, { bone: 'humerus', rest: [0.167, 1.383, 0.025] }], t: 0.5 },
+          { bone: 'scapula', rest: [0.146, 1.374, 0.008] },
+          { mix: [{ bone: 'scapula', rest: [0.162, 1.382, 0.028] }, { bone: 'humerus', rest: [0.162, 1.382, 0.028] }], t: 0.65 },
           { ref: 'humerus:lesser_tubercle', off: [0.0, -0.008, 0.002] },
         ],
-        radius: 0.0045,
+        radius: 0.0055,
         tendon: [0.0, 0.3],
       },
     ],
@@ -242,7 +239,6 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '中部（肩峰部）',
         path: [
           { ref: 'scapula:acromion', off: [0.007, -0.005, 0.0] },
-          { bone: 'humerus', rest: [0.225, 1.393, -0.006] },
           { bone: 'humerus', rest: [0.223, 1.37, -0.005] },
           { ref: 'humerus:deltoid_tuberosity', off: [0.004, 0.0, 0.0] },
         ],
@@ -254,7 +250,6 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         path: [
           { bone: 'scapula', rest: [0.168, 1.432, -0.058] },
           { bone: 'humerus', rest: [0.208, 1.393, -0.050] },
-          { bone: 'humerus', rest: [0.208, 1.37, -0.036] },
           { ref: 'humerus:deltoid_tuberosity', off: [0.003, 0.003, -0.004] },
         ],
         radius: 0.012,
@@ -265,7 +260,6 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         path: [
           { bone: 'scapula', rest: [0.135, 1.415, -0.09] },
           { bone: 'humerus', rest: [0.185, 1.391, -0.058] },
-          { bone: 'humerus', rest: [0.192, 1.37, -0.043] },
           { ref: 'humerus:deltoid_tuberosity', off: [0.002, 0.006, -0.007] },
         ],
         radius: 0.011,
@@ -405,7 +399,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { bone: 'humerus', rest: [0.188, 1.395, 0.025] },
           { bone: 'humerus', rest: [0.191, 1.36, 0.025] },
           { bone: 'humerus', rest: [0.199, 1.24, 0.021] },
-          { bone: 'humerus', rest: [0.203, 1.12, 0.017] },
+          { bone: 'humerus', rest: [0.203, 1.13, 0.02] },
           { ref: 'forearm:radial_tuberosity', off: [0.0, 0.002, 0.002] },
         ],
         radius: 0.0095,
@@ -417,7 +411,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { ref: 'scapula:coracoid', off: [0.002, -0.006, 0.004] },
           { bone: 'humerus', rest: [0.176, 1.34, 0.034] },
           { bone: 'humerus', rest: [0.183, 1.24, 0.024] },
-          { bone: 'humerus', rest: [0.198, 1.12, 0.017] },
+          { bone: 'humerus', rest: [0.199, 1.13, 0.02] },
           { ref: 'forearm:radial_tuberosity', off: [-0.002, 0.0, 0.002] },
         ],
         radius: 0.009,
@@ -626,6 +620,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         path: [
           { ref: 'thorax:spinous_T2', off: [0.005, -0.004, -0.002] },
           { bone: 'thorax', rest: [0.04, 1.39, -0.101] },
+          { mix: [{ bone: 'thorax', rest: [0.066, 1.36, -0.111] }, { bone: 'scapula', rest: [0.066, 1.36, -0.111] }], t: 0.5 },
           { bone: 'scapula', rest: [0.083, 1.345, -0.1] },
         ],
         radius: 0.0032,
@@ -637,6 +632,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         path: [
           { ref: 'thorax:spinous_T4', off: [0.005, -0.005, 0.0] },
           { bone: 'thorax', rest: [0.045, 1.335, -0.115] },
+          { mix: [{ bone: 'thorax', rest: [0.066, 1.307, -0.119] }, { bone: 'scapula', rest: [0.066, 1.307, -0.119] }], t: 0.5 },
           { bone: 'scapula', rest: [0.085, 1.29, -0.104] },
         ],
         radius: 0.0032,
@@ -648,6 +644,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         path: [
           { ref: 'thorax:spinous_T5', off: [0.005, -0.006, 0.0] },
           { bone: 'thorax', rest: [0.045, 1.29, -0.118] },
+          { mix: [{ bone: 'thorax', rest: [0.066, 1.262, -0.12] }, { bone: 'scapula', rest: [0.066, 1.262, -0.12] }], t: 0.5 },
           { ref: 'scapula:inferior_angle', off: [-0.002, 0.004, -0.004] },
         ],
         radius: 0.003,
@@ -702,7 +699,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     actionPose: { joints: { scapula_R: { elev: 25, upRot: -10 }, neck: { lat: 12 } } },
     // nose toward the opposite armpit: neck flexed, bent and turned to the left, shoulder blade down
     stretchPose: { joints: { neck: { flex: 15, lat: -16, rot: -25 }, head: { flex: 6, lat: -5 }, scapula_R: { elev: -6 } } },
-    camera: 'isoBack',
+    camera: { dir: [-0.5, 0.22, -0.9] },
     focus: 'neck',
   },
 
@@ -716,72 +713,198 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '上部（T7〜T9・下角）',
         path: [
           { ref: 'thorax:spinous_T8', off: [0.005, 0.0, -0.001] },
-          { bone: 'thorax', rest: [0.05, 1.262, -0.119] },
-          { bone: 'thorax', rest: [0.09, 1.232, -0.112] },
-          { bone: 'humerus', rest: [0.166, 1.33, -0.012] },
-          { ref: 'humerus:crest_lesser_tubercle', off: [0.004, 0.0, 0.0] },
+          { bone: 'thorax', rest: [0.051, 1.262, -0.122] },
+          { mix: [{ bone: 'thorax', rest: [0.096, 1.237, -0.113] }, { bone: 'scapula', rest: [0.096, 1.237, -0.113] }], t: 0.5 },
+          { mix: [{ bone: 'thorax', rest: [0.134, 1.265, -0.074] }, { bone: 'scapula', rest: [0.134, 1.265, -0.074] }], t: 0.5 },
+          { mix: [{ bone: 'thorax', rest: [0.142, 1.300, -0.040] }, { bone: 'humerus', rest: [0.142, 1.300, -0.040] }], t: 0.4 },
+          { mix: [{ bone: 'scapula', rest: [0.155, 1.335, -0.006] }, { bone: 'humerus', rest: [0.155, 1.335, -0.006] }], t: 0.6 },
+          { ref: 'humerus:crest_lesser_tubercle', off: [0.004, 0.000, 0.0] },
         ],
         radius: 0.003,
         tendon: [0.08, 0.16],
-        flat: { width: 0.034, normal: 'posterior' },
+        flat: { width: 0.044, normal: 'posterior' },
       },
       {
         name: '中部（T10〜T12）',
         path: [
           { ref: 'thorax:spinous_T11', off: [0.005, 0.0, -0.001] },
-          { bone: 'thorax', rest: [0.06, 1.2, -0.112] },
-          { bone: 'thorax', rest: [0.116, 1.225, -0.083] },
-          { bone: 'humerus', rest: [0.166, 1.328, -0.012] },
+          { bone: 'thorax', rest: [0.062, 1.200, -0.115] },
+          { bone: 'thorax', rest: [0.114, 1.225, -0.090] },
+          { mix: [{ bone: 'thorax', rest: [0.144, 1.260, -0.059] }, { bone: 'scapula', rest: [0.144, 1.260, -0.059] }], t: 0.5 },
+          { mix: [{ bone: 'thorax', rest: [0.145, 1.300, -0.030] }, { bone: 'humerus', rest: [0.145, 1.300, -0.030] }], t: 0.4 },
+          { mix: [{ bone: 'scapula', rest: [0.155, 1.335, -0.006] }, { bone: 'humerus', rest: [0.155, 1.335, -0.006] }], t: 0.6 },
           { ref: 'humerus:crest_lesser_tubercle', off: [0.004, 0.004, 0.0] },
         ],
         radius: 0.003,
         tendon: [0.12, 0.16],
-        flat: { width: 0.036, normal: 'posterior' },
+        flat: { width: 0.046, normal: 'posterior' },
       },
       {
         name: '下部（胸腰筋膜 L1〜L5）',
         path: [
           { ref: 'lumbar:spinous_L2', off: [0.005, 0.0, -0.001] },
-          { bone: 'lumbar', rest: [0.065, 1.125, -0.089] },
-          { bone: 'thorax', rest: [0.125, 1.19, -0.067] },
-          { bone: 'humerus', rest: [0.166, 1.326, -0.012] },
+          { bone: 'lumbar', rest: [0.068, 1.125, -0.091] },
+          { bone: 'thorax', rest: [0.126, 1.190, -0.077] },
+          { bone: 'thorax', rest: [0.149, 1.245, -0.044] },
+          { mix: [{ bone: 'thorax', rest: [0.146, 1.295, -0.023] }, { bone: 'humerus', rest: [0.146, 1.295, -0.023] }], t: 0.4 },
+          { mix: [{ bone: 'scapula', rest: [0.155, 1.335, -0.006] }, { bone: 'humerus', rest: [0.155, 1.335, -0.006] }], t: 0.6 },
           { ref: 'humerus:crest_lesser_tubercle', off: [0.004, 0.008, 0.0] },
         ],
         radius: 0.003,
         tendon: [0.3, 0.14],
-        flat: { width: 0.036, normal: 'posterior' },
+        flat: { width: 0.044, normal: 'posterior' },
       },
       {
         name: '下部（腸骨稜）',
         path: [
           { bone: 'pelvis', rest: [0.118, 1.076, -0.054] },
-          { bone: 'lumbar', rest: [0.12, 1.14, -0.052] },
-          { bone: 'thorax', rest: [0.142, 1.22, -0.038] },
-          { bone: 'humerus', rest: [0.167, 1.324, -0.012] },
+          { bone: 'lumbar', rest: [0.123, 1.140, -0.054] },
+          { bone: 'thorax', rest: [0.148, 1.200, -0.050] },
+          { bone: 'thorax', rest: [0.153, 1.250, -0.026] },
+          { mix: [{ bone: 'thorax', rest: [0.148, 1.290, -0.015] }, { bone: 'humerus', rest: [0.148, 1.290, -0.015] }], t: 0.4 },
+          { mix: [{ bone: 'scapula', rest: [0.155, 1.335, -0.006] }, { bone: 'humerus', rest: [0.155, 1.335, -0.006] }], t: 0.6 },
           { ref: 'humerus:crest_lesser_tubercle', off: [0.004, 0.012, 0.0] },
         ],
         radius: 0.003,
         tendon: [0.06, 0.14],
-        flat: { width: 0.03, normal: 'posterior' },
+        flat: { width: 0.034, normal: 'lateral' },
       },
       {
         name: '外側部（第10〜12肋骨）',
         path: [
-          { bone: 'thorax', rest: [0.141, 1.178, -0.045] },
-          { bone: 'thorax', rest: [0.148, 1.24, -0.032] },
-          { bone: 'humerus', rest: [0.168, 1.322, -0.01] },
+          { bone: 'thorax', rest: [0.143, 1.180, -0.046] },
+          { bone: 'thorax', rest: [0.152, 1.235, -0.031] },
+          { mix: [{ bone: 'thorax', rest: [0.150, 1.285, -0.015] }, { bone: 'humerus', rest: [0.150, 1.285, -0.015] }], t: 0.4 },
+          { mix: [{ bone: 'scapula', rest: [0.155, 1.335, -0.006] }, { bone: 'humerus', rest: [0.155, 1.335, -0.006] }], t: 0.6 },
           { ref: 'humerus:crest_lesser_tubercle', off: [0.004, 0.015, 0.0] },
         ],
         radius: 0.003,
         tendon: [0.04, 0.16],
-        flat: { width: 0.026, normal: 'lateral' },
+        flat: { width: 0.03, normal: 'lateral' },
       },
     ],
-    // pulling the arm down and back (extension + adduction + internal rotation), as at the end of the swim pull
-    actionPose: { joints: { shoulder_R: { flex: -40, abd: -5, rot: -30 }, elbow_R: { flex: 20 } } },
-    // overhead reach with external rotation and a side bend to the opposite side
-    stretchPose: { joints: { shoulder_R: { flex: 170, abd: 10, rot: 25 }, elbow_R: { flex: 20 }, thorax: { lat: -12 }, lumbar: { lat: -10 } } },
+    // demo starts with the arm reaching forward-up (like the catch of the swim stroke)
+    restPose: { joints: { shoulder_R: { flex: 60 }, elbow_R: { flex: 15 }, forearm_R: { sup: -90 } } },
+    // pull: arm drawn down and back past the hip with internal rotation (extension + adduction + IR = the swim pull)
+    actionPose: { joints: { shoulder_R: { flex: -10, rot: -25 }, elbow_R: { flex: 15 } } },
+    // overhead reach with a side bend to the opposite side (ex-lat-stretch: arms overhead, chest sinking)
+    stretchPose: { joints: { shoulder_R: { flex: 150, abd: 10, rot: 10 }, elbow_R: { flex: 20 }, thorax: { lat: -10 } } },
     camera: { dir: [-0.75, 0.2, -0.7] },
+    focus: 'shoulder',
+  },
+  // serratus anterior: one digitation per rib (1–9) on the lateral chest wall → wraps backward round the ribs, deep to
+  // the scapula → costal (front) surface of the medial border: rib 1–2 to the superior angle, ribs 2–3 along the border,
+  // ribs 4–9 converging on the inferior angle. (The engine's scapula lies on the ribs, so the part under the blade is hidden.)
+  'serratus-anterior': {
+    id: 'serratus-anterior',
+    strands: [
+      {
+        name: '第1〜2肋骨から',
+        path: [
+          { bone: 'thorax', rest: [0.088, 1.413, 0.006] },
+          { mix: [{ bone: 'thorax', rest: [0.086, 1.425, -0.045] }, { bone: 'scapula', rest: [0.086, 1.425, -0.045] }], t: 0.4 },
+          { bone: 'scapula', rest: [0.082, 1.428, -0.085] },
+        ],
+        radius: 0.0029,
+        tendon: [0.04, 0.1],
+        flat: { width: 0.016, normal: 'lateral' },
+      },
+      {
+        name: '第2肋骨から',
+        path: [
+          { bone: 'thorax', rest: [0.094, 1.397, 0.008] },
+          { bone: 'scapula', rest: [0.090, 1.403, -0.058] },
+          { bone: 'scapula', rest: [0.084, 1.405, -0.087] },
+        ],
+        radius: 0.003,
+        tendon: [0.04, 0.1],
+        flat: { width: 0.0168, normal: 'lateral' },
+      },
+      {
+        name: '第3肋骨から',
+        path: [
+          { bone: 'thorax', rest: [0.110, 1.362, 0.022] },
+          { mix: [{ bone: 'thorax', rest: [0.115, 1.366, -0.037] }, { bone: 'scapula', rest: [0.115, 1.366, -0.037] }], t: 0.35 },
+          { bone: 'scapula', rest: [0.087, 1.372, -0.089] },
+        ],
+        radius: 0.0032,
+        tendon: [0.04, 0.1],
+        flat: { width: 0.0176, normal: 'lateral' },
+      },
+      {
+        name: '第4肋骨から',
+        path: [
+          { bone: 'thorax', rest: [0.124, 1.331, 0.024] },
+          { mix: [{ bone: 'thorax', rest: [0.130, 1.331, -0.040] }, { bone: 'scapula', rest: [0.130, 1.331, -0.040] }], t: 0.35 },
+          { bone: 'scapula', rest: [0.090, 1.330, -0.092] },
+        ],
+        radius: 0.0032,
+        tendon: [0.04, 0.1],
+        flat: { width: 0.0176, normal: 'lateral' },
+      },
+      {
+        name: '第5肋骨から',
+        path: [
+          { bone: 'thorax', rest: [0.133, 1.300, 0.026] },
+          { mix: [{ bone: 'thorax', rest: [0.143, 1.295, -0.037] }, { bone: 'scapula', rest: [0.143, 1.295, -0.037] }], t: 0.35 },
+          { bone: 'scapula', rest: [0.091, 1.288, -0.095] },
+        ],
+        radius: 0.0034,
+        tendon: [0.04, 0.1],
+        flat: { width: 0.0189, normal: 'lateral' },
+      },
+      {
+        name: '第6肋骨から',
+        path: [
+          { bone: 'thorax', rest: [0.141, 1.269, 0.026] },
+          { mix: [{ bone: 'thorax', rest: [0.149, 1.266, -0.038] }, { bone: 'scapula', rest: [0.149, 1.266, -0.038] }], t: 0.35 },
+          { bone: 'scapula', rest: [0.090, 1.262, -0.097] },
+        ],
+        radius: 0.0036,
+        tendon: [0.04, 0.1],
+        flat: { width: 0.0202, normal: 'lateral' },
+      },
+      {
+        name: '第7肋骨から',
+        path: [
+          { bone: 'thorax', rest: [0.146, 1.237, 0.025] },
+          { mix: [{ bone: 'thorax', rest: [0.152, 1.242, -0.038] }, { bone: 'scapula', rest: [0.152, 1.242, -0.038] }], t: 0.35 },
+          { bone: 'scapula', rest: [0.090, 1.250, -0.098] },
+        ],
+        radius: 0.0036,
+        tendon: [0.04, 0.1],
+        flat: { width: 0.0202, normal: 'lateral' },
+      },
+      {
+        name: '第8肋骨から',
+        path: [
+          { bone: 'thorax', rest: [0.150, 1.210, 0.016] },
+          { mix: [{ bone: 'thorax', rest: [0.155, 1.219, -0.033] }, { bone: 'scapula', rest: [0.155, 1.219, -0.033] }], t: 0.35 },
+          { bone: 'scapula', rest: [0.090, 1.243, -0.099] },
+        ],
+        radius: 0.0036,
+        tendon: [0.04, 0.1],
+        flat: { width: 0.0202, normal: 'lateral' },
+      },
+      {
+        name: '第9肋骨から',
+        path: [
+          { bone: 'thorax', rest: [0.151, 1.189, 0.001] },
+          { mix: [{ bone: 'thorax', rest: [0.155, 1.197, -0.028] }, { bone: 'scapula', rest: [0.155, 1.197, -0.028] }], t: 0.35 },
+          { bone: 'scapula', rest: [0.090, 1.239, -0.099] },
+        ],
+        radius: 0.0034,
+        tendon: [0.04, 0.1],
+        flat: { width: 0.0189, normal: 'lateral' },
+      },
+    ],
+    // pushing the shoulder blade forward round the chest (protraction + upward rotation: punch / push-up plus)
+    // the arm is held a little away from the side so the digitations on the chest wall stay in view
+    restPose: { joints: { shoulder_R: { abd: 45 } } },
+    actionPose: { joints: { shoulder_R: { flex: 90, abd: 0 }, elbow_R: { flex: 0 }, forearm_R: { sup: -90 }, scapula_R: { protr: 5 } } },
+    // shoulder blade drawn back toward the spine and rotated downward
+    stretchPose: { joints: { scapula_R: { protr: -10, upRot: -8 } } },
+    camera: { dir: [-0.85, 0.18, 0.65] },
     focus: 'shoulder',
   },
 };
@@ -790,8 +913,10 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
   // SAMPLE — subacromial bursa: flat sac between the acromion and the supraspinatus tendon / humeral head.
   'subacromial-bursa': {
     id: 'subacromial-bursa',
-    parts: [{ type: 'bursa', at: 'scapula:acromion_under', radii: [0.019, 0.0045, 0.021], off: [0.002, -0.0045, 0.002] }],
-    camera: 'iso',
+    // R1b: a little wider laterally (the sac continues under the deltoid beyond the acromion edge) and framed close
+    parts: [{ type: 'bursa', at: 'scapula:acromion_under', radii: [0.021, 0.0045, 0.021], off: [0.005, -0.0045, 0.002] }],
+    labelAt: { ref: 'scapula:acromion_under', off: [0.016, -0.006, 0.012] },
+    camera: { position: [-0.44, 1.6, 0.4], target: [-0.175, 1.425, -0.004] },
     focus: 'shoulder',
   },
   // ── R1a ────────────────────────────────────────────────────────────────────────────────────────
@@ -904,6 +1029,23 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
     ],
     labelAt: { bone: 'humerus', rest: [0.191, 1.37, 0.026] },
     camera: 'iso',
+    focus: 'shoulder',
+  },
+  // ── R1b ────────────────────────────────────────────────────────────────────────────────────────
+  // acromion: the lateral end of the spine of the scapula — the bony "roof" over the supraspinatus tendon & bursa.
+  acromion: {
+    id: 'acromion',
+    parts: [{ type: 'bone', parts: ['acromion'] }],
+    labelAt: { ref: 'scapula:acromion', off: [0.002, 0.008, 0.004] },
+    camera: { position: [-0.44, 1.64, 0.36], target: [-0.175, 1.43, -0.006] },
+    focus: 'shoulder',
+  },
+  // scapula: the whole shoulder blade (body + spine, acromion, coracoid) seen from behind.
+  scapula: {
+    id: 'scapula',
+    parts: [{ type: 'bone', parts: ['scapula', 'acromion', 'coracoid'] }],
+    labelAt: { ref: 'scapula:infraspinous_fossa', off: [0.0, 0.0, -0.006] },
+    camera: { dir: [-0.45, 0.22, -1] },
     focus: 'shoulder',
   },
 };

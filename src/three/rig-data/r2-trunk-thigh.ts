@@ -26,11 +26,11 @@ function abWall(rest: Vec3): AttachRef {
 }
 
 // R2a helper — a point on the linea alba just right of the midline, deep to the rectus (the chord from the xiphoid
-// to the pubic symphysis; t = 0 at the xiphoid), where the transversus aponeurosis ends.
-const lineaAlba = (t: number): AttachRef => ({
+// to the pubic symphysis; t = 0 at the xiphoid), where the transversus aponeurosis ends. `dz` moves it forward.
+const lineaAlba = (t: number, dz = 0): AttachRef => ({
   mix: [
-    { ref: 'thorax:xiphoid', off: [0.006, 0, -0.02] },
-    { ref: 'pelvis:pubic_symphysis', off: [0.006, 0, -0.012] },
+    { ref: 'thorax:xiphoid', off: [0.006, 0, -0.02 + dz] },
+    { ref: 'pelvis:pubic_symphysis', off: [0.006, 0, -0.012 + dz] },
   ],
   t,
 });
@@ -91,7 +91,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
       },
     ],
     // nod + neck flexion (chin to chest) / looking up (head and neck extension)
-    actionPose: { joints: { head: { flex: 26 }, neck: { flex: 26 } } },
+    actionPose: { joints: { head: { flex: 30 }, neck: { flex: 32 } } },
     stretchPose: { joints: { head: { flex: -26 }, neck: { flex: -38 } } },
     camera: { dir: [-1, 0.05, 0.3] },
     focus: 'neck',
@@ -106,7 +106,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
       {
         name: '腸肋筋',
         path: [
-          { bone: 'pelvis', rest: [0.074, 1.068, -0.075] },
+          { bone: 'pelvis', rest: [0.074, 1.066, -0.071] },
           { bone: 'lumbar', rest: [0.058, 1.105, -0.075] },
           { bone: 'thorax', rest: [0.041, 1.165, -0.1015] },
           { bone: 'thorax', rest: [0.04, 1.195, -0.109] },
@@ -115,8 +115,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           // angle of the 7th rib (the highest lumbar slips; the column continues as iliocostalis thoracis)
           { bone: 'thorax', rest: [0.05, 1.293, -0.1185] },
         ],
-        radius: 0.0095,
-        tendon: [0.04, 0.55],
+        radius: 0.0085,
+        tendon: [0.04, 0.5],
       },
       {
         name: '最長筋（胸部）',
@@ -162,14 +162,14 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     },
     stretchPose: {
       joints: {
-        hip: { flex: 25 },
-        lumbar: { flex: 38 },
-        thorax: { flex: 28 },
-        neck: { flex: 30 },
-        shoulder: { flex: 90 },
+        hip: { flex: 30 },
+        lumbar: { flex: 32 },
+        thorax: { flex: 26 },
+        neck: { flex: 28 },
+        shoulder: { flex: 80 },
       },
     },
-    camera: { dir: [-0.9, 0.2, -0.75] },
+    camera: { dir: [-1, 0.22, -0.5] },
     focus: 'lowback',
   },
 
@@ -483,12 +483,18 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         path: [
           { bone: 'thorax', rest: [0.103, 1.165, 0.055] },
           abWall([0.062, 1.172, 0.072]),
-          lineaAlba(0.18),
+          // linea alba just below the xiphoid (rides the thorax like the costal origin)
+          { ref: 'thorax:xiphoid', off: [0.006, -0.064, -0.023] },
         ],
         radius: 0.0025,
         tendon: [0.04, 0.45],
         flat: { width: 0.04, normal: 'anterior' },
       },
+      // The two middle bands wrap ~130° round the flank with one (lumbar-lateral) flat normal; their aponeurosis runs
+      // behind the rectus and comes forward to the linea alba (posterior rectus sheath), so the band keeps moving
+      // anteriorly to its end and never turns parallel to that normal (which would twist the ribbon). The linea alba
+      // end is half wall blend, half xiphoid–symphysis line, so the slope survives the poses while rotation still
+      // changes the band's length.
       {
         name: '中部（胸腰筋膜→白線）',
         path: [
@@ -496,9 +502,9 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           abWall([0.112, 1.12, -0.031]),
           abWall([0.116, 1.12, -0.005]),
           abWall([0.11, 1.12, 0.028]),
-          abWall([0.092, 1.12, 0.051]),
-          abWall([0.059, 1.12, 0.067]),
-          lineaAlba(0.35),
+          abWall([0.092, 1.12, 0.05]),
+          abWall([0.059, 1.12, 0.058]),
+          { mix: [abWall([0.006, 1.12, 0.073]), lineaAlba(0.35, 0.004)], t: 0.5 }, // linea alba
         ],
         radius: 0.0025,
         tendon: [0.1, 0.38],
@@ -507,13 +513,14 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
       {
         name: '中下部（胸腰筋膜→白線）',
         path: [
-          abWall([0.1, 1.065, -0.055]),
+          // lumbar leaf (t = 1 → the wall point) so the flat normal turns with the trunk like the band's front part
+          { mix: [{ bone: 'lumbar', rest: [0.1, 1.065, -0.055] }, abWall([0.1, 1.065, -0.055])], t: 1 },
           abWall([0.115, 1.065, -0.028]),
           abWall([0.118, 1.065, -0.004]),
           abWall([0.113, 1.065, 0.027]),
-          abWall([0.094, 1.065, 0.049]),
-          abWall([0.06, 1.065, 0.064]),
-          lineaAlba(0.5),
+          abWall([0.094, 1.065, 0.048]),
+          abWall([0.06, 1.065, 0.056]),
+          { mix: [abWall([0.006, 1.065, 0.0705]), lineaAlba(0.5, 0.004)], t: 0.5 }, // linea alba
         ],
         radius: 0.0025,
         tendon: [0.1, 0.38],
@@ -545,11 +552,9 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     ],
     // Its main action (drawing the abdominal wall in) has no skeletal motion in the rig, so the demo uses trunk
     // rotation to the same side, where its middle / lower fibres shorten together with the internal oblique;
-    // the stretch is extension with rotation away and the arms overhead.
+    // the stretch is rotation away with the arms overhead (no extension: it would twist the wrapping bands).
     actionPose: { joints: { lumbar: { rot: 12 }, thorax: { rot: 35 } } },
-    stretchPose: {
-      joints: { lumbar: { rot: -12, flex: -12 }, thorax: { rot: -30, flex: -14 }, shoulder: { flex: 165 } },
-    },
+    stretchPose: { joints: { lumbar: { rot: -14 }, thorax: { rot: -38 }, shoulder: { flex: 165 } } },
     camera: { dir: [-1, 0.2, 0.5] },
     focus: 'lowback',
   },
@@ -559,7 +564,11 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
   // ~1.4–1.7 cm; the mannequin's thigh skin is ~7 cm round it, so the bellies are kept 0.5–1 cm under the skin.
   // The quadriceps insert on the PATELLA (base / borders: the patella frame glides on the trochlea, so the common
   // tendon wraps the front of the femur in deep flexion by itself); the hamstrings cross behind the knee via points
-  // on the femoral condyles (the pulley) and insert on the tibia / fibula.
+  // on the femoral condyles (the pulley) and insert on the tibia / fibula. Hamstrings have no via in the upper thigh:
+  // the belly runs straight from the ischial tuberosity to mid-thigh, so hip extension shortens it (a femoral via
+  // just below the tuberosity swings past the origin and would lengthen it). The popliteal skin of the mannequin lies
+  // ~1 cm behind the condyles, so the knee pulleys sit in the posteromedial / posterolateral gaps and the bellies end
+  // above the condyles (longer distal tendon fractions than textbook for SM / BF short head).
 
   // 大腿直筋 — straight head from the AIIS + reflected head from the superior acetabular rim, joining in front of
   // the hip; fusiform belly down the middle of the front of the thigh → quadriceps tendon → base of the patella.
@@ -660,12 +669,14 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         flat: { width: 0.03, normal: 'lateral' },
       },
     ],
-    // seated (knees 90°): leg extension — straighten the knee / bend it further, the foot drawn back under the seat.
+    // seated (right heel a little forward, knee 75°): leg extension — straighten the knee / bend it fully, the foot
+    // drawn back under the seat.
     // One-joint muscle: in anatomical position (knee straight) it is already at its shortest, so the demo starts
-    // from the seated knee angle (rest ≈ 1.2 × L0) and the action returns it to L0.
+    // from the seated knee angle (rest ≈ 1.15 × L0) and the action returns it to L0.
     base: 'SIT_CHAIR',
+    restPose: { joints: { knee_R: { flex: 75 } } },
     actionPose: { joints: { knee_R: { flex: 0 } } },
-    stretchPose: { joints: { knee_R: { flex: 125 }, ankle_R: { dorsi: 10 } } },
+    stretchPose: { joints: { knee_R: { flex: 140 }, ankle_R: { dorsi: 15 } } },
     // from the right side, a little below the forearms: thigh + the swinging shank (seat edge → foot) in view
     camera: { position: [-1.55, 0.5, 0.64], target: [-0.12, 0.43, 0.42] },
     focus: 'knee',
@@ -727,9 +738,11 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     ],
     // seated leg extension, as for the vastus lateralis
     base: 'SIT_CHAIR',
+    restPose: { joints: { knee_R: { flex: 75 } } },
     actionPose: { joints: { knee_R: { flex: 0 } } },
-    stretchPose: { joints: { knee_R: { flex: 125 }, ankle_R: { dorsi: 10 } } },
-    camera: { dir: [0.15, 1, 0.3] },
+    stretchPose: { joints: { knee_R: { flex: 140 }, ankle_R: { dorsi: 15 } } },
+    // front-left, from above: the inner thigh, the VMO bulge above the knee and the swinging shank
+    camera: { dir: [0.7, 0.45, 0.85] },
     focus: 'knee',
   },
 
@@ -747,7 +760,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { bone: 'femur', rest: [0.108, 0.66, -0.04] },
           { bone: 'femur', rest: [0.114, 0.585, -0.034] },
           // behind the lateral femoral condyle (posterolateral corner of the popliteal fossa)
-          { mix: [{ bone: 'femur', rest: [0.106, 0.511, -0.0405] }, { bone: 'tibia', rest: [0.106, 0.511, -0.0405] }], t: 0.5 },
+          { bone: 'femur', rest: [0.106, 0.511, -0.0405] },
           { ref: 'tibia:fibular_head', off: [0.002, 0.0095, -0.001] },
         ],
         radius: 0.012,
@@ -759,7 +772,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { ref: 'femur:linea_aspera_mid', off: [0.01, -0.035, -0.002] },
           { bone: 'femur', rest: [0.12, 0.6, -0.027] },
           { bone: 'femur', rest: [0.113, 0.548, -0.029] },
-          { mix: [{ bone: 'femur', rest: [0.108, 0.512, -0.039] }, { bone: 'tibia', rest: [0.108, 0.512, -0.039] }], t: 0.5 },
+          { bone: 'femur', rest: [0.108, 0.512, -0.039] },
           { ref: 'tibia:fibular_head', off: [0.003, 0.009, 0.001] },
         ],
         radius: 0.0095,
@@ -785,9 +798,9 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { bone: 'femur', rest: [0.066, 0.66, -0.042] },
           { bone: 'femur', rest: [0.067, 0.57, -0.038] },
           // behind the medial femoral condyle, down the posteromedial tibia, then forward under the medial condyle
-          { mix: [{ bone: 'femur', rest: [0.0735, 0.509, -0.041] }, { bone: 'tibia', rest: [0.0735, 0.509, -0.041] }], t: 0.5 },
-          { bone: 'tibia', rest: [0.058, 0.458, -0.03] },
-          { bone: 'tibia', rest: [0.058, 0.435, -0.006] },
+          { bone: 'femur', rest: [0.0735, 0.509, -0.041] },
+          { bone: 'tibia', rest: [0.057, 0.447, -0.029] },
+          { bone: 'tibia', rest: [0.059, 0.428, -0.005] },
           { ref: 'tibia:pes_anserinus', off: [0.003, -0.014, -0.008] },
         ],
         radius: 0.0115,
@@ -796,7 +809,9 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     ],
     actionPose: { joints: { hip_R: { flex: -20 }, knee_R: { flex: 90 } } },
     stretchPose: { joints: { hip_R: { flex: 55 }, knee_R: { flex: 0 }, ankle_R: { dorsi: 10 } } },
-    camera: { dir: [-0.6, 0.15, -1] },
+    // back-right oblique: the medial hamstrings through the thigh, the knee bending in near-profile (a straight back
+    // view had the flexed shank coming at the camera and hiding the insertion)
+    camera: { dir: [-0.8, 0.3, -0.9] },
     focus: 'knee',
   },
 
@@ -811,7 +826,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { ref: 'pelvis:ischial_tuberosity', off: [0.008, 0.006, -0.004] },
           { bone: 'femur', rest: [0.072, 0.64, -0.034] },
           { bone: 'femur', rest: [0.07, 0.56, -0.032] },
-          { mix: [{ bone: 'femur', rest: [0.0705, 0.51, -0.0385] }, { bone: 'tibia', rest: [0.0705, 0.51, -0.0385] }], t: 0.5 },
+          { bone: 'femur', rest: [0.0705, 0.51, -0.0385] },
           { ref: 'tibia:medial_condyle_post', off: [0.0, -0.002, 0.002] },
         ],
         radius: 0.011,
@@ -821,7 +836,9 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     ],
     actionPose: { joints: { hip_R: { flex: -20 }, knee_R: { flex: 90 } } },
     stretchPose: { joints: { hip_R: { flex: 55 }, knee_R: { flex: 0 }, ankle_R: { dorsi: 10 } } },
-    camera: { dir: [-0.6, 0.15, -1] },
+    // back-right oblique: the medial hamstrings through the thigh, the knee bending in near-profile (a straight back
+    // view had the flexed shank coming at the camera and hiding the insertion)
+    camera: { dir: [-0.8, 0.3, -0.9] },
     focus: 'knee',
   },
 };
@@ -988,44 +1005,251 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
     camera: 'back',
     focus: 'lowback',
   },
-  // SAMPLE — iliotibial band: wide flat fascia from the iliac crest (via TFL / gluteus maximus) over the
-  // greater trochanter and the lateral femoral epicondyle to Gerdy's tubercle.
-  'iliotibial-band': {
-    id: 'iliotibial-band',
-    parts: [
-      {
-        type: 'fascia',
-        path: [
-          { ref: 'pelvis:iliac_crest_mid', off: [0.012, -0.035, 0.022] },
-          { ref: 'femur:greater_trochanter_lat', off: [0.014, 0.012, 0.006] },
-          { bone: 'femur', rest: [0.168, 0.76, 0.0] },
-          { bone: 'femur', rest: [0.158, 0.62, -0.002] },
-          { ref: 'femur:lateral_epicondyle', off: [0.011, 0.0, 0.0] },
-          { ref: 'tibia:gerdy_tubercle', off: [0.005, 0.0, 0.0] },
-        ],
-        radius: 0.0022,
-        flat: { width: 0.032, normal: 'lateral' },
-      },
-    ],
-    labelAt: { bone: 'femur', rest: [0.168, 0.7, 0.0] },
-    camera: 'right',
+  // ═══════════════════════════════════════ R2b — knee structures
+  // Role colour comes from the FIRST part's type, and cartilage cushions keep their own (untinted) material, so the
+  // cartilage structures below start with a 1 mm cartilage blob hidden inside the bone (sets the cartilage colour)
+  // and draw the visible cartilage as thin flat bands — those use the structure material and take the role tint.
+
+  // 膝蓋骨 — the kneecap, a sesamoid bone in the quadriceps tendon (bone tint).
+  patella: {
+    id: 'patella',
+    parts: [{ type: 'bone', parts: ['patella'] }],
+    labelAt: { ref: 'patella:center', off: [0.0, 0.004, 0.002] },
+    // right-front, from slightly above: reads both standing and seated (the patellofemoral-pain view is seated,
+    // from the patellofemoral cartilage's base)
+    camera: { dir: [-1, 0.32, 0.42] },
     focus: 'knee',
   },
-  // SAMPLE — patellar tendon: patella apex → tibial tuberosity.
+  // 膝蓋腱 (refined sample) — broad, flat tendon from the apex of the patella to the tibial tuberosity.
   'patellar-tendon': {
     id: 'patellar-tendon',
     parts: [
       {
         type: 'tendon',
         path: [
-          { ref: 'patella:apex', off: [0, 0.002, 0.0] },
-          { ref: 'tibia:tibial_tuberosity', off: [0, 0.002, 0.0] },
+          { ref: 'patella:apex', off: [0, 0.003, 0.002] },
+          { mix: [{ ref: 'patella:apex', off: [0, 0, 0.004] }, { ref: 'tibia:tibial_tuberosity', off: [0, 0, 0.004] }], t: 0.5 },
+          { ref: 'tibia:tibial_tuberosity', off: [0, 0.004, 0.002] },
         ],
-        radius: 0.0038,
-        flat: { width: 0.024, normal: 'anterior' },
+        radius: 0.0034,
+        flat: { width: 0.026, normal: 'anterior' },
       },
     ],
-    camera: 'iso',
+    labelAt: { mix: [{ ref: 'patella:apex', off: [0, 0, 0.006] }, { ref: 'tibia:tibial_tuberosity', off: [0, 0, 0.006] }], t: 0.5 },
+    // close-up of the front of the right knee (distal quadriceps above, tendon and tuberosity below)
+    camera: { position: [-0.42, 0.56, 0.58], target: [-0.09, 0.49, 0.04] },
+    focus: 'knee',
+  },
+  // 大腿四頭筋腱 — the common tendon of the four heads above the patella (RF superficial, vasti, VI deep) → base.
+  'quadriceps-tendon': {
+    id: 'quadriceps-tendon',
+    parts: [
+      {
+        type: 'tendon',
+        path: [
+          { bone: 'femur', rest: [0.093, 0.625, 0.044] },
+          { bone: 'femur', rest: [0.091, 0.588, 0.046] },
+          { ref: 'patella:base', off: [0, 0.001, -0.001] },
+        ],
+        radius: 0.0036,
+        flat: { width: 0.032, normal: 'anterior' },
+      },
+    ],
+    labelAt: { bone: 'femur', rest: [0.092, 0.6, 0.05] },
+    camera: { dir: [-0.55, 0.22, 1] },
+    focus: 'knee',
+  },
+  // 膝蓋大腿関節の軟骨 — articular cartilage on the back of the patella and in the femoral trochlear groove
+  // (continuing onto the anterior condyles where the patella sits in deep flexion). Shown seated (knees 90°):
+  // the patella has glided down onto the condyles and the trochlear cartilage above it is exposed.
+  'patellofemoral-cartilage': {
+    id: 'patellofemoral-cartilage',
+    parts: [
+      { type: 'cartilage', at: { bone: 'patella', rest: [0.09, 0.528, 0.048] }, radii: [0.001, 0.001, 0.001] },
+      {
+        type: 'ligament',
+        path: [
+          { bone: 'patella', rest: [0.09, 0.547, 0.0402] },
+          { bone: 'patella', rest: [0.09, 0.53, 0.0371] },
+          { bone: 'patella', rest: [0.09, 0.511, 0.0397] },
+        ],
+        radius: 0.0013,
+        flat: { width: 0.028, normal: 'posterior' },
+      },
+      {
+        type: 'ligament',
+        path: [
+          { bone: 'femur', rest: [0.09, 0.552, 0.0263] },
+          { bone: 'femur', rest: [0.09, 0.54, 0.0329] },
+          { bone: 'femur', rest: [0.09, 0.525, 0.0337] },
+          { bone: 'femur', rest: [0.09, 0.505, 0.0327] },
+          { bone: 'femur', rest: [0.09, 0.49, 0.0255] },
+        ],
+        radius: 0.0013,
+        flat: { width: 0.03, normal: 'anterior' },
+      },
+    ],
+    labelAt: { bone: 'femur', rest: [0.09, 0.54, 0.036] },
+    base: 'SIT_CHAIR',
+    // close-up of the right knee from above-lateral: trochlear cartilage on top of the distal femur, patellar
+    // cartilage in the joint behind the patella
+    camera: { position: [-0.505, 0.798, 0.585], target: [-0.127, 0.515, 0.42] },
+    focus: 'knee',
+  },
+  // 腸脛靱帯 (refined sample) — thick fascial band from the iliac crest (TFL in front, gluteus maximus behind), over
+  // the greater trochanter, down the lateral thigh on the vastus lateralis, over the lateral femoral epicondyle to
+  // Gerdy's tubercle. Kept a few mm under the lateral skin (the mannequin's thigh is slim). The first point is a femur
+  // leaf (t = 1 → the pelvis point) so the band's flat normal follows the thigh.
+  'iliotibial-band': {
+    id: 'iliotibial-band',
+    parts: [
+      {
+        type: 'fascia',
+        path: [
+          { mix: [{ bone: 'femur', rest: [0.139, 1.028, 0.0] }, { bone: 'pelvis', rest: [0.139, 1.028, 0.0] }], t: 1 },
+          { bone: 'pelvis', rest: [0.149, 0.97, 0.0] },
+          { bone: 'femur', rest: [0.166, 0.905, -0.003] },
+          { bone: 'femur', rest: [0.166, 0.8, 0.0] },
+          { bone: 'femur', rest: [0.157, 0.7, 0.0] },
+          { bone: 'femur', rest: [0.143, 0.6, -0.002] },
+          { bone: 'femur', rest: [0.1375, 0.517, -0.003] },
+          { ref: 'tibia:gerdy_tubercle', off: [0.004, 0.002, 0.0] },
+        ],
+        radius: 0.0018,
+        flat: { width: 0.03, normal: 'lateral' },
+      },
+    ],
+    labelAt: { bone: 'femur', rest: [0.162, 0.72, 0.0] },
+    camera: { dir: [-1, 0.12, 0.15] },
+    focus: 'knee',
+  },
+  // 大腿骨外側上顆 — the bony prominence on the outside of the lower femur; the ITB (and the sensitive fat beneath
+  // it) is pressed against it at ~30° of knee flexion. Bone tint + a glow on its lateral surface.
+  'lateral-femoral-epicondyle': {
+    id: 'lateral-femoral-epicondyle',
+    parts: [
+      { type: 'spot', at: { bone: 'femur', rest: [0.131, 0.517, -0.004] }, radius: 0.0075 },
+      { type: 'bone', parts: ['lateral_epicondyle'] },
+    ],
+    labelAt: { bone: 'femur', rest: [0.136, 0.517, -0.004] },
+    camera: { dir: [-1, 0.15, 0.25] },
+    focus: 'knee',
+  },
+  // 鵞足 — the conjoined insertion of sartorius (front), gracilis (middle) and semitendinosus (back / lowest): the
+  // three tendons curve forward under the medial tibial condyle and spread onto the anteromedial tibia below the joint.
+  'pes-anserinus': {
+    id: 'pes-anserinus',
+    parts: [
+      {
+        type: 'tendon',
+        path: [
+          { bone: 'femur', rest: [0.045, 0.535, -0.01] },
+          { mix: [{ bone: 'femur', rest: [0.044, 0.49, -0.007] }, { bone: 'tibia', rest: [0.044, 0.49, -0.007] }], t: 0.5 },
+          { bone: 'tibia', rest: [0.051, 0.458, 0.006] },
+          { bone: 'tibia', rest: [0.074, 0.441, 0.019] },
+        ],
+        radius: 0.0024,
+      },
+      {
+        type: 'tendon',
+        path: [
+          { bone: 'femur', rest: [0.047, 0.535, -0.02] },
+          { mix: [{ bone: 'femur', rest: [0.046, 0.49, -0.017] }, { bone: 'tibia', rest: [0.046, 0.49, -0.017] }], t: 0.5 },
+          { bone: 'tibia', rest: [0.051, 0.46, -0.008] },
+          { bone: 'tibia', rest: [0.072, 0.433, 0.016] },
+        ],
+        radius: 0.0022,
+      },
+      {
+        type: 'tendon',
+        path: [
+          { bone: 'femur', rest: [0.066, 0.54, -0.04] },
+          { mix: [{ bone: 'femur', rest: [0.0735, 0.509, -0.041] }, { bone: 'tibia', rest: [0.0735, 0.509, -0.041] }], t: 0.5 },
+          { bone: 'tibia', rest: [0.058, 0.458, -0.03] },
+          { bone: 'tibia', rest: [0.058, 0.437, -0.006] },
+          { bone: 'tibia', rest: [0.071, 0.425, 0.012] },
+        ],
+        radius: 0.0024,
+      },
+      {
+        type: 'tendon',
+        path: [
+          { bone: 'tibia', rest: [0.064, 0.45, 0.008] },
+          { bone: 'tibia', rest: [0.07, 0.436, 0.016] },
+          { bone: 'tibia', rest: [0.074, 0.421, 0.02] },
+        ],
+        radius: 0.0015,
+        flat: { width: 0.02, normal: 'medial' },
+      },
+    ],
+    labelAt: { bone: 'tibia', rest: [0.068, 0.435, 0.02] },
+    // close-up of the inner (medial) side of the right knee from the front-left (clear of the left knee)
+    camera: { position: [0.304, 0.534, 0.398], target: [-0.068, 0.46, 0.0] },
+    focus: 'knee',
+  },
+  // 鵞足包 — the bursa between the pes anserinus tendons and the tibia (+ the MCL), just above their insertion.
+  'pes-anserine-bursa': {
+    id: 'pes-anserine-bursa',
+    parts: [{ type: 'bursa', at: { bone: 'tibia', rest: [0.061, 0.447, 0.006] }, radii: [0.004, 0.01, 0.009] }],
+    camera: { position: [0.27, 0.53, 0.37], target: [-0.064, 0.455, 0.004] },
+    focus: 'knee',
+  },
+  // 半月板 — medial (C-shaped, larger) and lateral (nearly O-shaped) fibrocartilage wedges on the tibial plateau,
+  // in the gap between the condyles and the plateau rim (horns attach in the intercondylar area).
+  meniscus: {
+    id: 'meniscus',
+    parts: [
+      { type: 'cartilage', at: { bone: 'tibia', rest: [0.088, 0.46, -0.004] }, radii: [0.001, 0.001, 0.001] },
+      {
+        type: 'ligament',
+        path: [
+          { bone: 'tibia', rest: [0.081, 0.4855, 0.021] },
+          { bone: 'tibia', rest: [0.062, 0.4865, 0.017] },
+          { bone: 'tibia', rest: [0.051, 0.488, 0.001] },
+          { bone: 'tibia', rest: [0.054, 0.4865, -0.016] },
+          { bone: 'tibia', rest: [0.065, 0.486, -0.025] },
+          { bone: 'tibia', rest: [0.083, 0.486, -0.025] },
+        ],
+        radius: 0.0028,
+        flat: { width: 0.009, normal: 'superior' },
+      },
+      {
+        type: 'ligament',
+        path: [
+          { bone: 'tibia', rest: [0.1, 0.4855, 0.016] },
+          { bone: 'tibia', rest: [0.118, 0.487, 0.012] },
+          { bone: 'tibia', rest: [0.126, 0.4885, -0.003] },
+          { bone: 'tibia', rest: [0.121, 0.4865, -0.017] },
+          { bone: 'tibia', rest: [0.102, 0.4865, -0.021] },
+        ],
+        radius: 0.0026,
+        flat: { width: 0.008, normal: 'superior' },
+      },
+    ],
+    labelAt: { bone: 'tibia', rest: [0.06, 0.487, 0.012] },
+    // close-up of the right knee's joint line from the front, slightly above
+    camera: { position: [-0.249, 0.74, 0.461], target: [-0.088, 0.487, 0.0] },
+    focus: 'knee',
+  },
+  // 内側側副靱帯 — superficial MCL: flat band from the medial femoral epicondyle across the medial joint line to the
+  // medial tibia ~6 cm below the joint (deep to the pes anserinus).
+  mcl: {
+    id: 'mcl',
+    parts: [
+      {
+        type: 'ligament',
+        path: [
+          { ref: 'femur:medial_epicondyle', off: [0.002, 0.004, 0.0] },
+          { mix: [{ bone: 'femur', rest: [0.044, 0.487, -0.001] }, { bone: 'tibia', rest: [0.044, 0.487, -0.001] }], t: 0.5 },
+          { bone: 'tibia', rest: [0.05, 0.458, 0.002] },
+          { bone: 'tibia', rest: [0.066, 0.43, 0.004] },
+        ],
+        radius: 0.002,
+        flat: { width: 0.013, normal: 'medial' },
+      },
+    ],
+    labelAt: { bone: 'tibia', rest: [0.046, 0.475, 0.0] },
+    camera: { position: [0.356, 0.561, 0.434], target: [-0.05, 0.48, 0.0] },
     focus: 'knee',
   },
 };

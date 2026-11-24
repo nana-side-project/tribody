@@ -5,28 +5,35 @@ import type { Clip, ClipKey, Prop } from './types';
 
 // ───────────────────────────────────────────── shared pieces (k4a: calf clips)
 
-/** Hands lightly on a wall in front (palms on the wall, fingers up); angles solved per clip / key. */
-const HANDS_ON_WALL = (flex: number, abd: number, elbow: number) => ({
+/**
+ * Hands on a wall in front (palms toward the wall, fingers up). Arm + wrist angles were solved per key so the
+ * fingers lie flat on the wall (finger capsule touching along its length), the palm skin is 3–7 mm off it, the
+ * forearm stays ≥ 1.2 cm in front of it and the wrist stays within −82.5° (no clamping). The rig's thumb sits
+ * ~2 cm palmar of the palm plane, so with a flat hand its tip always dips ~2 cm into the (translucent) wall.
+ */
+const HANDS_ON_WALL = (flex: number, abd: number, elbow: number, wrist: number) => ({
   shoulder: { flex, abd },
   elbow: { flex: elbow },
   forearm: { sup: -165 },
-  wrist: { flex: -72 },
+  wrist: { flex: wrist },
 });
+/** Standing upright, palms on the wall at z 0.58 (start of the straight-knee raise and the isometric hold). */
+const WALL_STAND = { joints: HANDS_ON_WALL(69.7, -5.3, 20.3, -82.5) };
 
 /** Top of a calf raise with the toes kept flat: foot 34° heel-up, body ~1° forward over the forefoot. */
 const RAISE_TOP = {
   root: { rot: [1, 0, 0] as [number, number, number] },
-  joints: { ankle: { dorsi: -33 }, toes: { ext: 34 }, ...HANDS_ON_WALL(51.5, -6.8, 54.2) },
+  joints: { ankle: { dorsi: -33 }, toes: { ext: 34 }, ...HANDS_ON_WALL(49.9, -7.1, 57.7, -67.8) },
 };
 
 /** Bent-knee raise (clip.pose: trunk 18° forward, knees 35°): feet flat / heel up, palms on a wall at z 0.72. */
-const BENT_BOTTOM = { joints: { hip: { flex: 40.4 }, ankle: { dorsi: 12.6 }, ...HANDS_ON_WALL(79, -5.5, 20.8) } };
-const BENT_TOP = { joints: { hip: { flex: 39.2 }, ankle: { dorsi: -15.8 }, toes: { ext: 30 }, ...HANDS_ON_WALL(63.6, -6.5, 47.6) } };
+const BENT_BOTTOM = { joints: { hip: { flex: 40.4 }, ankle: { dorsi: 12.6 }, ...HANDS_ON_WALL(79.2, -5.6, 27.2, -82.5) } };
+const BENT_TOP = { joints: { hip: { flex: 39.2 }, ankle: { dorsi: -15.8 }, toes: { ext: 30 }, ...HANDS_ON_WALL(63.6, -6.3, 46.7, -81.7) } };
 
 /** Isometric hold: heel ~4 cm up (foot 15° heel-up), palms still on the wall at z 0.58. */
 const ISO_HOLD = {
   root: { rot: [0.5, 0, 0] as [number, number, number] },
-  joints: { ankle: { dorsi: -14.5 }, toes: { ext: 15 }, ...HANDS_ON_WALL(60.5, -5.9, 35.6) },
+  joints: { ankle: { dorsi: -14.5 }, toes: { ext: 15 }, ...HANDS_ON_WALL(60.1, -5.8, 35.9, -78.6) },
 };
 
 /**
@@ -35,7 +42,7 @@ const ISO_HOLD = {
  * dorsiflexes by the same angle. The front (left) leg angles were solved so its foot stays flat and planted
  * ahead (heel to heel: 0.46 m gastrocnemius, 0.30 m soleus), and the arms so the palms stay on the wall.
  */
-const WALL_LEAN = (lean: number, front: [number, number, number], arm: [number, number, number], backKnee = 0, backHip = 0) => ({
+const WALL_LEAN = (lean: number, front: [number, number, number], arm: [number, number, number, number], backKnee = 0, backHip = 0) => ({
   root: { rot: [lean, 0, 0] as [number, number, number] },
   joints: {
     hip_R: { flex: backHip },
@@ -45,17 +52,18 @@ const WALL_LEAN = (lean: number, front: [number, number, number], arm: [number, 
     knee_L: { flex: front[1] },
     ankle_L: { dorsi: front[2] },
     neck: { flex: -0.6 * lean },
-    ...HANDS_ON_WALL(arm[0], arm[1], arm[2]),
+    ...HANDS_ON_WALL(arm[0], arm[1], arm[2], arm[3]),
   },
 });
 // gastrocnemius: back knee straight; start 16° (weight between the feet) → stretch 22° (front knee 39°)
-const GASTROC_START = WALL_LEAN(16, [36.6, 9.8, -10.9], [77.6, -5.9, 33.3]);
-const GASTROC_HOLD = WALL_LEAN(22, [51.7, 39.2, 9.5], [67.8, -9.8, 79.4]);
+// (arms of START / HOLD solved together so the hands stay on the wall along the whole eased lean, ≤ 6 mm in)
+const GASTROC_START = WALL_LEAN(16, [36.6, 9.8, -10.9], [78.1, -7.8, 45.3, -63.9]);
+const GASTROC_HOLD = WALL_LEAN(22, [51.7, 39.2, 9.5], [71.9, -13, 87.6, -43.9]);
 // soleus: shorter stance (0.30 m heel to heel), trunk ~upright. Knees straight → both knees bent (back knee 18°,
 // back ankle 20°) → back knee pushed forward over the toes, hips lower (back knee 36°, back ankle 31°, front knee 40°)
-const SOLEUS_START = WALL_LEAN(10, [21.8, 2.5, -9.3], [59, -6.7, 50.8]);
-const SOLEUS_BEND = WALL_LEAN(9, [29.3, 20.8, 0.5], [58.8, -6.8, 51.9], 18, 7);
-const SOLEUS_HOLD = WALL_LEAN(9, [37.9, 40.3, 11.4], [58.9, -7.4, 60.1], 36, 14);
+const SOLEUS_START = WALL_LEAN(10, [21.8, 2.5, -9.3], [58, -6.8, 52.7, -73.5]);
+const SOLEUS_BEND = WALL_LEAN(9, [29.3, 20.8, 0.5], [57.5, -7, 54.5, -71.2], 18, 7);
+const SOLEUS_HOLD = WALL_LEAN(9, [37.9, 40.3, 11.4], [56.8, -7.9, 65.1, -62], 36, 14);
 
 /**
  * Pogo hops (ground: false — the root is placed explicitly so the body can leave the floor).
@@ -295,17 +303,17 @@ function forefootBand(around: 'lateral' | 'medial', anchor: Vec3): Prop[] {
 export const clips: Partial<Record<ExerciseId, Clip>> = {
   // SAMPLE (refined) — straight-knee calf raise on the floor, hands lightly on a wall in front.
   // The toes are pinned (anchor) so the heel rises (~9 cm) and the body rises straight up over the forefoot.
-  // Tempo from the dose: 2 s up, 1 s hold, 3 s down. Arm angles solved so the palms stay on the wall
-  // (they slide up ~4 cm as the body rises).
+  // Tempo from the dose: 2 s up, 1 s hold, 3 s down. Arm angles solved so the hands stay flat on the wall
+  // (they slide up a few cm as the body rises).
   'ex-calf-raise-straight': {
     id: 'ex-calf-raise-straight',
     duration: 6.6,
     base: 'STAND',
     keys: [
-      { t: 0, pose: { joints: HANDS_ON_WALL(69.4, -5.4, 19.2) }, label: '膝を伸ばしたまま、かかとを上げる（2秒）' },
+      { t: 0, pose: WALL_STAND, label: '膝を伸ばしたまま、かかとを上げる（2秒）' },
       { t: 0.303, pose: RAISE_TOP, label: '一番上で1秒キープ' },
       { t: 0.455, pose: RAISE_TOP, label: 'ゆっくり下ろす（3秒）' },
-      { t: 0.909, pose: { joints: HANDS_ON_WALL(69.4, -5.4, 19.2) } },
+      { t: 0.909, pose: WALL_STAND },
     ],
     loop: 'loop',
     anchor: { point: 'toes:toes_mid', axes: 'xyz' },
@@ -359,10 +367,10 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     duration: 8,
     base: 'STAND',
     keys: [
-      { t: 0, pose: { joints: HANDS_ON_WALL(69.4, -5.4, 19.2) }, label: 'かかとを3〜5cmだけ上げる' },
+      { t: 0, pose: WALL_STAND, label: 'かかとを3〜5cmだけ上げる' },
       { t: 0.15, pose: ISO_HOLD, label: '30秒キープ（呼吸は止めない）' },
       { t: 0.72, pose: ISO_HOLD, label: 'ゆっくり下ろして休む' },
-      { t: 0.9, pose: { joints: HANDS_ON_WALL(69.4, -5.4, 19.2) } },
+      { t: 0.9, pose: WALL_STAND },
     ],
     loop: 'loop',
     anchor: { point: 'toes:toes_mid', axes: 'xyz' },
@@ -500,10 +508,20 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     anchor: { point: 'toes:toes_mid', axes: 'xyz' },
     ground: 0.09,
     props: [{ kind: 'wall', at: [0, 0, 0.415], normal: [0, 0, -1] }],
-    camera: { dir: [-1, 0.3, -0.3] },
+    // low back-oblique view: the step's top edge reads as a line, so the heel visibly sinks below it
+    camera: { dir: [-1, 0.18, -0.3] },
     // a point ~0.35 m ahead of the (pinned) toes keeps the working calf left of centre, so the labels fall into the
-    // empty space behind the figure instead of over the heel and the step edge
-    frame: ['pelvis:iliac_crest_mid', 'foot_L:calcaneus_post', 'foot:calcaneus_post', 'toes:toe_tips', { bone: 'toes', rest: [0.09, 0.0, 0.52] }],
+    // empty space behind the figure instead of over the heel and the step edge; a point ~0.2 m under the toes leaves
+    // room below the calf so the 5-label stack stays clear of the player bar. (The toes stay level all clip long, so
+    // points on the toes bone don't move.)
+    frame: [
+      'pelvis:iliac_crest_mid',
+      'foot_L:calcaneus_post',
+      'foot:calcaneus_post',
+      'toes:toe_tips',
+      { bone: 'toes', rest: [0.09, 0.0, 0.52] },
+      { bone: 'toes', rest: [0.09, -0.2, 0.0] },
+    ],
     sides: 'R',
     highlights: {
       gastrocnemius: 'primary',
@@ -539,9 +557,19 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     ground: true,
     // a chair back within reach of the right hand (safety, as in the setup); the back faces the figure
     props: [{ kind: 'chair', at: [-0.72, 0.45, 0], rotY: -90 }],
-    // front-right: the level pelvis, the knee over the foot and the lateral (fibular) side of the standing leg
+    // front-right: the level pelvis, the knee over the foot and the lateral (fibular) side of the standing leg.
+    // Framed from the pelvis to ~25 cm below the floor (a point under the pinned right foot): the 7 muscle labels all
+    // stack beside the shank, and this keeps that stack above the player bar.
     camera: { dir: [-0.6, 0.22, 0.8] },
-    frame: ['thorax:xiphoid', 'pelvis:iliac_crest_mid', 'pelvis:iliac_crest_mid_L', 'toes:toe_tips', 'foot:calcaneus_post', 'toes_L:toe_tips', 'foot_L:calcaneus_post'],
+    frame: [
+      'pelvis:iliac_crest_mid',
+      'pelvis:iliac_crest_mid_L',
+      'toes:toe_tips',
+      'foot:calcaneus_post',
+      'toes_L:toe_tips',
+      'foot_L:calcaneus_post',
+      { bone: 'foot', rest: [0.09, -0.25, 0.05] },
+    ],
     sides: 'R',
     highlights: {
       'fibularis-longus': 'primary',
@@ -594,21 +622,25 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     loop: 'loop',
     ground: true,
     props: forefootBand('lateral', [0.22, 0.185, 0.9]),
-    // from the front-right, above: the lateral (fibular) side of the leg, the sole turning outward, the band to the post
-    camera: { dir: [-0.5, 0.6, 0.85] },
-    frame: ['toes:toe_tips', 'foot:calcaneus_post', 'tibia:lateral_malleolus', 'tibia:medial_malleolus', 'tibia:fibula_lat_mid', { bone: 'tibia', rest: [-0.22, 0.029, 0.21] }],
+    // from the front-right, above, close on the shank + foot (ankle focus; without it the frame minimum of 0.4 m left
+    // the foot tiny and the 22° turn invisible): the lateral (fibular) side of the leg, the sole turning outward toward
+    // the camera, the band to the post
+    camera: { dir: [-0.45, 0.8, 0.6] },
+    focus: 'ankle',
+    frame: ['toes:toe_tips', 'tibia:fibula_lat_mid', { bone: 'tibia', rest: [-0.22, 0.029, 0.21] }],
     sides: 'R',
     highlights: { 'fibularis-longus': 'primary', 'fibularis-brevis': 'primary' },
   },
-  // Band inversion (right): same seat; band around the medial forefoot, tied to a furniture leg on the outer side.
-  // Toes pointed slightly down (ankle −25°) so tibialis posterior, not tibialis anterior, works; from the heel the
+  // Band inversion (right): same seat (left knee bent, foot flat — as in the eversion clip, so the medial view of the
+  // working leg is not blocked by the other leg); band around the medial forefoot, tied to a furniture leg on the outer
+  // side. Toes pointed slightly down (ankle −25°) so tibialis posterior, not tibialis anterior, works; from the heel the
   // inner border of the foot lifts and the toes turn in (inversion 25°), 1 s hold, 3 s back. The rig has no forefoot
   // adduction DOF, so the "toes in" part is shown by the inversion only.
   'ex-band-inversion': {
     id: 'ex-band-inversion',
     duration: 5.5,
     base: 'LONG_SIT',
-    pose: bandSit(65.6, -25),
+    pose: bandSit(65.6, -25, { hip_L: { flex: 121.3 }, knee_L: { flex: 125 }, ankle_L: { dorsi: -20.3 } }),
     keys: [
       { t: 0, label: 'つま先を少し下に向け、足の内側を上げる（1秒）' },
       { t: 0.182, pose: { joints: { ankle_R: { inv: 25 } } }, label: '一番内側で1秒止める' },
@@ -618,10 +650,11 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     loop: 'loop',
     ground: true,
     props: forefootBand('medial', [-0.4, 0.167, 0.923]),
-    // from the front-left, above: the medial side of the leg (tibialis posterior behind the medial malleolus), the
-    // inner border of the foot lifting, the band to the post on the outer side
-    camera: { dir: [0.5, 0.6, 0.85] },
-    frame: ['toes:toe_tips', 'foot:calcaneus_post', 'tibia:lateral_malleolus', 'tibia:medial_malleolus', 'tibia:medial_border_mid', { bone: 'tibia', rest: [0.4, 0.005, 0.206] }],
+    // from the front-left, above, close on the shank + foot (ankle focus): the medial side of the leg (tibialis
+    // posterior behind the medial malleolus), the sole turning inward toward the camera, the band to the post outside
+    camera: { dir: [0.45, 0.8, 0.6] },
+    focus: 'ankle',
+    frame: ['toes:toe_tips', 'tibia:medial_border_mid', { bone: 'tibia', rest: [0.4, 0.005, 0.206] }],
     sides: 'R',
     highlights: { 'tibialis-posterior': 'primary', 'tibialis-anterior': 'secondary', 'flexor-hallucis-longus': 'secondary' },
   },

@@ -126,10 +126,12 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     ],
     // hip extension (leg back, knee bent so the hamstrings don't take over) shortens every strand
     actionPose: { joints: { hip_R: { flex: -30, rot: 8 }, knee_R: { flex: 45 } } },
-    // knee toward the opposite shoulder (hip flexion + adduction) lengthens it. 55° is enough: the lower fibres wrap
-    // under the buttock and already lengthen ~40–50 % (their moment arm is large; mean belly ≈ +37 %).
-    stretchPose: { joints: { hip_R: { flex: 55, abd: -12 }, knee_R: { flex: 110 } } },
-    camera: 'isoBack',
+    // knee toward the opposite shoulder (hip flexion + adduction) lengthens it. 50° is enough: the lower fibres wrap
+    // under the buttock and already lengthen ~35–55 % (their moment arm is large; mean belly ≈ +34 %).
+    stretchPose: { joints: { hip_R: { flex: 50, abd: -12 }, knee_R: { flex: 110 } } },
+    // posterolateral (more from the side than 'isoBack'): the whole fan stays visible and the leg swinging back /
+    // forward is seen across the view instead of toward the camera
+    camera: { dir: [-1, 0.28, -0.62] },
     focus: 'hip',
   },
   // SAMPLE (refined by R3a) — gluteus medius: fan from the outer ilium (between the anterior and posterior gluteal
@@ -347,8 +349,10 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     ],
     // standing knee drive (hip flexion) shortens it
     actionPose: { joints: { hip_R: { flex: 90 }, knee_R: { flex: 90 } } },
-    // standing lunge (hip-flexor stretch): right hip extended behind on the toes, left knee bent in front, upright
-    // trunk. Solved numerically so both feet touch (right toes, left foot flat; pelvis drops ~8 cm).
+    // standing lunge (hip-flexor stretch): right hip extended behind on the toes, left knee bent in front. Solved
+    // numerically so both feet touch (right toes, left foot flat; pelvis drops ~8 cm). The trunk leans back a little
+    // and AWAY from the stretched side (lumbar extension + side-bend to the left) — the usual cue that brings in the
+    // psoas from the lumbar spine (mean belly +11 % → +13 %).
     stretchPose: {
       joints: {
         hip_R: { flex: -30 },
@@ -357,12 +361,14 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         hip_L: { flex: 35 },
         knee_L: { flex: 40 },
         ankle_L: { dorsi: 5 },
-        lumbar: { flex: -8 },
+        lumbar: { flex: -12, lat: -10 },
+        thorax: { lat: -6 },
       },
     },
-    // front, slightly from the figure's left: looks into the right iliac fossa (iliacus) past the psoas, and still
-    // shows the thigh swinging forward / back
-    camera: { dir: [0.45, 0.18, 1] },
+    // front, a little from the figure's right, framed down to the knees (exact camera: the muscle-only auto framing
+    // cut the legs off, so the lunge was unreadable). Psoas in front of the lumbar spine + iliacus in the fossa stay
+    // visible, the knee drive comes toward the viewer and the lunge (right leg back, trunk leaning away) reads clearly.
+    camera: { position: [-0.62, 1.1, 1.95], target: [-0.04, 0.85, 0.0] },
     focus: 'hip',
   },
   // ── R3a: tensor fasciae latae — ASIS + anterior outer lip of the iliac crest → anterolateral over the hip, in
@@ -510,11 +516,20 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         tendon: [0.08, 0.35],
       },
     ],
-    // adduction with a little extension (pulling the leg back and in, as when climbing) shortens both parts.
-    // (The adductor part also helps hip flexion, so pure extension would lengthen its upper fibres.)
-    actionPose: { joints: { hip_R: { flex: -10, abd: -15 }, knee_R: { flex: 20 } } },
-    // side lunge with the trunk leaning forward: abduction + hip flexion lengthen both parts
-    stretchPose: SIDE_LUNGE_LEAN,
+    // Demo rest = relaxed stance with the feet apart (both hips 8° out, soles kept flat): from there the right leg
+    // sweeps in across the midline (adduction, a touch of flexion so it passes in front of the standing leg).
+    // Why not the anatomical position: the origins lie only ~10 cm below the hip centre and this skeleton's femur is
+    // vertical (no valgus), so the adduction moment arms vanish after ~10° of adduction — from feet-together the best
+    // any pose reaches is −9 % (extension lengthens the upper, flexor-side adductor fibres; the hamstring part's belly
+    // changes only 3–4 %). From the stance the sweep shortens the belly ~14 % (rest 1.07 → 0.92).
+    restPose: { joints: { hip: { abd: 8 }, ankle: { inv: 8 } } },
+    actionPose: { joints: { hip_R: { abd: -15, flex: 4 }, ankle_R: { inv: 0 } } },
+    // side lunge with the trunk leaning forward: abduction + hip flexion lengthen both parts (left hip / ankle reset
+    // from the stance so the solved lunge contacts hold)
+    stretchPose: {
+      root: SIDE_LUNGE_LEAN.root,
+      joints: { ...SIDE_LUNGE_LEAN.joints, hip_L: { flex: 55, abd: 0 }, ankle_L: { dorsi: 32.4, inv: 0 } },
+    },
     // from behind, slightly from the figure's left: the posteromedial thigh with the whole fan and the hamstring part
     camera: { dir: [0.32, 0.12, -1] },
     focus: 'hip',
@@ -533,7 +548,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { bone: 'femur', rest: [0.049, 0.565, -0.016] },
           { bone: 'femur', rest: [0.047, 0.508, -0.019] },
           { bone: 'tibia', rest: [0.05, 0.462, -0.012] },
-          { bone: 'tibia', rest: [0.07, 0.428, 0.011] },
+          { bone: 'tibia', rest: [0.071, 0.427, 0.013] },
         ],
         radius: 0.0075,
         tendon: [0.05, 0.38],
@@ -703,7 +718,7 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
   'hip-joint': {
     id: 'hip-joint',
     parts: [
-      { type: 'spot', at: { ref: 'femur:head', off: [0.006, -0.002, 0.02] }, radius: 0.017 },
+      { type: 'spot', at: { ref: 'femur:head', off: [0.006, -0.002, 0.02] }, radius: 0.012 },
       { type: 'bone', parts: ['femoral_head', 'acetabulum'] },
     ],
     labelAt: { ref: 'femur:head', off: [0.008, 0.0, 0.026] },
@@ -762,8 +777,8 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
       { type: 'spot', at: { ref: 'pelvis:ischial_tuberosity', off: [0.0, -0.01, -0.012] }, radius: 0.013 },
     ],
     labelAt: { ref: 'pelvis:ischial_tuberosity', off: [0.0, -0.012, -0.018] },
-    // from behind and below on the right: the sit bone under the buttock
-    camera: { position: [-0.52, 0.98, -0.78], target: [-0.06, 0.84, -0.035] },
+    // from behind and slightly below on the right: the sit bone under the buttock
+    camera: { position: [-0.42, 0.9, -0.66], target: [-0.06, 0.835, -0.035] },
     focus: 'hip',
   },
   // ── R3b: proximal hamstring tendons at the ischial tuberosity — the common (conjoint) tendon of the biceps femoris
@@ -798,7 +813,7 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
     ],
     labelAt: { bone: 'femur', rest: [0.068, 0.79, -0.054] },
     // from behind, below and to the right: looks up under the buttock at the tendons leaving the sit bone
-    camera: { position: [-0.5, 0.72, -0.8], target: [-0.065, 0.815, -0.04] },
+    camera: { position: [-0.4, 0.74, -0.62], target: [-0.065, 0.812, -0.04] },
     focus: 'hip',
   },
   // ── R3b: pubic symphysis — the fibrocartilage disc between the two pubic bones at the front midline (tinted) + a

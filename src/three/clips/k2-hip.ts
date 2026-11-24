@@ -103,9 +103,26 @@ const F4_GRAB = {
     shoulder_R: { flex: 12.3, abd: -27.6, rot: -38.3 },
     elbow_R: { flex: 0 },
     forearm_R: { sup: -51.8 },
-    shoulder_L: { flex: 1, abd: 3.7, rot: -54 },
-    elbow_L: { flex: 33.3 },
-    forearm_L: { sup: 6.7 },
+    // left arm re-solved (same grip ≤ 2 cm) so the forearm runs along the outside of the thigh instead of through it
+    shoulder_L: { flex: 10.4, abd: 11.6, rot: -84.3 },
+    elbow_L: { flex: 34.5 },
+    forearm_L: { sup: 10 },
+  },
+};
+// Via keys (verified with a skin self-collision sweep): plain interpolation hook-lying ⇄ formed swept the right foot
+// / shin through the left knee and the right forearm through the right thigh. The right leg is first raised on its own
+// side (F4_UP), carried over the left knee (F4_OVER, lateral malleolus ~14 cm above the left thigh), then lowered onto
+// the thigh; the right arm is lifted (F4_REACH, shoulder 65° / elbow 80°, hand above the belly) before it reaches
+// through the window between the legs from the head side. The way back runs the same path in reverse.
+const F4_UP = { joints: { hip_R: { flex: 95, abd: 15, rot: 15 }, knee_R: { flex: 95 }, ankle_R: { dorsi: -10 } } };
+const F4_OVER = { joints: { hip_R: { flex: 97.5, abd: 18.4, rot: 56 }, knee_R: { flex: 97.8 }, ankle_R: { dorsi: -10 } } };
+const F4_REACH = {
+  joints: {
+    ...F4_FORMED.joints,
+    scapula: { protr: 15 },
+    shoulder_R: { flex: 65, abd: 0, rot: -10 },
+    elbow_R: { flex: 80 },
+    forearm_R: { sup: -52 },
   },
 };
 const F4_PULL = {
@@ -120,9 +137,9 @@ const F4_PULL = {
     shoulder_R: { flex: 13.9, abd: -18.6, rot: -88 },
     elbow_R: { flex: 13.6 },
     forearm_R: { sup: 9.5 },
-    shoulder_L: { flex: 1.8, abd: 10.4, rot: -62.1 },
-    elbow_L: { flex: 45.5 },
-    forearm_L: { sup: 3.7 },
+    shoulder_L: { flex: 10.6, abd: 16.2, rot: -84 },
+    elbow_L: { flex: 45.6 },
+    forearm_L: { sup: 10 },
   },
 };
 
@@ -154,24 +171,35 @@ const NG_SIT = {
 const NG_DOWN = { joints: { neck: { flex: 28 }, head: { flex: 10 } } };
 const NG_UP = { joints: { neck: { flex: -42 }, head: { flex: -20 }, knee_R: { flex: 28 }, ankle_R: { dorsi: -12 } } };
 
-// ── K2b: banded standing knee drive — left hand on a wall at the left side (palm on the wall at x 0.62, y 1.2;
-// solved for the palm position + palm facing the wall, start & top separately so the hand stays put).
+// ── K2b: banded standing knee drive — left palm flat on a wall at the left side at 1.2 m (arm solved for the palm
+// position + palm facing the wall; the wall prop is placed at the palm).
 // Top: right thigh 13° above horizontal (hip 102°, knee 95°, ankle neutral), trunk upright, pelvis level and shifted
 // 8.8 cm over the left foot (solved: centre of mass over the left foot, left sole flat → hip add 6°, ankle ev 6°),
 // left knee soft (10°).
-const KD_START_ARM = { shoulder_L: { flex: 1.5, abd: 29.9, rot: 67.6 }, elbow_L: { flex: 53.1 }, forearm_L: { sup: -169.2 }, wrist_L: { flex: -85 } };
+// Stance: weight shifted onto the left leg with both feet still down (right foot at its place, sole flat: right hip
+// abd 6°, ankle inv 6°) — the left palm on the wall, the pelvis already over the left foot, so the right foot can
+// leave the floor without losing balance (centre of mass over the left foot in every frame).
+const KD_ARM = {
+  shoulder_L: { flex: 5.5, abd: 13.6, rot: 69.6 },
+  elbow_L: { flex: 79.1 },
+  forearm_L: { sup: -175 },
+  wrist_L: { flex: -77.3 },
+};
+const KD_LEFT = { hip_L: { flex: 5.69, abd: -6.07 }, knee_L: { flex: 10 }, ankle_L: { dorsi: 4.28, inv: -6.04 } };
+const KD_SHIFT = {
+  ...KD_ARM,
+  ...KD_LEFT,
+  hip_R: { flex: 4.81, abd: 6, rot: -0.5 },
+  knee_R: { flex: 8.2 },
+  ankle_R: { dorsi: 3.42, inv: 6.02 },
+};
 const KD_TOP = {
   joints: {
-    hip_L: { flex: 5.69, abd: -6.07 },
-    knee_L: { flex: 10 },
-    ankle_L: { dorsi: 4.28, inv: -6.04 },
-    hip_R: { flex: 102, abd: 2 },
+    ...KD_ARM,
+    ...KD_LEFT,
+    hip_R: { flex: 102, abd: 2, rot: 0 },
     knee_R: { flex: 95 },
-    ankle_R: { dorsi: 0 },
-    shoulder_L: { flex: 5.5, abd: 13.6, rot: 69.6 },
-    elbow_L: { flex: 79.1 },
-    forearm_L: { sup: -175 },
-    wrist_L: { flex: -77.3 },
+    ankle_R: { dorsi: 0, inv: 0 },
   },
 };
 // Mini loop band around both forefeet: over each dorsum (2 pieces via the top) and two strands between the feet (the
@@ -228,10 +256,11 @@ const RDL_BOTTOM = {
 // horizontal along the bench. Top: body straight from head to knee (top hip neutral), body line 12° above horizontal,
 // the bottom leg lifted (hip add 3°) to just under the bench seat. Bottom: the pelvis just touches the floor — the top
 // hip abducts 46° (adductors lengthen) and the trunk side-bends 23°, the bottom leg rests on the floor.
+// Top hand on the iliac crest. The bottom pose has its own arm (solved): with the trunk side-bent 25° the top-pose arm
+// would sink the hand ~4 cm into the pelvis; this one keeps the palm on the same spot of the crest (≤ 8 mm).
+const CP_ARM_TOP = { shoulder_R: { flex: -24.8, abd: 47.3, rot: -72.7 }, elbow_R: { flex: 112.7 }, forearm_R: { sup: -154.8 } };
+const CP_ARM_BOTTOM = { shoulder_R: { flex: -46.1, abd: 33.9, rot: -51.3 }, elbow_R: { flex: 126.9 }, forearm_R: { sup: -147.1 } };
 const CP_COMMON = {
-  shoulder_R: { flex: -24.8, abd: 47.3, rot: -72.7 },
-  elbow_R: { flex: 112.7 },
-  forearm_R: { sup: -154.8 },
   wrist_R: { flex: 0 },
   elbow_L: { flex: 90 },
   forearm_L: { sup: -175 },
@@ -244,6 +273,7 @@ const CP_COMMON = {
 const CP_BOTTOM = {
   root: { rot: [0, 0, -69.47] as [number, number, number] },
   joints: {
+    ...CP_ARM_BOTTOM,
     lumbar: { lat: 25 },
     hip_R: { flex: -0.53, abd: 45.09, rot: -1.93 },
     hip_L: { flex: 0, abd: -25 },
@@ -254,6 +284,7 @@ const CP_BOTTOM = {
 const CP_TOP = {
   root: { rot: [0, 0, -78] as [number, number, number] },
   joints: {
+    ...CP_ARM_TOP,
     lumbar: { lat: 0 },
     hip_R: { flex: 0, abd: 0, rot: -2.62 },
     hip_L: { flex: 0, abd: -3 },
@@ -268,8 +299,8 @@ const CP_TOP = {
 // N_P (right leg in front): right hip flex 89° / abd 40° / ER 65°, knee 97° — lateral knee & ankle on the floor, the
 // shin runs in front of the body; left hip flex 41° / abd 28° / IR 47°, knee 108° — medial knee on the floor, to the
 // side; thighs ~90° apart. The pelvis turns 53° toward the front leg and tilts 24° (sitting on the front-leg
-// buttock); the lumbar spine side-bends 20° and the thorax counter-rotates 30° so the chest stays upright, leaning
-// back ~10° with a straight back.
+// buttock); the lumbar spine side-bends 20° and the trunk counter-rotates 22° (chest faces ~33° toward the front
+// leg) so the chest stays upright, leaning back ~10° with a straight back.
 // N_MID: both knees up toward the ceiling (hips 135°, knees 107°, soles flat on the same spots).
 // N_LEAN: from N_P the pelvis tilts forward 35° with the spine straight, the chest turns to the front shin, the hips
 // are re-solved so the knees/feet stay within 2 cm; the hands rest on the front shin.
@@ -291,7 +322,7 @@ function mirrorLR(p: { root?: Pose['root']; joints: Joints }): { root?: Pose['ro
 const N_ROOT_POS: [number, number, number] = [0, 0.3, 0];
 const N_LEGS_P: Joints = {
   lumbar: { flex: -7.91, lat: -19.54, rot: -10.35 },
-  thorax: { rot: -30 },
+  thorax: { rot: -12 },
   neck: { flex: 12 },
   hip_R: { flex: 89.17, abd: 40.06, rot: 65 },
   hip_L: { flex: 40.51, abd: 27.5, rot: -47.16 },
@@ -303,14 +334,14 @@ const N_P = {
   root: { pos: N_ROOT_POS, rot: [-10.69, -52.97, 24.42] as [number, number, number] },
   joints: {
     ...N_LEGS_P,
-    shoulder_R: { flex: -2.7, abd: 3.1, rot: 105 },
-    elbow_R: { flex: 0.1 },
-    forearm_R: { sup: -155.5 },
-    wrist_R: { flex: -67.6 },
-    shoulder_L: { flex: -17.3, abd: -14.7, rot: 72 },
-    elbow_L: { flex: 19.5 },
-    forearm_L: { sup: -76.3 },
-    wrist_L: { flex: -78.5 },
+    shoulder_R: { flex: 5.2, abd: 2.9, rot: 105 },
+    elbow_R: { flex: 0 },
+    forearm_R: { sup: -173.7 },
+    wrist_R: { flex: -75.1 },
+    shoulder_L: { flex: -20.2, abd: -12.3, rot: 72 },
+    elbow_L: { flex: 3.5 },
+    forearm_L: { sup: -51.4 },
+    wrist_L: { flex: -69.9 },
   } as Joints,
 };
 const N_P_MIRROR = mirrorLR(N_P);
@@ -329,10 +360,48 @@ const N_MID = {
     wrist: { flex: -68.3 },
   } as Joints,
 };
-// hands off the floor (beside the hips) between "hands behind" and "hands on the shin"
+// N_HALF: halfway between N_P and N_MID (root/trunk/arms interpolated), legs re-solved so the ankles stay planted
+// and the feet just clear the floor (~3 cm, as when the feet pivot) with the buttocks down — plain interpolation
+// would push the feet through the floor and lift the whole body ~13 cm.
+const N_HALF = {
+  root: { pos: N_ROOT_POS, rot: [-10.69, -26.49, 12.21] as [number, number, number] },
+  joints: {
+    lumbar: { flex: -7.9, lat: -9.77, rot: -5.18 },
+    thorax: { rot: -6 },
+    neck: { flex: 12 },
+    hip_R: { flex: 131.71, abd: 43.61, rot: 15.79 },
+    knee_R: { flex: 102.85 },
+    ankle_R: { dorsi: -19.97, inv: -0.68 },
+    hip_L: { flex: 124.5, abd: 41.24, rot: -50 },
+    knee_L: { flex: 108.25 },
+    ankle_L: { dorsi: -19.97, inv: -0.68 },
+    shoulder_R: { flex: -0.5, abd: -4.05, rot: 105 },
+    elbow_R: { flex: 12.75 },
+    forearm_R: { sup: -154.4 },
+    wrist_R: { flex: -71.7 },
+    shoulder_L: { flex: -13.2, abd: -11.65, rot: 88.5 },
+    elbow_L: { flex: 14.5 },
+    forearm_L: { sup: -93.25 },
+    wrist_L: { flex: -69.1 },
+  } as Joints,
+};
+const N_HALF_MIRROR = mirrorLR(N_HALF);
+// hands lifted off the floor (palms ~25 cm up beside the hips, elbows soft) between "hands behind" and "hands on the
+// shin". Chosen with a skin self-collision sweep: the previous via (shoulders extended / adducted behind the back) swept
+// the left arm through the lower back and both hands through the thighs on the way to / from the shin.
 const N_HANDS_UP = {
   root: N_P.root,
-  joints: { ...N_LEGS_P, shoulder: { flex: 12, abd: 14, rot: 0 }, elbow: { flex: 80 }, forearm: { sup: -110 }, wrist: { flex: 0 } } as Joints,
+  joints: {
+    ...N_LEGS_P,
+    shoulder_R: { flex: 10, abd: 25, rot: 0 },
+    elbow_R: { flex: 50 },
+    forearm_R: { sup: -90 },
+    wrist_R: { flex: 0 },
+    shoulder_L: { flex: 10, abd: 25, rot: 0 },
+    elbow_L: { flex: 50 },
+    forearm_L: { sup: -90 },
+    wrist_L: { flex: 0 },
+  } as Joints,
 };
 const N_LEAN = {
   root: { pos: N_ROOT_POS, rot: [24.31, -52.97, 24.42] as [number, number, number] },
@@ -493,8 +562,9 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
         ankle_R: { dorsi: 0 },
         neck: { lat: -15 },
         head: { lat: -5 },
-        shoulder_R: { flex: 60, abd: -52 },
-        elbow_R: { flex: 22 },
+        // top hand on the floor in front of the chest (shoulder 75° keeps the upper arm off the ribs)
+        shoulder_R: { flex: 75, abd: -52 },
+        elbow_R: { flex: 10 },
         forearm_R: { sup: -150 },
         wrist_R: { flex: -50 },
       },
@@ -622,17 +692,24 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
   // hands behind the left thigh → pull gently toward the chest → 30 s hold → lower the foot → uncross.
   'ex-figure4-stretch': {
     id: 'ex-figure4-stretch',
-    duration: 9,
+    duration: 10,
     base: 'SUPINE',
     pose: { joints: { ...BR_HOOK, ...BR_ARMS } },
     keys: [
       { t: 0, label: '足首を反対の膝に乗せ、膝を外へ開く' },
-      { t: 0.12, pose: F4_FORMED, label: '太ももの裏を両手で抱える' },
-      { t: 0.24, pose: F4_GRAB, label: 'ゆっくり胸へ引き寄せる' },
+      { t: 0.05, pose: F4_UP },
+      { t: 0.1, pose: F4_OVER },
+      { t: 0.15, pose: F4_FORMED, label: '太ももの裏を両手で抱える' },
+      { t: 0.2, pose: F4_REACH },
+      { t: 0.26, pose: F4_GRAB, label: 'ゆっくり胸へ引き寄せる' },
       { t: 0.34, pose: F4_PULL, label: '30秒キープ' },
-      { t: 0.72, pose: F4_PULL, label: 'ゆっくり戻す' },
+      { t: 0.68, pose: F4_PULL, label: 'ゆっくり戻す' },
+      { t: 0.74, pose: F4_GRAB },
+      { t: 0.79, pose: F4_REACH },
       { t: 0.84, pose: F4_FORMED },
-      { t: 0.94 },
+      { t: 0.89, pose: F4_OVER },
+      { t: 0.94, pose: F4_UP },
+      { t: 0.99 },
     ],
     loop: 'loop',
     ground: true,
@@ -667,7 +744,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     ],
     camera: { dir: [-0.6, 0.5, 1] },
     focus: 'hip',
-    frame: ['tibia:plateau', 'tibia_L:plateau', 'pelvis:pubic_symphysis'],
+    // knees + a point 9 cm above each knee (the ball's top) stay clear of the phase pill
+    frame: ['tibia:plateau', 'tibia_L:plateau', 'pelvis:pubic_symphysis', { bone: 'femur', rest: [0.09, 0.52, 0.14] }, { bone: 'femur_L', rest: [0.09, 0.52, 0.14] }],
     sides: 'both',
     highlights: { 'adductor-longus': 'primary', 'adductor-magnus': 'primary', gracilis: 'secondary' },
   },
@@ -724,24 +802,25 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       gastrocnemius: 'secondary',
     },
   },
-  // Banded standing knee drive: stand tall, left hand on the wall, loop band around both forefeet → shift onto the
-  // left leg (knee soft, pelvis level) and drive the right knee above hip height (~1 s) → 3–5 s hold (trunk upright)
-  // → lower over 3 s. Left foot pinned (xz), body grounded.
+  // Banded standing knee drive: standing on the left leg (knee soft, pelvis level, left hand on the wall), loop band
+  // around both forefeet → drive the right knee above hip height (~1 s) → 3–5 s hold (trunk upright) → lower over 3 s
+  // until the toes touch lightly → repeat. Left foot pinned (xz), body grounded.
   'ex-standing-knee-drive': {
     id: 'ex-standing-knee-drive',
     duration: 8,
     base: 'STAND',
-    pose: { joints: KD_START_ARM },
+    pose: { joints: KD_SHIFT },
     keys: [
-      { t: 0, hold: 0.5, label: '膝を腰より高く引き上げる' },
-      { t: 0.19, pose: KD_TOP, label: '3〜5秒止める（上体は起こしたまま）' },
+      { t: 0, hold: 0.4, label: '膝を腰より高く引き上げる' },
+      { t: 0.18, pose: KD_TOP, label: '3〜5秒止める（上体は起こしたまま）' },
       { t: 0.56, pose: KD_TOP, label: '3秒かけて下ろす' },
-      { t: 0.95 },
+      { t: 0.94, label: '床に軽く触れたら繰り返す' },
     ],
     loop: 'loop',
     anchor: { point: 'foot_L:calcaneus_plantar', axes: 'xz' },
     ground: true,
-    props: [{ kind: 'wall', at: [0.62, 0, 0.05], normal: [-1, 0, 0], width: 0.9, height: 1.9 }, ...feetLoop()],
+    // the wall surface touches the left palm (palm skin ~7 mm beyond the palm landmark)
+    props: [{ kind: 'wall', at: { at: 'hand_L:palm', off: [0.007, 0, 0] }, normal: [-1, 0, 0], width: 0.9, height: 1.9 }, ...feetLoop()],
     camera: { dir: [-1, 0.14, 0.32] },
     frame: ['head:vertex', 'toes:toe_tips', 'foot_L:calcaneus_post', 'hand_L:palm'],
     sides: 'R',
@@ -768,7 +847,7 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     loop: 'loop',
     anchor: { point: 'foot:calcaneus_plantar', axes: 'xz' },
     ground: true,
-    camera: { dir: [-1, 0.16, 0.18] },
+    camera: { dir: [-1, 0.18, -0.15] },
     frame: ['head:vertex', 'foot_L:calcaneus_post', 'toes:toe_tips', 'hand:fingertips'],
     sides: 'R',
     highlights: {
@@ -821,21 +900,25 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     base: 'LONG_SIT',
     pose: N_P,
     keys: [
-      { t: 0, hold: 0.4, label: '手を後ろにつき、両膝を反対側へ倒し替える' },
-      { t: 0.13, pose: N_MID },
-      { t: 0.22, pose: N_P_MIRROR, hold: 0.4, label: '同じように元の側へ倒し替える' },
-      { t: 0.35, pose: N_MID },
-      { t: 0.44, hold: 0.3, label: '背すじを伸ばしたまま前のすねへ倒す' },
-      { t: 0.52, pose: N_HANDS_UP },
-      { t: 0.6, pose: N_LEAN, label: '20秒キープ' },
-      { t: 0.82, pose: N_LEAN, label: 'ゆっくり戻る' },
-      { t: 0.88, pose: N_HANDS_UP },
-      { t: 0.95 },
+      { t: 0, hold: 0.3, label: '手を後ろにつき、両膝を反対側へ倒し替える' },
+      { t: 0.08, pose: N_HALF },
+      { t: 0.14, pose: N_MID },
+      { t: 0.2, pose: N_HALF_MIRROR },
+      { t: 0.26, pose: N_P_MIRROR, hold: 0.3, label: '同じように元の側へ倒し替える' },
+      { t: 0.34, pose: N_HALF_MIRROR },
+      { t: 0.4, pose: N_MID },
+      { t: 0.46, pose: N_HALF },
+      { t: 0.52, hold: 0.2, label: '背すじを伸ばしたまま前のすねへ倒す' },
+      { t: 0.6, pose: N_HANDS_UP },
+      { t: 0.67, pose: N_LEAN, label: '20秒キープ' },
+      { t: 0.86, pose: N_LEAN, label: 'ゆっくり戻る' },
+      { t: 0.91, pose: N_HANDS_UP },
+      { t: 0.97 },
     ],
     loop: 'loop',
     ground: true,
     props: [{ kind: 'mat', size: [1.5, 1.3], at: [0, 0, 0.12] }],
-    camera: { dir: [-0.35, 0.85, 1] },
+    camera: { dir: [-0.12, 1.5, 1] },
     frame: ['head:vertex', 'tibia:plateau', 'tibia_L:plateau', 'foot:talus', 'foot_L:talus', 'hand:palm', 'hand_L:palm'],
     sides: 'R',
     highlights: { piriformis: 'primary', 'gluteus-maximus': 'primary', 'gluteus-medius': 'secondary', 'gluteus-minimus': 'secondary' },

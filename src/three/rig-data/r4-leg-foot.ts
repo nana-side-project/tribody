@@ -17,14 +17,15 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           // origin = the femoral landmark exactly (t: 1); the tibia leaf only makes the flat band's normal follow the
           // shank (a flat strand's normal uses the first point's bone), so the band stays face-on when the knee bends
           { mix: [{ bone: 'tibia', rest: [0.06, 0.47, -0.03] }, 'femur:medial_condyle_post'], t: 1 },
-          { bone: 'tibia', rest: [0.07, 0.43, -0.049] },
+          { bone: 'tibia', rest: [0.072, 0.43, -0.046] },
           { bone: 'tibia', rest: [0.074, 0.33, -0.055] },
-          { bone: 'tibia', rest: [0.086, 0.2, -0.048] },
-          { bone: 'tibia', rest: [0.09, 0.115, -0.05] },
-          'foot:calcaneus_post',
+          // heel cord: hugs the inside of the (thin) ankle skin, then straight to the calcaneal tuberosity
+          { bone: 'tibia', rest: [0.087, 0.2, -0.0445] },
+          { bone: 'tibia', rest: [0.09, 0.125, -0.0355] },
+          { ref: 'foot:calcaneus_post', off: [0, 0.004, -0.003] },
         ],
         radius: 0.011,
-        tendon: [0.05, 0.47],
+        tendon: [0.05, 0.5],
         flat: { width: 0.03, normal: 'posterior' },
       },
       {
@@ -33,20 +34,20 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
           { mix: [{ bone: 'tibia', rest: [0.118, 0.47, -0.03] }, 'femur:lateral_condyle_post'], t: 1 },
           { bone: 'tibia', rest: [0.11, 0.43, -0.047] },
           { bone: 'tibia', rest: [0.106, 0.34, -0.052] },
-          { bone: 'tibia', rest: [0.094, 0.2, -0.048] },
-          { bone: 'tibia', rest: [0.09, 0.115, -0.05] },
-          'foot:calcaneus_post',
+          { bone: 'tibia', rest: [0.093, 0.2, -0.0445] },
+          { bone: 'tibia', rest: [0.09, 0.125, -0.0355] },
+          { ref: 'foot:calcaneus_post', off: [0, 0.004, -0.003] },
         ],
         radius: 0.0095,
-        tendon: [0.05, 0.52],
+        tendon: [0.05, 0.56], // the lateral head's belly ends ~3 cm higher than the medial head's
         flat: { width: 0.026, normal: 'posterior' },
       },
     ],
     base: 'STAND_STEP',
-    // heel raise on the step edge (toes stay flat: toe extension = plantarflexion)
-    actionPose: { joints: { ankle: { dorsi: -30 }, toes: { ext: 30 } } },
-    // heel drop with straight knees
-    stretchPose: { joints: { ankle: { dorsi: 28 }, toes: { ext: -28 } } },
+    // heel raise on the step edge (toes stay flat: toe extension = plantarflexion), as in ex-calf-raise-straight
+    actionPose: { joints: { ankle: { dorsi: -34 }, toes: { ext: 34 } } },
+    // heel drop with straight knees (≈30° is about the loaded end range with the knee straight)
+    stretchPose: { joints: { ankle: { dorsi: 32 }, toes: { ext: -32 } } },
     camera: 'isoBack',
     focus: 'calf',
   },
@@ -60,42 +61,44 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         path: [
           'tibia:fibula_post_prox',
           { bone: 'tibia', rest: [0.112, 0.33, -0.044] },
-          { bone: 'tibia', rest: [0.097, 0.2, -0.042] },
-          { bone: 'tibia', rest: [0.09, 0.115, -0.048] },
-          'foot:calcaneus_post',
+          { bone: 'tibia', rest: [0.098, 0.2, -0.0385] },
+          { bone: 'tibia', rest: [0.09, 0.125, -0.0345] },
+          { ref: 'foot:calcaneus_post', off: [0, 0.004, -0.003] },
         ],
         radius: 0.0155,
-        tendon: [0.04, 0.3],
+        tendon: [0.04, 0.36],
       },
       {
         name: '中央',
         path: [
           { ref: 'tibia:posterior_prox', off: [0.0, -0.01, -0.008] },
           { bone: 'tibia', rest: [0.092, 0.3, -0.046] },
-          { bone: 'tibia', rest: [0.09, 0.19, -0.044] },
-          { bone: 'tibia', rest: [0.09, 0.115, -0.048] },
-          'foot:calcaneus_post',
+          { bone: 'tibia', rest: [0.09, 0.19, -0.0395] },
+          { bone: 'tibia', rest: [0.09, 0.125, -0.0345] },
+          { ref: 'foot:calcaneus_post', off: [0, 0.004, -0.003] },
         ],
         radius: 0.014,
-        tendon: [0.04, 0.3],
+        tendon: [0.04, 0.36],
       },
       {
         name: '内側（脛骨）',
         path: [
           'tibia:soleal_line',
           { bone: 'tibia', rest: [0.072, 0.32, -0.04] },
-          { bone: 'tibia', rest: [0.084, 0.2, -0.042] },
-          { bone: 'tibia', rest: [0.09, 0.115, -0.048] },
-          'foot:calcaneus_post',
+          { bone: 'tibia', rest: [0.082, 0.2, -0.0385] },
+          { bone: 'tibia', rest: [0.09, 0.125, -0.0345] },
+          { ref: 'foot:calcaneus_post', off: [0, 0.004, -0.003] },
         ],
         radius: 0.0155,
-        tendon: [0.04, 0.3],
+        tendon: [0.04, 0.36],
       },
     ],
     base: 'STAND_STEP',
     restPose: { joints: { knee: { flex: 28 }, hip: { flex: 12 }, lumbar: { flex: 5 } } },
-    actionPose: { joints: { ankle: { dorsi: -28 }, toes: { ext: 28 } } },
-    stretchPose: { joints: { ankle: { dorsi: 30 }, toes: { ext: -30 } } },
+    // bent-knee heel raise / bent-knee heel drop (soleus fibres reach low: the free Achilles part is short, but the
+    // aponeurosis on its back is tendon too → 0.36)
+    actionPose: { joints: { ankle: { dorsi: -34 }, toes: { ext: 34 } } },
+    stretchPose: { joints: { ankle: { dorsi: 35 }, toes: { ext: -35 } } },
     camera: 'isoBack',
     focus: 'calf',
   },
@@ -141,7 +144,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
       },
     ],
     base: 'LONG_SIT',
-    actionPose: { joints: { ankle_R: { dorsi: 25, inv: 12 } } },
+    actionPose: { joints: { ankle_R: { dorsi: 30, inv: 15 } } },
     stretchPose: { joints: { ankle_R: { dorsi: -45, inv: -10 } } },
     camera: { dir: [-0.35, 0.85, 0.4] },
     focus: 'ankle',
@@ -201,8 +204,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     // prone with the knee bent 90° (shank vertical, foot free): the medial side is unobstructed
     base: 'PRONE',
     restPose: { joints: { knee_R: { flex: 90 }, ankle_R: { dorsi: -10 }, toes_R: { ext: 0 } } },
-    actionPose: { joints: { ankle_R: { dorsi: -40, inv: 32 } } },
-    stretchPose: { joints: { ankle_R: { dorsi: 25, inv: -25 } } },
+    actionPose: { joints: { ankle_R: { dorsi: -45, inv: 35 } } },
+    stretchPose: { joints: { ankle_R: { dorsi: 30, inv: -30 } } },
     camera: { dir: [0.75, 0.45, 0.48] },
     focus: 'ankle',
   },
@@ -372,8 +375,9 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     ],
     base: 'PRONE',
     restPose: { joints: { knee_R: { flex: 90 }, ankle_R: { dorsi: -10 }, toes_R: { ext: 0 } } },
-    actionPose: { joints: { toes_R: { ext: -38 } } },
-    stretchPose: { joints: { toes_R: { ext: 50 }, ankle_R: { dorsi: 15 } } },
+    actionPose: { joints: { toes_R: { ext: -40 } } },
+    // windlass position of the plantar-fascia stretch (toes pulled back)
+    stretchPose: { joints: { toes_R: { ext: 70 }, ankle_R: { dorsi: 15 } } },
     camera: { dir: [0.55, 0.75, 0.35] },
     focus: 'ankle',
   },
@@ -439,8 +443,8 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     ],
     base: 'PRONE',
     restPose: { joints: { knee_R: { flex: 90 }, ankle_R: { dorsi: -10 }, toes_R: { ext: 0 } } },
-    actionPose: { joints: { toes_R: { ext: -38 } } },
-    stretchPose: { joints: { toes_R: { ext: 45 }, ankle_R: { dorsi: 15 } } },
+    actionPose: { joints: { toes_R: { ext: -40 } } },
+    stretchPose: { joints: { toes_R: { ext: 70 }, ankle_R: { dorsi: 15 } } },
     camera: { dir: [0.25, 0.9, 0.35] },
     focus: 'ankle',
   },
@@ -452,6 +456,11 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
 // "bone tint first, then a spot": the spot glows (halo) only when the structure is `injured`; as `involved` it
 // renders as a small amber blob that blends into the amber bone tint (so a stress-fracture site shows on the
 // fracture page without distracting on pages where the bone is only overloaded).
+// Cameras: most are exact { position, target } close-ups in world coords of the base pose (STAND: x = −lat, y/z as
+// rest). Auto framing would include every highlighted visual, and several condition pages list a hip muscle
+// (gluteus medius / maximus) next to a small ankle structure, which would shrink the injured part to a few pixels.
+// plantar-fascia / interdigital-nerve use base PRONE (sole up, like a clinical exam); as the first structure on
+// plantar-heel-pain / mortons-neuroma that base applies to the whole condition view.
 export const structures: Partial<Record<StructureId, StructureRig>> = {
   // ── calf / shin ─────────────────────────────────────────────────────────────────────────────────────────
   // tibia: the whole bone (shaft + plateau + medial malleolus). Spot = the typical (low-risk) tibial stress-fracture
@@ -460,10 +469,10 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
     id: 'tibia',
     parts: [
       { type: 'bone', parts: ['tibia', 'tibial_plateau', 'medial_malleolus'] },
-      { type: 'spot', at: { bone: 'tibia', rest: [0.0745, 0.215, -0.0065] }, radius: 0.0075 },
+      { type: 'spot', at: { bone: 'tibia', rest: [0.0745, 0.215, -0.0065] }, radius: 0.009 },
     ],
     labelAt: { bone: 'tibia', rest: [0.074, 0.3, 0.0] },
-    camera: { dir: [0.62, 0.22, -0.6] },
+    camera: { position: [0.616, 0.517, -0.684], target: [-0.08, 0.27, -0.01] },
     focus: 'calf',
   },
   // medial tibial border (periosteum): a thin strip along the posteromedial border of the distal 2/3 of the tibia,
@@ -476,15 +485,15 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
         path: [
           { bone: 'tibia', rest: [0.0727, 0.335, -0.0036] },
           { bone: 'tibia', rest: [0.0721, 0.26, -0.0031] },
-          { bone: 'tibia', rest: [0.0713, 0.19, -0.005] },
-          { bone: 'tibia', rest: [0.0698, 0.125, -0.0073] },
+          { bone: 'tibia', rest: [0.0703, 0.19, -0.0055] },
+          { bone: 'tibia', rest: [0.0688, 0.125, -0.0078] },
         ],
-        radius: 0.0016,
-        flat: { width: 0.011, normal: 'medial' },
+        radius: 0.002,
+        flat: { width: 0.013, normal: 'medial' },
       },
     ],
     labelAt: { bone: 'tibia', rest: [0.0718, 0.23, -0.004] },
-    camera: { dir: [0.62, 0.22, -0.6] },
+    camera: { position: [0.512, 0.465, -0.583], target: [-0.08, 0.255, -0.01] },
     focus: 'calf',
   },
   // fibula: the slender lateral bone, head to lateral malleolus.
@@ -492,7 +501,7 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
     id: 'fibula',
     parts: [{ type: 'bone', parts: ['fibula', 'fibular_head', 'lateral_malleolus'] }],
     labelAt: { bone: 'tibia', rest: [0.129, 0.3, -0.022] },
-    camera: { dir: [-0.85, 0.2, -0.25] },
+    camera: { position: [-1.009, 0.469, -0.281], target: [-0.12, 0.26, -0.02] },
     focus: 'calf',
   },
 
@@ -506,11 +515,12 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
       {
         type: 'tendon',
         path: [
-          { bone: 'tibia', rest: [0.09, 0.25, -0.05] },
-          { bone: 'tibia', rest: [0.09, 0.17, -0.049] },
-          { bone: 'tibia', rest: [0.09, 0.115, -0.051] },
-          { bone: 'foot', rest: [0.09, 0.064, -0.0735] }, // behind the posterosuperior calcaneus (bursa in between)
-          { bone: 'foot', rest: [0.09, 0.031, -0.0755] },
+          // same line as the gastrocnemius / soleus tendons: just inside the (thin) ankle skin, then down to the heel
+          { bone: 'tibia', rest: [0.09, 0.25, -0.0505] },
+          { bone: 'tibia', rest: [0.09, 0.18, -0.041] },
+          { bone: 'tibia', rest: [0.09, 0.13, -0.0365] },
+          { bone: 'foot', rest: [0.09, 0.06, -0.0745] }, // behind the posterosuperior calcaneus (bursa in between)
+          { bone: 'foot', rest: [0.09, 0.031, -0.0765] },
         ],
         radius: 0.0034,
         flat: { width: 0.015, normal: 'posterior' },
@@ -570,7 +580,7 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
         flat: { width: 0.008, normal: 'lateral' },
       },
     ],
-    camera: { position: [-0.371, 0.195, 0.209], target: [-0.112, 0.058, 0.0] },
+    camera: { position: [-0.414, 0.218, 0.244], target: [-0.112, 0.058, 0.0] },
     focus: 'ankle',
   },
   // CFL: round cord from the tip of the lateral malleolus downward and backward to the lateral calcaneus (deep to
@@ -741,14 +751,14 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
     ],
     labelAt: { bone: 'foot', rest: [0.082, 0.014, -0.04] },
     base: 'PRONE',
-    camera: { position: [0.0016, 0.495, -1.1337], target: [-0.088, 0.115, -0.91] },
+    camera: { position: [0.031, 0.62, -1.208], target: [-0.088, 0.115, -0.91] },
     focus: 'foot',
   },
   // heel fat pad: compartmented fat cushion under the calcaneal tuberosity (between the bone and the heel skin).
   'heel-fat-pad': {
     id: 'heel-fat-pad',
     parts: [{ type: 'fatpad', at: 'foot:calcaneus_plantar', radii: [0.016, 0.0062, 0.025], off: [0, 0.001, -0.016] }],
-    camera: { position: [-0.3465, 0.0875, -0.1808], target: [-0.09, 0.012, -0.045] },
+    camera: { position: [-0.398, 0.103, -0.208], target: [-0.09, 0.012, -0.045] },
     focus: 'foot',
   },
   // navicular: keystone of the medial arch, in front of and below the medial malleolus; tuberosity = tib post insertion.
@@ -777,7 +787,7 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
       { type: 'bone', parts: ['calcaneus', 'talus', 'navicular', 'cuneiforms', 'metatarsals'] },
     ],
     labelAt: { bone: 'foot', rest: [0.064, 0.042, 0.046] },
-    camera: { position: [0.161, 0.164, 0.3625], target: [-0.075, 0.035, 0.04] },
+    camera: { position: [0.1563, 0.0931, 0.3799], target: [-0.075, 0.03, 0.035] },
     focus: 'foot',
   },
   // metatarsals: the five long bones. Spot = the classic runner's stress-fracture site (2nd/3rd MT shaft–neck).
@@ -836,7 +846,7 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
     ],
     labelAt: 'foot:interspace_3_4',
     base: 'PRONE',
-    camera: { position: [-0.0732, 0.303, -1.1189], target: [-0.1, 0.07, -0.985] },
+    camera: { position: [-0.068, 0.346, -1.144], target: [-0.1, 0.07, -0.985] },
     focus: 'foot',
   },
 };
