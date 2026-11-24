@@ -172,6 +172,31 @@ const ROLL_EXT: Pose = {
   root: { pos: [0, 0.3, 0.01], rot: [-63.69, 0, 0] },
   joints: { thorax: { flex: -24 }, hip: { flex: 67.25, abd: 4 }, knee: { flex: 96.77 }, ankle: { dorsi: -35.17 } },
 };
+// kneeling bench lat stretch (solved with the knees pinned; elbows on the bench at the same spot in both keys)
+const LAT_START: Pose = {
+  root: { pos: [0, 0.49, 0], rot: [60, 0, 0] },
+  joints: {
+    thorax: { flex: 0 },
+    neck: { flex: 0 },
+    hip: { flex: 60.57 },
+    knee: { flex: 89.39 },
+    shoulder: { flex: 101.62, abd: -8.28, rot: -44.1 },
+    elbow: { flex: 115.01 },
+    forearm: { sup: -118.95 },
+  },
+};
+const LAT_STRETCH: Pose = {
+  root: { pos: [0, 0.44, -0.19], rot: [79.09, 0, 0] },
+  joints: {
+    thorax: { flex: -6.08 },
+    neck: { flex: 0.17 },
+    hip: { flex: 106.76 },
+    knee: { flex: 117.08 },
+    shoulder: { flex: 160.92, abd: -8.53, rot: -47.21 },
+    elbow: { flex: 120.04 },
+    forearm: { sup: -123.97 },
+  },
+};
 // upper trapezius stretch: head tilted to the left; left hand resting on the right side of the head
 const TRAP_TILT = { neck: { lat: -30 }, head: { lat: -12 } };
 const TRAP_HAND_L = {
@@ -800,6 +825,44 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     frame: ['head:vertex', 'forearm:olecranon', 'pelvis:sacrum_post', 'toes:toe_tips', 'femur:lateral_epicondyle'],
     sides: 'both',
     highlights: { 'erector-spinae': 'primary', 'rectus-abdominis': 'secondary', 'pectoralis-major': 'secondary' },
+  },
+  // kneeling bench lat stretch: kneeling in front of a 45 cm bench (chair / bed height), both elbows on it shoulder-
+  // width apart, palms together. The hips move back toward the heels (hip joint 20 cm back, knees 89° → 117°)
+  // and the chest sinks until the trunk is about level (shoulders flexed 102° → 161°, slight upper-back extension
+  // −6°, low back unchanged at +3°, head in line between the arms — no neck extension), while the elbows bend
+  // so the joined hands come to the back of the head. Solved: the elbows stay on the same spot of the bench
+  // (≤ 2 mm), knees, shins and the tops of the feet stay on the mat, the head stays above the bench top.
+  'ex-lat-stretch': {
+    id: 'ex-lat-stretch',
+    duration: 8,
+    base: 'QUADRUPED',
+    pose: {
+      joints: {
+        lumbar: { flex: 3 },
+        toes: { ext: 0 },
+        ankle: { dorsi: -60 },
+        wrist: { flex: 0 },
+        scapula: { protr: 0 },
+      },
+    },
+    keys: [
+      { t: 0, pose: LAT_START, label: 'お尻を後ろへ引き、胸を沈める' },
+      { t: 0.22, pose: LAT_STRETCH, label: '手を頭の後ろへ、30秒キープ' },
+      { t: 0.74, pose: LAT_STRETCH, label: 'ゆっくり戻す' },
+      { t: 0.92, pose: LAT_START },
+    ],
+    loop: 'loop',
+    anchor: { point: 'tibia:tibial_tuberosity', axes: 'xz' },
+    ground: true,
+    props: [
+      { kind: 'mat' },
+      // bench across in front (top 0.45 m); its near edge 3.5 cm behind the elbows' contact point
+      { kind: 'bench', at: [0, 0.45, 0.765], rotY: 90 },
+    ],
+    camera: { dir: [-1, 0.45, 0.35] },
+    frame: ['head:vertex', 'hand:fingertips', 'forearm:olecranon', 'pelvis:coccyx', 'toes:toe_tips', 'thorax:spinous_T7'],
+    sides: 'both',
+    highlights: { 'latissimus-dorsi': 'primary', 'triceps-brachii': 'secondary' },
   },
   // upper trapezius stretch (right side): sitting tall, the right hand grips the right side edge of the seat
   // (straight arm, fingers under the edge; solved: palm 2 cm outside the edge, just below the seat top) with the

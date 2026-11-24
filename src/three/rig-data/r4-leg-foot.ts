@@ -741,15 +741,14 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
     ],
     labelAt: { bone: 'foot', rest: [0.082, 0.014, -0.04] },
     base: 'PRONE',
-    camera: { dir: [0.2, 0.92, -0.3] },
+    camera: { position: [0.0016, 0.495, -1.1337], target: [-0.088, 0.115, -0.91] },
     focus: 'foot',
   },
   // heel fat pad: compartmented fat cushion under the calcaneal tuberosity (between the bone and the heel skin).
   'heel-fat-pad': {
     id: 'heel-fat-pad',
     parts: [{ type: 'fatpad', at: 'foot:calcaneus_plantar', radii: [0.016, 0.0062, 0.025], off: [0, 0.001, -0.016] }],
-    base: 'PRONE',
-    camera: { dir: [-0.35, 0.85, -0.4] },
+    camera: { position: [-0.3465, 0.0875, -0.1808], target: [-0.09, 0.012, -0.045] },
     focus: 'foot',
   },
   // navicular: keystone of the medial arch, in front of and below the medial malleolus; tuberosity = tib post insertion.
@@ -778,7 +777,7 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
       { type: 'bone', parts: ['calcaneus', 'talus', 'navicular', 'cuneiforms', 'metatarsals'] },
     ],
     labelAt: { bone: 'foot', rest: [0.064, 0.042, 0.046] },
-    camera: { dir: [0.55, 0.3, 0.75] },
+    camera: { position: [0.161, 0.164, 0.3625], target: [-0.075, 0.035, 0.04] },
     focus: 'foot',
   },
   // metatarsals: the five long bones. Spot = the classic runner's stress-fracture site (2nd/3rd MT shaft–neck).
@@ -837,7 +836,7 @@ export const structures: Partial<Record<StructureId, StructureRig>> = {
     ],
     labelAt: 'foot:interspace_3_4',
     base: 'PRONE',
-    camera: { dir: [0.1, 0.95, -0.25] },
+    camera: { position: [-0.0732, 0.303, -1.1189], target: [-0.1, 0.07, -0.985] },
     focus: 'foot',
   },
 };
