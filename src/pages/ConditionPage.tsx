@@ -4,6 +4,7 @@ import {
   getCondition,
   type Condition,
   type ConditionId,
+  type InvolvementRole,
   type PhaseId,
   type RegionId,
 } from '../data';
@@ -156,8 +157,12 @@ function ConditionView({ c }: { c: Condition }) {
     return h;
   }, [involved]);
   const highlights3d = useMemo(() => {
+    // the tissue that is 'injured' itself first, then irritated / compressed ones, then the involved context: the
+    // engine takes the first injured part for its camera and framing
+    const rank = (r: InvolvementRole) => (r === 'injured' ? 0 : isPrimaryRole(r) ? 1 : 2);
     const h: Partial<Record<string, Highlight3DRole>> = {};
-    for (const i of involved) h[i.ref] = isPrimaryRole(i.role) ? 'injured' : 'involved';
+    for (const i of [...involved].sort((a, b) => rank(a.role) - rank(b.role)))
+      h[i.ref] = isPrimaryRole(i.role) ? 'injured' : 'involved';
     return h;
   }, [involved]);
   const override = CONDITION_VIEW[c.id];
@@ -168,6 +173,9 @@ function ConditionView({ c }: { c: Condition }) {
   const primary = involved.filter((i) => isPrimaryRole(i.role));
   const secondary = involved.filter((i) => !isPrimaryRole(i.role));
   const primaryRefs = primary.map((i) => i.ref as string);
+  // non-specific pain (low back, neck, cramps): the content's anatomyNote says nothing is damaged, so the red is
+  // 「痛みを感じやすくなっている場所」, never 「傷んでいる」
+  const sensitive = !!c.anatomyNote;
 
   // The selected step lives in the URL (?phase=), so it survives opening an exercise and coming back.
   const [params, setParams] = useSearchParams();
@@ -225,12 +233,21 @@ function ConditionView({ c }: { c: Condition }) {
             style={t.id === 'redflags' ? { color: 'var(--danger)' } : undefined}
             onClick={() => document.getElementById(t.id)?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })}
           >
-            {t.label}
+            {t.id === 'anatomy' && sensitive ? 'どこが痛む？' : t.label}
           </button>
         ))}
       </nav>
 
-      <Section id="anatomy" kicker="Anatomy" title="どこが傷んでいる？" desc="赤く光っているのが痛みの中心になっている組織、オレンジ色で示したのが関係する筋肉・組織です。">
+      <Section
+        id="anatomy"
+        kicker="Anatomy"
+        title={sensitive ? 'どこが痛む？' : 'どこが傷んでいる？'}
+        desc={
+          sensitive
+            ? '赤く示したのが痛みを感じやすくなっている場所、オレンジ色で示したのが関係する筋肉・組織です。'
+            : '赤く光っているのが痛みの中心になっている組織、オレンジ色で示したのが関係する筋肉・組織です。'
+        }
+      >
         <RegionFigure
           region={figRegion}
           highlights={highlights2d}
@@ -244,7 +261,7 @@ function ConditionView({ c }: { c: Condition }) {
         <div className="legend" style={{ marginTop: 10, paddingLeft: 4 }}>
           <span className="legend__item">
             <span className="dot dot--injured dot--ring" />
-            傷んでいる・刺激/圧迫されている
+            {sensitive ? '痛みを感じやすくなっている場所' : '傷んでいる・刺激/圧迫されている'}
           </span>
           <span className="legend__item">
             <span className="dot dot--involved" />
@@ -272,7 +289,8 @@ function ConditionView({ c }: { c: Condition }) {
                     </p>
                     <p className="involve__note">{i.note}</p>
                     {!drawn.has(i.ref) && (
-                      <p className="involve__hint">{isMuscle ? '上の図の範囲外です（筋肉のページ・3Dで確認できます）' : '上の図の範囲外です（3Dで確認できます）'}</p>
+                      // muscles: the muscle page always shows them in 3D (the condition's 3D close-up may crop them)
+                      <p className="involve__hint">{isMuscle ? '上の図の範囲外です（筋肉のページで確認できます）' : '上の図の範囲外です（3Dで確認できます）'}</p>
                     )}
                   </div>
                   {isMuscle && <IconChevron className="chev" />}
@@ -301,7 +319,7 @@ function ConditionView({ c }: { c: Condition }) {
               <span className="legend" style={{ margin: 0 }}>
                 <span className="legend__item">
                   <span className="dot dot--injured" />
-                  傷んでいる
+                  {sensitive ? '痛みやすい場所' : '傷んでいる'}
                 </span>
                 <span className="legend__item">
                   <span className="dot dot--involved" />

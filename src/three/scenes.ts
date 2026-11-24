@@ -229,8 +229,8 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     // top of the foot, like the 2D 足の甲 view
     base: 'STAND',
     camera: { dir: [-0.25, 1, 0.45] },
-    frame: ['foot:calcaneus_post', 'foot:met_head_1', 'foot:met_head_5', 'toes:toe_tips', 'tibia:medial_malleolus', 'tibia:lateral_malleolus'],
-    minSize: 0.26,
+    frame: ['foot:calcaneus_post', 'foot:met_head_1', 'foot:met_head_5', 'toes:toe_tips', 'foot:navicular_tuberosity'],
+    minSize: 0.2,
   },
   'mortons-neuroma': {
     // toe extension squeezes the nerve between the metatarsal heads

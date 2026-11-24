@@ -823,11 +823,13 @@ export const BASE_POSES: Record<BasePoseName, BasePoseDef> = {
   SUPINE: {
     pose: {
       root: { pos: [0, 0.2, 0], rot: [-90, 0, 0] },
-      // solved so the back of the head, the upper back, the sacrum and the heels all rest on the floor
+      // solved so the back of the head, the upper back, the sacrum and the heels all rest on the floor; arms by the sides
+      // with the palms down on the floor (qa3-fix-clips: shoulder extension lowers the hands, which hovered 12 cm up)
       joints: {
-        shoulder: { abd: 10 },
-        elbow: { flex: 5 },
-        forearm: { sup: -40 },
+        shoulder: { flex: -12.45, abd: 9.52 },
+        elbow: { flex: 4.77 },
+        forearm: { sup: -165 },
+        wrist: { flex: -3.27 },
         ankle: { dorsi: -20 },
         hip: { flex: -2, rot: 8 },
         neck: { flex: -8 },
@@ -857,18 +859,22 @@ export const BASE_POSES: Record<BasePoseName, BasePoseDef> = {
   },
   SIDE_LYING: {
     pose: {
-      root: { pos: [0, 0.2, 0], rot: [0, 0, -85] },
+      // solved (qa3-fix-clips) so the bottom shoulder, hip, knee and foot rest on the floor and the head rests on the
+      // pillow with the neck nearly in line (it used to be propped on the bottom thumb with the pelvis 5 cm up and the
+      // head 7 cm up despite a 40° neck side-bend): roll −81.9°, bottom hip adducted 5.6°, the top leg follows (−2.2°)
+      // so the knees stay stacked; bottom forearm on the floor in front of the face
+      root: { pos: [0, 0.2, 0], rot: [0, 0, -81.88] },
       joints: {
         hip: { flex: 40 },
-        // the top leg rests on the bottom one (knees stacked) instead of hovering hip-width above it
-        hip_R: { abd: -8 },
+        hip_L: { abd: -5.62 },
+        hip_R: { abd: -2.2 },
         knee: { flex: 60 },
         ankle: { dorsi: -15 },
-        neck: { lat: -30 },
-        head: { lat: -10 },
+        neck: { lat: -19 },
+        head: { lat: 0 },
         scapula_L: { protr: 12 },
-        shoulder_L: { flex: 90, abd: -5 },
-        elbow_L: { flex: 110 },
+        shoulder_L: { flex: 74.61, abd: -7.91 },
+        elbow_L: { flex: 120.31 },
         forearm_L: { sup: -60 },
         shoulder_R: { flex: 45, abd: -8 },
         elbow_R: { flex: 70 },
@@ -876,20 +882,25 @@ export const BASE_POSES: Record<BasePoseName, BasePoseDef> = {
         wrist_R: { flex: -20 },
       },
     },
+    // head pillow: puffed top 4 mm above the head's lowest point (centre height = 1.35 × the 0.104 edge height)
+    props: [{ kind: 'pillow', at: [0.75, 0.14, 0], size: [0.27, 0.104, 0.3] }],
     camera: 'front',
     ja: '横向き（左側が下・右側が上、頭は +X 方向）',
   },
   QUADRUPED: {
     pose: {
-      root: { pos: [0, 0.5, 0], rot: [76, 0, 0] },
+      // solved (= the k1 clips' QUAD): thighs vertical, hands under / just in front of the shoulders, palms, fingers,
+      // knees, shins and the tops of the feet on the floor, flat back (qa3-fix-clips: the hands hovered 2 cm up)
+      root: { pos: [0, 0.49, 0], rot: [78.42, 0, 0] },
       joints: {
-        hip: { flex: 76 },
-        knee: { flex: 100 },
-        ankle: { dorsi: -55 },
-        shoulder: { flex: 76, rot: 15 },
+        hip: { flex: 78.98 },
+        knee: { flex: 89.73 },
+        ankle: { dorsi: -60 },
+        toes: { ext: 0 },
+        shoulder: { flex: 80.72, abd: -11.92, rot: 15 },
         elbow: { flex: 3 },
         forearm: { sup: -150 },
-        wrist: { flex: -80 },
+        wrist: { flex: -85 },
         neck: { flex: -8 },
       },
     },
@@ -991,7 +1002,10 @@ export const BASE_POSES: Record<BasePoseName, BasePoseDef> = {
     pose: { root: { pos: [0, 1.07, 0] }, joints: { ...relaxedArms } },
     ground: 0.15,
     anchor: { point: 'toes:toes_mid', axes: 'xyz' },
-    props: [{ kind: 'step', at: [0, 0.15, 0.255], size: [0.75, 0.15, 0.32] }],
+    // step edge 0.5 cm behind the MTP axis: the ball of the foot rests on the edge and the foot behind it hangs free, so
+    // a heel drop (dorsiflexion about the toes) no longer sinks the forefoot into the step (qa3-fix-clips: the edge was
+    // 3.5 cm behind the MTP — the calf-stretch demo's foot went 8 mm into it); front face unchanged
+    props: [{ kind: 'step', at: [0, 0.15, 0.27], size: [0.75, 0.15, 0.29] }],
     camera: 'right',
     ja: '段差の縁に前足部で立つ（かかとは段差の外）',
   },

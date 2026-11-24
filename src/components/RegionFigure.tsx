@@ -326,7 +326,10 @@ export function RegionFigure({
           </button>
         </div>
       )}
-      {caption && <p className="figure__caption">{caption}</p>}
+      {/* a caption about the tappable spots only makes sense on a view that has some */}
+      {caption && (!showSpots || ((diagram.spots?.[shown] ?? []) as string[]).length > 0) && (
+        <p className="figure__caption">{caption}</p>
+      )}
       {footer}
     </div>
   );

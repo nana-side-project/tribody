@@ -85,8 +85,9 @@ interface PogoPose {
   y: number;
   z: number;
 }
-const POGO: Record<'STAND' | 'TD' | 'MS' | 'PUSH' | 'TO' | 'FLY', PogoPose> = {
+const POGO: Record<'STAND' | 'PRE' | 'TD' | 'MS' | 'PUSH' | 'TO' | 'FLY', PogoPose> = {
   STAND: { p: 1.5, h: 3, k: 6, ankle: 4.5, toes: 0, y: 0.9182, z: 0.0109 }, // feet flat, knees soft
+  PRE: { p: 4.35, h: 5, k: 10.5, ankle: 4.85, toes: 5, y: 0.9246, z: 0.0618 }, // STAND → MS halfway, contact re-solved
   TD: { p: 5.8, h: 3, k: 7, ankle: -10.2, toes: 20, y: 0.955, z: 0.1124 }, // touchdown on the forefoot (foot 20°)
   MS: { p: 7.2, h: 7, k: 15, ankle: 5.2, toes: 10, y: 0.9268, z: 0.1127 }, // deepest point (foot 10°, heel 3.4 cm up)
   PUSH: { p: 6.35, h: 4.5, k: 9.5, ankle: -8.65, toes: 20, y: 0.9531, z: 0.1161 }, // MS→TO halfway, contact re-solved
@@ -114,31 +115,39 @@ const mixPogo = (a: PogoPose, b: PogoPose, u: number): PogoPose => ({
   y: a.y + (b.y - a.y) * u,
   z: a.z + (b.z - a.z) * u,
 });
-/** Stand 0.4 s → onto the forefoot → 8 hops (contact 0.17 s, flight 0.25 s, ~6 cm clearance) → land, stand. */
+/**
+ * Stand 0.4 s → onto the forefoot → 8 hops (contact 0.17 s, flight 0.25 s, ~6 cm clearance) → land, stand.
+ * qa3-fix-clips: the three airborne keys of every flight and the push-off key are `pass` keys, so a hop is one
+ * ballistic arc (it used to stop three times in the air, 40–60 ms apart); the velocity stops left are take-off and
+ * touchdown (the joints reverse there) and the deepest point of each contact.
+ */
 function pogoKeys(): { keys: ClipKey[]; duration: number } {
   const FLIGHT = 0.25;
   const RISE = (9.81 * FLIGHT * FLIGHT) / 8; // apex rise of a 0.25 s ballistic flight (≈ 7.7 cm → ~6 cm clearance)
   const HOPS = 8;
-  const raw: { s: number; a: PogoPose; label?: string }[] = [];
+  const raw: { s: number; a: PogoPose; label?: string; pass?: boolean }[] = [];
   let s = 0;
   raw.push({ s, a: POGO.STAND, label: '足を腰幅に、膝を軽くゆるめて立つ' }, { s: (s += 0.4), a: POGO.STAND });
-  raw.push({ s: (s += 0.25), a: POGO.MS, label: '足首のバネで小さく連続ジャンプ' });
-  raw.push({ s: (s += 0.0425), a: POGO.PUSH }, { s: (s += 0.0425), a: POGO.TO });
+  raw.push({ s: (s += 0.125), a: POGO.PRE, pass: true }, { s: (s += 0.125), a: POGO.MS, label: '足首のバネで小さく連続ジャンプ' });
+  raw.push({ s: (s += 0.0425), a: POGO.PUSH, pass: true }, { s: (s += 0.0425), a: POGO.TO });
   for (let i = 0; i < HOPS; i++) {
     const t0 = s;
     for (const f of [0.25, 0.5, 0.75]) {
       const pose = f <= 0.5 ? mixPogo(POGO.TO, POGO.FLY, f * 2) : mixPogo(POGO.FLY, POGO.TD, (f - 0.5) * 2);
       const base = mixPogo(POGO.TO, POGO.TD, f);
-      raw.push({ s: t0 + f * FLIGHT, a: { ...pose, y: base.y + 4 * RISE * f * (1 - f), z: base.z } });
+      raw.push({ s: t0 + f * FLIGHT, a: { ...pose, y: base.y + 4 * RISE * f * (1 - f), z: base.z }, pass: true });
     }
     s = t0 + FLIGHT;
     raw.push(i === 3 ? { s, a: POGO.TD, label: '母趾球で着地し、すぐ跳び返る' } : { s, a: POGO.TD });
     raw.push({ s: (s += 0.085), a: POGO.MS });
-    if (i < HOPS - 1) raw.push({ s: (s += 0.0425), a: POGO.PUSH }, { s: (s += 0.0425), a: POGO.TO });
+    if (i < HOPS - 1) raw.push({ s: (s += 0.0425), a: POGO.PUSH, pass: true }, { s: (s += 0.0425), a: POGO.TO });
   }
-  raw.push({ s: (s += 0.25), a: POGO.STAND, label: '着地して休む' });
+  raw.push({ s: (s += 0.125), a: POGO.PRE, pass: true }, { s: (s += 0.125), a: POGO.STAND, label: '着地して休む' });
   const duration = s + 0.45;
-  return { duration, keys: raw.map((r) => (r.label ? { t: r.s / duration, pose: pogoPose(r.a), label: r.label } : { t: r.s / duration, pose: pogoPose(r.a) })) };
+  return {
+    duration,
+    keys: raw.map((r) => ({ t: r.s / duration, pose: pogoPose(r.a), ...(r.label ? { label: r.label } : {}), ...(r.pass ? { pass: true } : {}) })),
+  };
 }
 const POGO_CLIP = pogoKeys();
 
@@ -474,7 +483,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     loop: 'loop',
     anchor: { point: 'tibia:medial_malleolus', axes: 'xz' },
     ground: true,
-    props: [{ kind: 'wall', at: [0, 0, -0.123], normal: [0, 0, 1] }],
+    // the wall plane touches the back (lower thoracic skin 0 mm, buttocks 2 mm off — it used to cut 5 / 3 mm into them)
+    props: [{ kind: 'wall', at: [0, 0, -0.128], normal: [0, 0, 1] }],
     camera: { dir: [-1, 0.18, 0.16] },
     frame: ['thorax:spinous_T4', 'pelvis:sacrum_post', 'toes:toe_tips', 'foot:calcaneus_post'],
     sides: 'both',

@@ -49,7 +49,7 @@ const SQUAT_DOWN_75 = {
 const WALL_START = { hip: { flex: 26.1, abd: 4.9, rot: 12.5 }, knee: { flex: 9 }, ankle: { dorsi: -17.6, inv: -1.2 } };
 const WALL_HOLD = { joints: { hip: { flex: 67.8, abd: 11.8, rot: 6.6 }, knee: { flex: 80 }, ankle: { dorsi: 11.6, inv: -1.7 } } };
 // Mid-slide key (knees 48°) solved with the same constraints: without it the interpolated hips bulge ~2 cm into
-// the wall. It is a `pass` key (eng-motion), so the slide no longer stops halfway; the thorax and sacrum stay
+// the wall. It is a `pass` key (eng-motion), so the slide no longer stops halfway; the back and buttocks stay
 // 0–5 mm off the wall plane throughout (never into it).
 const WALL_MID = { joints: { hip: { flex: 47.1, abd: 8.9, rot: 10 }, knee: { flex: 48 }, ankle: { dorsi: 0.2, inv: -1.3 } } };
 
@@ -57,13 +57,22 @@ const WALL_MID = { joints: { hip: { flex: 47.1, abd: 8.9, rot: 10 }, knee: { fle
 // toes out 6°, both soles flat on the board (foot up-vector = board normal). Start: standing tall, knees 3°.
 // Bottom: knees 60°, trunk only 13.6° forward ("上体をまっすぐ"), centre of mass over the mid-foot, knees over
 // the 2nd toes; on the decline the ankle stays near neutral (−1°) so the load goes to the knee extensors.
+// qa3-fix-clips: the weight goes onto the right (painful) leg as the text says (痛む側の脚に体重を乗せ、反対の脚は軽く
+// 添える): the pelvis moves 6 cm over the right foot (right hip adduction 5° with equal eversion, sole flat) and the
+// left leg was re-solved so its foot stays flat on its spot (forefoot ≤ 2 mm) — the two legs no longer move as one.
+// (A straighter left knee is not possible with both feet on the board and a level pelvis: on the decline the left
+// heel would have to sink into the board.)
 const DECLINE_START = { hip: { flex: -1.3, abd: 1.9, rot: 8.8 }, knee: { flex: 3 }, ankle: { dorsi: -20.7, inv: -1.8 } };
 const DECLINE_BOTTOM = {
   root: { rot: [13.6, 0, 0] as [number, number, number] },
   joints: {
-    hip: { flex: 49.7, abd: 6.2, rot: 7.1 },
-    knee: { flex: 60 },
-    ankle: { dorsi: -1.2, inv: -3.3 },
+    hip_R: { flex: 49.7, abd: 1.2, rot: 7.1 },
+    knee_R: { flex: 60 },
+    ankle_R: { dorsi: -1.2, inv: -8.3 },
+    hip_L: { flex: 50.1, abd: 8.79, rot: 2.06 },
+    knee_L: { flex: 59.26 },
+    ankle_L: { dorsi: -4.09, inv: 2.86 },
+    toes_L: { ext: 0.44 },
     shoulder: { flex: 88.6, abd: -6 },
     elbow: { flex: 10 },
     forearm: { sup: -90 },
@@ -343,9 +352,12 @@ const HS_TOWEL: Prop[] = [
 // foot lifted behind (knee 80°), both palms flat on the wall at the step's front (z 0.54; they slide up 7 cm as the
 // body rises). Solved numerically: foot −8° (heel just below the step top, toes extended 42° over the towel) → +30°
 // at the top (heel 9 cm higher, MTP extension 78°: the windlass tightens the plantar fascia); the body leans
-// 6.9° → 3.1° so the centre of mass stays over the ball of the foot. The forefoot pivots about foot:met_2_3_shaft
-// (anchor), which keeps the ball of the foot on the step within −1…+4 mm through the raise while the toes stay on
-// the towel (≤ 2 mm into the soft roll). ground: false — root.pos at t = 0 puts the ball of the foot on the step top.
+// 6.9° → 3.1° so the centre of mass stays over the ball of the foot. The foot pivots about the ball of the foot
+// (anchor foot:met_head_3, next to the MTP axis that the drawn ball-of-the-foot volume is centred on; qa3-fix-clips —
+// the old pivot foot:met_2_3_shaft, 2.4 cm behind it, pushed the ball of the foot 15 mm into the step once the forefoot
+// sole was drawn), so the ball of the foot stays on the step (0…+1.7 mm) while the toes rest on the towel (MTP
+// extension 37° → 76°: 0.5–0.6 mm off the soft roll). ground: false — root.pos at t = 0 puts the ball of the foot on
+// the step top.
 const TR_LEGS = (lean: number, ankle: number, toes: number) => ({
   hip_R: { flex: 1, abd: -6 },
   knee_R: { flex: 2 },
@@ -368,12 +380,14 @@ const TR_WALL = (r: number[], l: number[]) => ({
 const trPose = (legs: ReturnType<typeof TR_LEGS>, arms: ReturnType<typeof TR_WALL>) => {
   const { lean, ...joints } = legs;
   return {
-    root: { pos: [0, 1.0422, 0] as [number, number, number], rot: [lean, 0, 0] as [number, number, number] },
+    root: { pos: [0, 1.0461, 0] as [number, number, number], rot: [lean, 0, 0] as [number, number, number] },
     joints: { ...joints, ...arms },
   };
 };
-const TR_BOTTOM = trPose(TR_LEGS(6.86, 13.95, 42), TR_WALL([53.5, -9.4, 66.1, -62], [53.5, -9.4, 66.1, -62]));
-const TR_TOP = trPose(TR_LEGS(3.06, -28.24, 77.8), TR_WALL([56.4, -9, 50.9, -70.2], [56.4, -7, 50.8, -69.7]));
+const TR_BOTTOM = trPose(TR_LEGS(6.86, 13.95, 36.58), TR_WALL([54.52, -9.14, 63.64, -67.03], [54.52, -9.14, 63.64, -67.03]));
+const TR_TOP = trPose(TR_LEGS(3.06, -28.24, 75.77), TR_WALL([54.81, -9.28, 54.16, -72.19], [54.68, -7.23, 54.36, -71.2]));
+// halfway (`pass` key on the way up and down): legs as the blend, arms solved so the palms stay on the wall
+const TR_MID = trPose(TR_LEGS(4.96, -7.145, 56.175), TR_WALL([55.73, -8.98, 56.57, -70.72], [55.68, -7.98, 56.64, -70.29]));
 
 // Plantar fascia-specific stretch (DiGiovanni), seated on a chair, right (painful) foot crossed over the left knee:
 // the right lateral malleolus rests on top of the left knee (solved numerically; pelvis tilted back 8°, so the right
@@ -446,9 +460,10 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     loop: 'loop',
     anchor: { point: 'foot:dorsum_mid', axes: 'xz' },
     ground: true,
-    // the wall touches the back of the thorax (the thoracic skin is 1 mm behind the T6 spinous process at t = 0;
-    // closest approach over the whole slide 0.1 mm)
-    props: [{ kind: 'wall', at: { at: 'thorax:spinous_T6', off: [0, 0, -0.0037] }, normal: [0, 0, 1], height: 1.85 }],
+    // the wall touches the back of the thorax: the lower thoracic skin is the most posterior point (since the drawn
+    // back / buttocks of qa3-fix-body it is 10 mm behind the T6 spinous process; the wall used to cut 10 mm into the
+    // back and 8 mm into the buttocks). Back 0.1–3.4 mm and buttocks 2–5 mm off the wall over the whole slide.
+    props: [{ kind: 'wall', at: { at: 'thorax:spinous_T6', off: [0, 0, -0.0134] }, normal: [0, 0, 1], height: 1.85 }],
     camera: { dir: [-1, 0.2, 0.3] },
     sides: 'both',
     highlights: {
@@ -459,7 +474,7 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     },
   },
   // Decline squat: 3 s down on the right (painful) leg, both legs push back up (~1 s). The right foot is pinned on
-  // the board; the board is placed under the solved soles (ground 0.048 at t = 0, the feet centred on the board).
+  // the board; the board is placed under the solved soles (ground 0.0432 at t = 0, the feet centred on the board).
   'ex-decline-squat': {
     id: 'ex-decline-squat',
     duration: 5.5,
@@ -472,7 +487,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     ],
     loop: 'loop',
     anchor: { point: 'foot:dorsum_mid', axes: 'xyz' },
-    ground: 0.048,
+    // soles on the board (0.2–0.3 mm; qa3-fix-clips: 0.048 left them 4.6 mm above it once the forefoot sole was drawn)
+    ground: 0.0432,
     props: [{ kind: 'slant', at: { at: 'foot:dorsum_mid', off: [0.1234, -0.1502, -0.0245] }, angle: 25, size: [0.4, 0.42], rotY: 180 }],
     camera: { dir: [-1, 0.16, 0.28] },
     sides: 'R',
@@ -613,17 +629,17 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     base: 'STAND',
     keys: [
       { t: 0, pose: QS_START, label: '右足首を持ち、かかとをお尻へ' },
-      { t: 0.018, pose: QS_HEEL_HALF },
-      { t: 0.036, pose: QS_HEEL_OFF },
-      { t: 0.075, pose: QS_LIFT },
+      { t: 0.018, pose: QS_HEEL_HALF, pass: true },
+      { t: 0.036, pose: QS_HEEL_OFF, pass: true },
+      { t: 0.075, pose: QS_LIFT, pass: true },
       { t: 0.13, pose: QS_REACH },
       { t: 0.17, pose: QS_GRAB, label: '膝をそろえ、お尻を締める' },
       { t: 0.27, pose: QS_HOLD, label: '太もも前が伸びたら30秒キープ' },
       { t: 0.72, pose: QS_HOLD, label: 'ゆっくり戻す' },
       { t: 0.76, pose: QS_REACH },
-      { t: 0.83, pose: QS_LIFT },
-      { t: 0.885, pose: QS_HEEL_OFF },
-      { t: 0.912, pose: QS_HEEL_HALF },
+      { t: 0.83, pose: QS_LIFT, pass: true },
+      { t: 0.885, pose: QS_HEEL_OFF, pass: true },
+      { t: 0.912, pose: QS_HEEL_HALF, pass: true },
       { t: 0.94, pose: QS_START },
     ],
     loop: 'loop',
@@ -672,12 +688,14 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     base: 'STAND',
     keys: [
       { t: 0, pose: TR_BOTTOM, label: '3秒かけてかかとを上げる' },
+      { t: 0.1665, pose: TR_MID, pass: true },
       { t: 0.333, pose: TR_TOP, label: '一番上で2秒止める' },
       { t: 0.556, pose: TR_TOP, label: '3秒かけてかかとを下ろす' },
+      { t: 0.7225, pose: TR_MID, pass: true },
       { t: 0.889, pose: TR_BOTTOM, label: '指はタオルで反らしたまま' },
     ],
     loop: 'loop',
-    anchor: { point: 'foot:met_2_3_shaft', axes: 'xyz' },
+    anchor: { point: 'foot:met_head_3', axes: 'xyz' },
     ground: false,
     props: [
       // step: top at 0.15, back edge 4.5 cm behind the 1st MT head (the heel hangs free), front face at the wall

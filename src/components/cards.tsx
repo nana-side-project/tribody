@@ -15,6 +15,7 @@ import {
 import { conditionName, doseShort, exerciseName, guideTitle, muscleName } from '../lib/labels';
 import { DisciplineBadges, LevelBadge, LikelihoodBadge, TypeBadge, Wip } from './badges';
 import { IconBalance, IconBolt, IconBook, IconChevron, IconDumbbell, IconPulse, IconStretch } from './icons';
+import { prefetchViewer } from './Viewer3D';
 
 export function ConditionCard({
   id,
@@ -54,7 +55,7 @@ export function ConditionCard({
 export function MuscleCard({ id }: { id: MuscleId }) {
   const m = getMuscle(id);
   return (
-    <Link to={`/muscle/${id}`} className="card">
+    <Link to={`/muscle/${id}`} className="card" onPointerDown={prefetchViewer}>
       <div className="card__row">
         <span className="ex-card__icon ex-card__icon--strength" aria-hidden="true">
           <MuscleGlyph />
@@ -114,7 +115,7 @@ export function TypeIcon({ type }: { type: ExerciseType }) {
 export function ExerciseCard({ id, extra, search = '' }: { id: ExerciseId; extra?: ReactNode; /** e.g. '?from=<condition>&phase=build' */ search?: string }) {
   const e = getExercise(id);
   return (
-    <Link to={`/exercise/${id}${search}`} className="card">
+    <Link to={`/exercise/${id}${search}`} className="card" onPointerDown={prefetchViewer}>
       <div className="card__row">
         <span className={`ex-card__icon${e ? ` ex-card__icon--${e.type}` : ''}`} aria-hidden="true">
           {e ? <TypeIcon type={e.type} /> : <IconDumbbell />}

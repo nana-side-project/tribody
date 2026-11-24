@@ -186,15 +186,17 @@ const ROLL_EXT: Pose = {
   root: { pos: [0, 0.3, 0.01], rot: [-63.69, 0, 0] },
   joints: { thorax: { flex: -24 }, hip: { flex: 67.25, abd: 4 }, knee: { flex: 96.77 }, ankle: { dorsi: -35.17 } },
 };
-// kneeling bench lat stretch (solved with the knees pinned; elbows on the bench at the same spot in both keys)
+// kneeling bench lat stretch (solved with the knees pinned; elbows on the bench at the same spot in both keys;
+// qa3-fix-clips: knee flexion +0.3…0.9° so the drawn knees rest on the mat together with the toes, shoulder flexion so the backs
+// of the upper arms rest on the bench top (0.5 mm) in every key — they had sunk 5 mm into it / hovered 15 mm above)
 const LAT_START: Pose = {
   root: { pos: [0, 0.49, 0], rot: [60, 0, 0] },
   joints: {
     thorax: { flex: 0 },
     neck: { flex: 0 },
     hip: { flex: 60.57 },
-    knee: { flex: 89.39 },
-    shoulder: { flex: 105.61, abd: -8.3, rot: -44.11 },
+    knee: { flex: 90.26 },
+    shoulder: { flex: 104.18, abd: -8.3, rot: -44.11 },
     elbow: { flex: 115.01 },
     forearm: { sup: -118.98 },
   },
@@ -206,8 +208,8 @@ const LAT_MID: Pose = {
     thorax: { flex: -9.97 },
     neck: { flex: 0 },
     hip: { flex: 110.31 },
-    knee: { flex: 115.6 },
-    shoulder: { flex: 162.25, abd: -7.54, rot: -36.21 },
+    knee: { flex: 115.87 },
+    shoulder: { flex: 163.65, abd: -7.54, rot: -36.21 },
     elbow: { flex: 55 },
     forearm: { sup: -76.63 },
   },
@@ -218,8 +220,8 @@ const LAT_STRETCH: Pose = {
     thorax: { flex: -9.97 },
     neck: { flex: 0 },
     hip: { flex: 110.31 },
-    knee: { flex: 115.6 },
-    shoulder: { flex: 162.16, abd: -8.49, rot: -47.06 },
+    knee: { flex: 115.87 },
+    shoulder: { flex: 160.3, abd: -8.49, rot: -47.06 },
     elbow: { flex: 119.79 },
     forearm: { sup: -123.72 },
   },
@@ -233,10 +235,14 @@ const TRAP_HAND_L = {
   wrist_L: { flex: 28.3 },
 };
 
-// wall slide pass keys (see the clip): 25 / 50 / 75 % of the way from the pressed start to the top
-const WS_25: Pose = { root: { rot: [-1.06, 0, 0] }, joints: { scapula: { protr: 12 }, shoulder: { flex: 103.75, abd: 6, rot: 7.51 }, elbow: { flex: 71.01 }, ankle: { dorsi: -1.06 } } };
-const WS_50: Pose = { root: { rot: [0.01, 0, 0] }, joints: { scapula: { protr: 12 }, shoulder: { flex: 117.5, abd: 9, rot: 15.41 }, elbow: { flex: 57.74 }, ankle: { dorsi: 0.01 } } };
-const WS_75: Pose = { root: { rot: [1.6, 0, 0] }, joints: { scapula: { protr: 12 }, shoulder: { flex: 131.25, abd: 12, rot: 23.27 }, elbow: { flex: 46.5 }, ankle: { dorsi: 1.6 } } };
+// wall slide pass keys (see the clip): 25 / 50 / 75 % of the way from the pressed start to the top (qa3-fix-clips:
+// scapula as the blend protr 5 → 0 / elev −2 → −6; elbow, lean and ER re-solved for the wall contact)
+const WS_25: Pose = { root: { rot: [-0.13, 0, 0] }, joints: { scapula: { protr: 3.75, elev: -3 }, shoulder: { flex: 103.75, abd: 6, rot: 7.67 }, elbow: { flex: 72.45 }, ankle: { dorsi: -0.13 } } };
+const WS_50: Pose = { root: { rot: [1.06, 0, 0] }, joints: { scapula: { protr: 2.5, elev: -4 }, shoulder: { flex: 117.5, abd: 9, rot: 15.4 }, elbow: { flex: 59.32 }, ankle: { dorsi: 1.06 } } };
+const WS_75: Pose = { root: { rot: [2.76, 0, 0] }, joints: { scapula: { protr: 1.25, elev: -5 }, shoulder: { flex: 131.25, abd: 12, rot: 23.08 }, elbow: { flex: 48.1 }, ankle: { dorsi: 2.76 } } };
+// pressed start (shoulder blades forward a little, not shrugged) and top of the slide (blades set down)
+const WS_PUSH: Pose = { root: { rot: [-0.64, 0, 0] }, joints: { ankle: { dorsi: -0.64 }, scapula: { protr: 5, elev: -2 }, shoulder: { flex: 90, abd: 3, rot: 0.2 }, elbow: { flex: 87.02 } } };
+const WS_TOP: Pose = { root: { rot: [4.86, 0, 0] }, joints: { ankle: { dorsi: 4.86 }, scapula: { protr: 0, elev: -6 }, shoulder: { flex: 145, abd: 15, rot: 30.11 }, elbow: { flex: 38.58 } } };
 
 // band row pass keys (see the clip): the palms move on the straight line between the arms-forward and the pulled
 // positions (shoulder flex / abd and elbow solved, scapulae as the blend) — the plain blend dipped the hands ~6 cm
@@ -277,8 +283,9 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       // edge of a door frame: its inner face is at x −0.285, level with the back of the hand
       { kind: 'box', at: [-0.325, 2.0, 0.33], size: [0.08, 2.0, 0.13] },
       // rolled towel squeezed between the upper arm just above the elbow and the trunk (lies front-to-back, follows the
-      // trunk; eng-verify-motion: solved so it presses 1.5–2 mm into both — it used to touch only the trunk, 11 mm from the arm)
-      { kind: 'towel', at: { bone: 'lumbar', rest: [0.1625, 1.135, -0.012] }, axis: 'z', radius: 0.034, length: 0.17 },
+      // trunk; solved so it presses ~1–1.5 mm into both; qa3-fix-clips: radius 34 → 32 mm for the 3 mm wider drawn waist,
+      // which it had cut 3.5 mm into)
+      { kind: 'towel', at: { bone: 'lumbar', rest: [0.1625, 1.135, -0.012] }, axis: 'z', radius: 0.032, length: 0.17 },
     ],
     // from behind-right: the posterior cuff, the 90° elbow at the side and the hand on the jamb
     camera: { dir: [-0.7, 0.55, -0.6] },
@@ -294,15 +301,15 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     duration: 6,
     base: 'SIDE_LYING',
     pose: {
-      // solved so the bottom shoulder, hip (greater trochanter), knee and foot all rest on the mat (the base roll of
-      // −85° left the hip ~3 cm in the air): roll −82.1°, bottom hip adducted 5.4°, the top leg follows (−2.4°) so
-      // the knees stay together (medial epicondyles 3.7 cm apart, as in the base)
-      root: { pos: [0, 0.2, 0], rot: [0, 0, -82.08] },
+      // solved so the bottom shoulder, hip (greater trochanter), knee and foot all rest on the mat: roll −82.0°,
+      // bottom hip adducted 5.5°, the top leg follows (−2.3°) so the knees stay together (qa3-fix-clips: re-solved with
+      // the base pose's head cushion)
+      root: { pos: [0, 0.2, 0], rot: [0, 0, -81.97] },
       joints: {
-        hip_L: { abd: -5.4 },
-        hip_R: { abd: -2.41 },
-        // head on a pillow, neck neutral (the base tilts the head down toward the floor)
-        neck: { lat: -6 },
+        hip_L: { abd: -5.47 },
+        hip_R: { abd: -2.34 },
+        // head on the base pose's cushion, neck nearly neutral
+        neck: { lat: -4.81 },
         head: { lat: 0 },
         shoulder_R: { flex: 0, abd: 3 },
         elbow_R: { flex: 90 },
@@ -317,14 +324,13 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     ],
     loop: 'loop',
     props: [
+      // (the head cushion comes with the SIDE_LYING base pose)
       { kind: 'mat', rotY: 90 },
-      // pillow under the side of the head (lowest point y 0.183): puffed top 4 mm above it so the head sinks in a little
-      // (centre height = 1.35 × the 0.1385 edge height, flat bottom on the floor), clear of the bottom shoulder and hand
-      { kind: 'pillow', at: [0.75, 0.187, 0], size: [0.27, 0.1385, 0.34] },
       { kind: 'dumbbell', hand: 'R', size: 0.7 },
-      // rolled towel between the elbow and the waist (lies front-to-back along the trunk; eng-verify-motion: solved so it
-      // touches the trunk and the upper arm all through the rotation — the forearm used to sink 5 mm into it)
-      { kind: 'towel', at: { bone: 'lumbar', rest: [0.1525, 1.14, -0.02] }, axis: 'z', radius: 0.022, length: 0.17 },
+      // rolled towel between the elbow and the waist (lies front-to-back along the trunk; solved so it touches the trunk
+      // (1.8 mm) and the upper arm (0–3 mm) all through the rotation; qa3-fix-clips: re-solved for the wider drawn waist,
+      // which it had cut 2.7 mm into)
+      { kind: 'towel', at: { bone: 'lumbar', rest: [0.155, 1.135, -0.02] }, axis: 'z', radius: 0.026, length: 0.17 },
     ],
     camera: { dir: [-0.4, 0.45, 1] },
     frame: ['hand:palm', 'humerus:head', 'forearm:olecranon', 'pelvis:iliac_crest_mid', 'thorax:sternum_body', 'head:vertex'],
@@ -394,13 +400,18 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     highlights: { trapezius: 'primary', rhomboids: 'primary', infraspinatus: 'secondary', supraspinatus: 'secondary', 'teres-minor': 'secondary', deltoid: 'secondary' },
   },
   // wall slide: facing the wall, elbows at shoulder height and shoulder width, the little-finger side of the
-  // forearms and hands on the wall. Solved so the forearm (elbow end) and the hand edge stay on the wall plane
-  // (z 0.358): start elbows 87°; pressing (scapulae protracted +12) leans the body back 1.5°; at the top
-  // (flex 145 / abd 15 = a V, ER 30 so the ulnar border still faces the wall, elbows 37°) the body leans 3.5°
-  // toward the wall over the planted heels (lean = root pitch + equal ankle dorsiflexion, feet flat).
-  // Between the press and the top, three `pass` keys (25 / 50 / 75 %: shoulder flex/abd as the straight blend;
-  // elbow, lean and ER solved) keep the forearm and the hand edge on the wall plane all the way (eng-motion: the
-  // plain blend pushed the forearm 2 cm into the wall mid-slide), and the slide stays one smooth movement.
+  // forearms and hands on the wall. Solved so the forearm (elbow end) and the ulnar edge of the hand stay on the wall
+  // plane (z 0.3595, gap ≤ 0.5 mm, never inside): start elbows 88°; pressing (scapulae protracted +5, not shrugged)
+  // leans the body back 0.6°; at the top (flex 145 / abd 15 = a V, ER 30 so the ulnar border still faces the wall,
+  // elbows 39°) the body leans 4.9° toward the wall over the planted heels (lean = root pitch + equal ankle
+  // dorsiflexion, feet flat). The scapula setting follows the cues (qa3-fix-clips): a small forward push, then the
+  // blades are set DOWN (elev −6) while the arm rotates them upward by itself (autoScapula adds upRot 25 / protr 7.6
+  // at 145°), so the trapezius (a primary here) stays at its resting length or shortens (mean 1.00 → 1.07 push →
+  // 1.02 top) instead of being stretched like in a stretch (it used to reach 1.20 with protr 12 on every key) while the
+  // serratus anterior shortens (0.79 → 0.65).
+  // Between the press and the top, three `pass` keys (25 / 50 / 75 %: shoulder flex/abd and scapula as the straight
+  // blend; elbow, lean and ER solved) keep the forearm and the hand edge on the wall plane all the way, and the slide
+  // stays one smooth movement.
   'ex-wall-slide': {
     id: 'ex-wall-slide',
     duration: 8,
@@ -409,35 +420,23 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     keys: [
       {
         t: 0,
-        pose: { joints: { shoulder: { flex: 90, abd: 3, rot: 0 }, elbow: { flex: 87.2 } } },
+        pose: { root: { rot: [-0.04, 0, 0] }, joints: { ankle: { dorsi: -0.04 }, shoulder: { flex: 90, abd: 3, rot: 0.05 }, elbow: { flex: 87.64 } } },
         label: '前腕で壁を軽く押し、肩甲骨を前へ',
       },
-      {
-        t: 0.1,
-        pose: { root: { rot: [-1.46, 0, 0] }, joints: { ankle: { dorsi: -1.46 }, scapula: { protr: 12 }, shoulder: { flex: 90, abd: 3, rot: 0 }, elbow: { flex: 85.7 } } },
-        label: '押したまま斜め上へ滑らせる（3秒）',
-      },
+      { t: 0.1, pose: WS_PUSH, label: '押したまま斜め上へ滑らせる（3秒）' },
       { t: 0.19375, pose: WS_25, pass: true },
       { t: 0.2875, pose: WS_50, pass: true },
       { t: 0.38125, pose: WS_75, pass: true },
-      {
-        t: 0.475,
-        pose: { root: { rot: [3.55, 0, 0] }, joints: { ankle: { dorsi: 3.55 }, scapula: { protr: 12 }, shoulder: { flex: 145, abd: 15, rot: 30.5 }, elbow: { flex: 36.8 } } },
-        hold: 0.4,
-        label: '肩甲骨を下げながらゆっくり戻す（3秒）',
-      },
+      { t: 0.475, pose: WS_TOP, hold: 0.4, label: '肩甲骨を下げながらゆっくり戻す（3秒）' },
       { t: 0.61875, pose: WS_75, pass: true },
       { t: 0.7125, pose: WS_50, pass: true },
       { t: 0.80625, pose: WS_25, pass: true },
-      {
-        t: 0.9,
-        pose: { root: { rot: [-1.46, 0, 0] }, joints: { ankle: { dorsi: -1.46 }, scapula: { protr: 12 }, shoulder: { flex: 90, abd: 3, rot: 0 }, elbow: { flex: 85.7 } } },
-      },
+      { t: 0.9, pose: WS_PUSH },
     ],
     loop: 'loop',
     anchor: { point: 'foot:calcaneus_plantar', axes: 'xz' },
     ground: true,
-    // the wall plane touches the forearms (closest approach over the whole slide 0.1 mm)
+    // the wall plane touches the forearms and the ulnar edge of the hands (0–0.5 mm over the whole slide)
     props: [{ kind: 'wall', at: [0, 0, 0.3595], normal: [0, 0, -1], width: 1.4, height: 2.2 }],
     // from behind-right: the shoulder blades rotating upward and the forearms tracing a V on the wall
     camera: { dir: [-0.5, 0.35, -0.8] },
@@ -447,20 +446,22 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
   },
   // push-up plus, incline version on a knee-height box (台, 0.45 m: the text starts on the wall or a box before
   // progressing to the knees / floor). Straight body from head to heels on the toes, elbows locked, hands
-  // flat on the box (wrists 85° extended) just in front of the shoulders. Toes are pinned; for each scapula
-  // setting the body pitch & shoulder flexion were solved so the palms stay exactly on the box:
-  // (pitch / flex / abd) neutral 48.9° / 55.0 / 8, retracted (protr −15, chest sinks 3 cm) 50.9 / 55.9 / 10.3,
-  // plus (protr +25, upper back rounded 4°: T4 rises 8 cm) 44.7 / 56.8 / 6.7. Toe extension follows the pitch.
+  // flat on the box (palm and fingers on it, wrists ~70° extended) just in front of the shoulders. Toes are pinned;
+  // for each scapula setting the body pitch, shoulder flexion / abduction and wrist were solved so both hands lie flat
+  // at the same spot of the box (qa3-fix-clips, after the shoulder-girdle change moved the glenoid: the palms had sunk
+  // 4.7 mm into the box when retracting and the fingers hovered 14 mm above it):
+  // (pitch / flex / abd / wrist) neutral 49.0° / 62.9 / 2.1 / −69.7, retracted (protr −15, chest sinks) 50.5 / 63.8 /
+  // 3.8 / −70.0, plus (protr +25, upper back rounded 4°) 44.9 / 64.5 / 0.7 / −69.4, plus a `pass` key halfway through
+  // each push (solved the same way: the plain blend lifted the hands 7 mm). Toe extension follows the pitch.
   'ex-push-up-plus': {
     id: 'ex-push-up-plus',
     duration: 7,
     base: 'STAND',
     pose: {
       joints: {
-        shoulder: { abd: 8, rot: 0 },
+        shoulder: { rot: 0 },
         elbow: { flex: 0 },
         forearm: { sup: -160 },
-        wrist: { flex: -85 },
         ankle: { dorsi: 0 },
         neck: { flex: 0 },
       },
@@ -468,27 +469,29 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     keys: [
       {
         t: 0,
-        pose: { root: { rot: [48.91, 0, 0] }, joints: { shoulder: { flex: 55.02 }, toes: { ext: 46.9 } } },
+        pose: { root: { rot: [48.96, 0, 0] }, joints: { shoulder: { flex: 62.88, abd: 2.06 }, wrist: { flex: -69.74 }, toes: { ext: 46.96 } } },
         label: '肘を伸ばしたまま肩甲骨を寄せる',
       },
+      { t: 0.065, pose: { root: { rot: [49.85, 0, 0] }, joints: { shoulder: { flex: 63.46, abd: 2.98 }, wrist: { flex: -69.91 }, scapula: { protr: -7.5 }, toes: { ext: 47.85 } } }, pass: true },
       {
         t: 0.13,
-        pose: { root: { rot: [50.92, 0, 0] }, joints: { shoulder: { flex: 55.91, abd: 10.27 }, scapula: { protr: -15 }, toes: { ext: 48.9 } } },
+        pose: { root: { rot: [50.47, 0, 0] }, joints: { shoulder: { flex: 63.84, abd: 3.79 }, wrist: { flex: -70.02 }, scapula: { protr: -15 }, toes: { ext: 48.47 } } },
         hold: 0.2,
         label: '台を押して肩甲骨を前へ押し出す',
       },
+      { t: 0.244, pose: { root: { rot: [47.92, 0, 0] }, joints: { shoulder: { flex: 64.28, abd: 1.54 }, wrist: { flex: -69.75 }, scapula: { protr: 5 }, thorax: { flex: 2 }, toes: { ext: 45.92 } } }, pass: true },
       {
         t: 0.33,
-        pose: { root: { rot: [44.71, 0, 0] }, joints: { shoulder: { flex: 56.76, abd: 6.66 }, scapula: { protr: 25 }, thorax: { flex: 4 }, toes: { ext: 42.7 } } },
+        pose: { root: { rot: [44.92, 0, 0] }, joints: { shoulder: { flex: 64.45, abd: 0.71 }, wrist: { flex: -69.38 }, scapula: { protr: 25 }, thorax: { flex: 4 }, toes: { ext: 42.92 } } },
         hold: 1.9,
         label: '背中の上を丸めて2秒キープ',
       },
       {
         t: 0.62,
-        pose: { root: { rot: [44.71, 0, 0] }, joints: { shoulder: { flex: 56.76, abd: 6.66 }, scapula: { protr: 25 }, thorax: { flex: 4 }, toes: { ext: 42.7 } } },
+        pose: { root: { rot: [44.92, 0, 0] }, joints: { shoulder: { flex: 64.45, abd: 0.71 }, wrist: { flex: -69.38 }, scapula: { protr: 25 }, thorax: { flex: 4 }, toes: { ext: 42.92 } } },
         label: 'ゆっくり戻す',
       },
-      { t: 0.88, pose: { root: { rot: [48.91, 0, 0] }, joints: { shoulder: { flex: 55.02 }, toes: { ext: 46.9 } } } },
+      { t: 0.88, pose: { root: { rot: [48.96, 0, 0] }, joints: { shoulder: { flex: 62.88, abd: 2.06 }, wrist: { flex: -69.74 }, toes: { ext: 46.96 } } } },
     ],
     loop: 'loop',
     anchor: { point: 'toes:toes_mid', axes: 'xyz' },
@@ -577,9 +580,10 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       // post on the figure's left; band at navel height, horizontal to the hand
       { kind: 'box', at: [0.42, 1.25, 0.24], size: [0.05, 1.25, 0.05] },
       { kind: 'band', from: [0.395, 1.1, 0.24], to: 'hand:palm' },
-      // rolled towel between the elbow and the trunk (lies front-to-back, follows the trunk; eng-verify-motion: solved so it
-      // touches the trunk and the upper arm all through the rotation — it was 1 cm off the arm, the forearm 4 mm into it)
-      { kind: 'towel', at: { bone: 'lumbar', rest: [0.16, 1.145, -0.012] }, axis: 'z', radius: 0.028, length: 0.17 },
+      // rolled towel between the elbow and the trunk (lies front-to-back, follows the trunk; solved so it touches the
+      // trunk (1.5 mm) and the upper arm (1–2.7 mm) all through the rotation, the forearm clear; qa3-fix-clips: re-solved
+      // for the wider drawn waist, which it had cut 3.5 mm into)
+      { kind: 'towel', at: { bone: 'lumbar', rest: [0.1625, 1.135, -0.012] }, axis: 'z', radius: 0.032, length: 0.14 },
     ],
     // from above-front: the forearm swinging out like a door while the elbow stays at the side
     camera: { dir: [-0.2, 1.1, 0.6] },
@@ -692,6 +696,7 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       root: { pos: [0, 0.2, 0], rot: [-2.96, 0, -81.98] },
       joints: {
         hip: { flex: 90 },
+        hip_L: { abd: 0 },
         hip_R: { abd: -8 },
         knee: { flex: 90 },
         ankle: { dorsi: -10 },
@@ -711,11 +716,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     ],
     loop: 'loop',
     ground: true,
-    props: [
-      { kind: 'mat', rotY: 90 },
-      // cushion under the head (top 0.14 m = 1.35 × the 0.104 edge height)
-      { kind: 'pillow', at: [0.75, 0.14, 0], size: [0.27, 0.104, 0.3] },
-    ],
+    // the cushion under the head (top 0.14 m = 1.35 × the 0.104 edge height) comes with the SIDE_LYING base pose
+    props: [{ kind: 'mat', rotY: 90 }],
     // from above the feet end: the arm traces its arc (forward → ceiling → toward the floor behind) and the two arms
     // visibly separate like the covers of a book, the stacked knees still in view (steeper than before so the
     // figure is larger in the card)

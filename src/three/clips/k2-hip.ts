@@ -8,23 +8,25 @@ const HOOK = { hip: { flex: 45, abd: 4 }, knee: { flex: 104 }, ankle: { dorsi: -
 // bridge top: trunk 20° off the floor; feet & shoulders stay on the floor
 const TOP = { root: { rot: [-110, 0, 0] as [number, number, number] }, joints: { hip: { flex: 5 }, knee: { flex: 90 }, ankle: { dorsi: -25 }, neck: { flex: 20 } } };
 
-// clamshell "open": the top leg rotates 35° about the hip–heel axis (heels stay together, knee rises ~17 cm).
-// Solved numerically: equivalent to hip flex 42.8 / abd 18.3 / external rotation 23.2 from the start
-// (flex 48, knee 88, and SIDE_LYING's top-leg adduction of −8° so the knees rest on each other).
-const OPEN = { joints: { hip_R: { flex: 42.8, abd: 18.3, rot: 23.2 } } };
+// clamshell "open": the top leg rotates 35° about the hip–heel axis (heels stay together, knee rises ~19 cm).
+// Solved numerically: equivalent to hip flex 42.5 / abd 25.0 / external rotation 23.9 from the start
+// (flex 48, knee 88, top-leg adduction −1.3° so the knees rest on each other; qa3-fix-clips: re-solved for the
+// re-grounded side-lying pose, see the clip).
+const OPEN = { joints: { hip_R: { flex: 42.51, abd: 25.02, rot: 23.87 } } };
 
 // ── K2a: bridges (solved numerically with FK + grounding, see the clip comments) ──────────────────────
 // Hook-lying for bridges: heels ~2 fists from the buttocks (heel → ischial tuberosity 0.30 m), feet hip-width
 // and flat (heel and metatarsal heads on the floor), pelvis on the floor.
 const BR_HOOK = { hip: { flex: 51.5, abd: 4 }, knee: { flex: 120.3 }, ankle: { dorsi: -21.6 } };
-// Arms by the sides, palms down on the floor (shoulder extension keeps the hands on the mat).
-const BR_ARMS = { shoulder: { flex: -13, abd: 12 }, elbow: { flex: 8 }, forearm: { sup: -165 } };
+// Arms by the sides, palms down on the floor (shoulder extension keeps the hands on the mat; qa3-fix-clips: re-solved,
+// the palms were 12–15 mm above the floor).
+const BR_ARMS = { shoulder: { flex: -12.65, abd: 9.64 }, elbow: { flex: 4.95 }, forearm: { sup: -165 }, wrist: { flex: -3.27 } };
 // Bridge top: trunk 22° off the floor, hips 3° short of a straight shoulder–hip–knee line (no lumbar extension),
 // shins ~11° from vertical. Solved so the heels stay put (anchor), the soles stay flat, the head and upper back
 // stay on the floor and the shoulders slide < 1.2 cm; shoulder flex −34 keeps the palms on the floor.
 const BR_TOP_ROOT = { rot: [-112, 0, 0] as [number, number, number] };
 const BR_TOP_LEG = { hip: { flex: 3, abd: 4 }, knee: { flex: 104.4 }, ankle: { dorsi: -10.5 } };
-const BR_TOP_UPPER = { neck: { flex: 20.7 }, shoulder: { flex: -34, abd: 12 } };
+const BR_TOP_UPPER = { neck: { flex: 20.7 }, shoulder: { flex: -34.57, abd: 8.73 } };
 
 // ── K2a: loop band / belt around both thighs just above the knees ───────────────────────────────────────
 // Drawn as a front strap + a back strap (tangent to both thighs) + 4 short pieces wrapping each thigh's lateral
@@ -266,7 +268,8 @@ const CP_COMMON = {
   forearm_L: { sup: -175 },
   wrist_L: { flex: 0 },
   knee_R: { flex: 90 },
-  ankle_R: { dorsi: 0 },
+  // top foot relaxed (slightly pointed): with the ankle at 0 the drawn toes cut 2.6 mm into the bench at the top
+  ankle_R: { dorsi: -8 },
   knee_L: { flex: 0 },
   ankle_L: { dorsi: -10 },
 };
@@ -501,7 +504,7 @@ const HB_HOLD = {
     hip: { flex: 8.9, abd: 3, rot: 0 },
     knee: { flex: 40 },
     ankle: { dorsi: 6 },
-    shoulder: { flex: -17.8, abd: 12 },
+    shoulder: { flex: -17.82, abd: 8.73 },
     neck: { flex: -2.2 },
   },
 };
@@ -572,18 +575,23 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     },
   },
   // Clamshell (sample, refined by K2a): SIDE_LYING (left side down), hips 48° / knees 88°, feet together; the head
-  // rests on a cushion (neck in line with the spine), the top hand is on the iliac crest (solved: palm on the crest,
-  // elbow pointing up) to keep the pelvis vertical. The top (right) knee opens ~1 s, holds 1.5 s, closes ~2.5 s.
+  // rests on the base pose's cushion (neck in line with the spine), the top hand is on the iliac crest (solved: palm on
+  // the crest, elbow pointing up) to keep the pelvis vertical. The top (right) knee opens ~1 s, holds 1.5 s, closes
+  // ~2.5 s. qa3-fix-clips: roll / bottom hip / neck re-solved so the bottom shoulder and hip rest on the mat (the figure
+  // used to be propped on the bottom hand with the pelvis 5 cm up) and the head on the cushion.
   'ex-clamshell': {
     id: 'ex-clamshell',
     duration: 5.5,
     base: 'SIDE_LYING',
     pose: {
+      root: { pos: [0, 0.2, 0], rot: [0, 0, -81.75] },
       joints: {
         hip: { flex: 48 },
+        hip_L: { abd: -6.56 },
+        hip_R: { abd: -1.29 },
         knee: { flex: 88 },
         ankle: { dorsi: -10 },
-        neck: { lat: -15 },
+        neck: { lat: -12.23 },
         head: { lat: -5 },
         shoulder_R: { flex: -24.8, abd: 47.3, rot: -72.7 },
         elbow_R: { flex: 112.7 },
@@ -598,12 +606,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       { t: 0.9 },
     ],
     loop: 'loop',
-    props: [
-      { kind: 'mat', rotY: 90 },
-      // head cushion: the head's lowest point with the neck in line is at 0.1358 m; the puffed top sits 4 mm above it so
-      // the head sinks in a little (centre height = 1.35 × edge height, flat bottom on the floor)
-      { kind: 'pillow', at: [0.75, 0.1398, -0.01], size: [0.26, 0.1036, 0.26] },
-    ],
+    // (the head cushion comes with the SIDE_LYING base pose)
+    props: [{ kind: 'mat', rotY: 90 }],
     // from the front (the side the knees point to), a little above: the top knee visibly lifts off the bottom one
     camera: { dir: [-0.22, 0.6, 1] },
     focus: 'hip',
@@ -613,20 +617,23 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
   },
   // Side-lying hip abduction: bottom (left) leg slightly bent for stability, top (right) leg straight, a little
   // behind the body (hip ext 10°) with the toes forward / slightly down (IR 10°). The leg rises 35° (from just above
-  // the floor, abd −7°, to abd 28°) in 2 s, holds 1 s, lowers over 3 s and turns round before touching the floor.
-  // The top hand rests on the floor in front of the chest; head on a cushion (neck in line).
+  // the floor, abd −2.6°, to abd 32.4°) in 2 s, holds 1 s, lowers over 3 s and turns round before touching the floor.
+  // The top hand rests on the floor in front of the chest; head on the base pose's cushion (neck in line).
+  // qa3-fix-clips: roll / bottom hip / neck re-solved so the bottom hip rests on the mat (it was 6 cm up, the body
+  // propped on a hand) with the shoulder on the mat surface, and the top leg starts 1.5 cm above the bottom one.
   'ex-sidelying-abduction': {
     id: 'ex-sidelying-abduction',
     duration: 6.2,
     base: 'SIDE_LYING',
     pose: {
+      root: { pos: [0, 0.2, 0], rot: [0, 0, -81.17] },
       joints: {
-        hip_L: { flex: 35, abd: 0 },
+        hip_L: { flex: 27.2, abd: -6.33 },
         knee_L: { flex: 50 },
-        hip_R: { flex: -10, abd: -7, rot: -10 },
+        hip_R: { flex: -10, abd: -2.62, rot: -10 },
         knee_R: { flex: 0 },
         ankle_R: { dorsi: 0 },
-        neck: { lat: -15 },
+        neck: { lat: -11.77 },
         head: { lat: -5 },
         // top hand on the floor in front of the chest (shoulder 75° keeps the upper arm off the ribs)
         shoulder_R: { flex: 75, abd: -52 },
@@ -637,17 +644,13 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     },
     keys: [
       { t: 0, label: 'かかとから脚を上げる（2秒）' },
-      { t: 0.32, pose: { joints: { hip_R: { flex: -10, abd: 28, rot: -10 } } }, hold: 1, label: '1秒キープ' },
-      { t: 0.48, pose: { joints: { hip_R: { flex: -10, abd: 28, rot: -10 } } }, label: 'ゆっくり下ろす（3秒）' },
+      { t: 0.32, pose: { joints: { hip_R: { flex: -10, abd: 32.38, rot: -10 } } }, hold: 1, label: '1秒キープ' },
+      { t: 0.48, pose: { joints: { hip_R: { flex: -10, abd: 32.38, rot: -10 } } }, label: 'ゆっくり下ろす（3秒）' },
       { t: 0.97 },
     ],
     loop: 'loop',
-    props: [
-      { kind: 'mat', rotY: 90 },
-      // head cushion: the head's lowest point is at 0.1413 m; the puffed top sits 4 mm above it so the head sinks in a
-      // little (centre height = 1.35 × edge height, flat bottom on the floor)
-      { kind: 'pillow', at: [0.75, 0.1453, -0.01], size: [0.26, 0.1076, 0.26] },
-    ],
+    // (the head cushion comes with the SIDE_LYING base pose)
+    props: [{ kind: 'mat', rotY: 90 }],
     camera: { dir: [-0.12, 0.42, 1] },
     focus: 'hip',
     frame: ['foot:calcaneus_post', 'toes:toe_tips', 'foot_L:calcaneus_post', 'scapula:acromion', 'hand:palm'],

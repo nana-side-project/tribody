@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   CONDITIONS,
   PAIN_SPOTS,
+  getMuscle,
   getRegion,
   getStructure,
   type ConditionId,
+  type MuscleId,
   type PainSpotId,
   type RegionId,
 } from '../data';
 import { Wip } from '../components/badges';
 import { ConditionCard, MuscleCard } from '../components/cards';
-import { DISCIPLINE_ICON, IconClose, IconTarget } from '../components/icons';
+import { DISCIPLINE_ICON, IconChevron, IconClose, IconTarget } from '../components/icons';
 import { Page } from '../components/Layout';
 import { RegionFigure } from '../components/RegionFigure';
 import { EmptyState, Section } from '../components/ui';
@@ -21,6 +23,7 @@ import {
   DISCIPLINE_ORDER,
   STRUCTURE_KIND_JA,
   isKnownRegion,
+  muscleName,
   regionName,
   spotConditions,
   spotLabel,
@@ -30,6 +33,10 @@ import { useRememberedView } from '../lib/useRememberedView';
 import NotFoundPage from './NotFoundPage';
 
 const STRUCTURES_PREVIEW = 4;
+
+/** Key muscles listed for a region whose belly lies outside that region's 3D crop although their data names the
+ *  region (大腿筋膜張筋 reaches the knee only through the iliotibial band): selecting one frames its first region. */
+const BELLY_ELSEWHERE: Partial<Record<RegionId, MuscleId[]>> = { knee: ['tensor-fasciae-latae'] };
 
 export default function RegionPage() {
   const { id = '' } = useParams();
@@ -77,6 +84,19 @@ function RegionView({ id }: { id: RegionId }) {
 
   const toggleSpot = (s: PainSpotId) => setSpot(spot === s ? null : s);
 
+  // 3D: the key muscles in muscle colour (not amber — amber means 「関係」 on condition pages); tapping a name below
+  // the viewer emphasises that one (the engine labels at most ~10 parts, so the chip row is the full list)
+  const keyMuscles = region?.keyMuscles ?? [];
+  const [selMuscle, setSelMuscle] = useState<MuscleId | null>(null);
+  const highlights3d = useMemo(
+    () => Object.fromEntries(keyMuscles.map((m) => [m, m === selMuscle ? ('selected' as const) : ('secondary' as const)])),
+    [keyMuscles, selMuscle],
+  );
+  // a key muscle that lives in another region (中殿筋 on the knee page) is out of this region's 3D crop: frame its own
+  const selHome = selMuscle ? getMuscle(selMuscle)?.regions : undefined;
+  const elsewhere = !!selMuscle && (!selHome?.includes(id) || !!BELLY_ELSEWHERE[id]?.includes(selMuscle));
+  const focus3d: RegionId = elsewhere && selHome?.length ? selHome[0] : id;
+
   return (
     <Page title={name} back="/">
       <header className="page-head">
@@ -115,9 +135,46 @@ function RegionView({ id }: { id: RegionId }) {
 
       <div style={{ marginTop: 16 }}>
         <Viewer3DToggle
-          focus={id}
-          highlights={Object.fromEntries((region?.keyMuscles ?? []).map((m) => [m, 'involved' as const]))}
+          focus={focus3d}
+          highlights={highlights3d}
           sub="主な筋肉を3Dで確認（タップで読み込み）"
+          footer={
+            keyMuscles.length > 0 && (
+              <div className="viewer-frame__muscles">
+                <p className="viewer-frame__hint" id="region-3d-muscles">
+                  主な筋肉（名前をタップすると強調します）
+                </p>
+                <div className="chips chips--scroll" role="group" aria-labelledby="region-3d-muscles">
+                  {keyMuscles.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      className={`chip chip--muscle${m === selMuscle ? ' is-active' : ''}`}
+                      aria-pressed={m === selMuscle}
+                      onClick={() => setSelMuscle(m === selMuscle ? null : m)}
+                    >
+                      {muscleName(m)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          }
+          legend={
+            selMuscle ? (
+              <Link to={`/muscle/${selMuscle}`} className="viewer-frame__link">
+                {muscleName(selMuscle)}のページへ
+                <IconChevron />
+              </Link>
+            ) : (
+              <span className="legend" style={{ margin: 0 }}>
+                <span className="legend__item">
+                  <span className="dot dot--muscle" />
+                  主な筋肉
+                </span>
+              </span>
+            )
+          }
         />
       </div>
 

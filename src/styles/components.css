@@ -1105,6 +1105,9 @@ button.row:active {
   --c: color-mix(in srgb, var(--muscle) 55%, var(--involved));
   box-shadow: 0 0 0 2px var(--involved);
 }
+.dot--muscle {
+  --c: var(--muscle);
+}
 
 /* 3D */
 .viewer-cta {
@@ -1165,6 +1168,35 @@ button.row:active {
   font-size: 12px;
   color: var(--text-2);
   min-height: 48px;
+}
+/* region page: the key muscles under the viewer (tap = emphasise in 3D) */
+.viewer-frame__muscles {
+  border-top: 1px solid var(--border);
+  padding: 8px 0 4px;
+}
+.viewer-frame__hint {
+  margin: 0;
+  padding: 0 14px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.viewer-frame__muscles .chips--scroll {
+  margin: 0;
+  padding: 6px 14px 8px;
+  scroll-padding: 0 14px;
+}
+.viewer-frame__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-ink);
+}
+.viewer-frame__link svg {
+  width: 16px;
+  height: 16px;
 }
 .viewer-hero {
   margin: 0 calc(-1 * var(--gutter));
