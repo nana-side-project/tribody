@@ -568,7 +568,6 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         path: [
           { ref: 'thorax:spinous_T9', off: [0.005, -0.004, -0.003] },
           { bone: 'thorax', rest: [0.045, 1.31, -0.121] },
-          { bone: 'thorax', rest: [0.068, 1.36, -0.117] },
           { ref: 'scapula:spine_medial', off: [0.004, 0.0, -0.005] },
         ],
         radius: 0.003,
@@ -606,7 +605,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '小菱形筋（C7〜T1）',
         path: [
           { ref: 'thorax:spinous_T1', off: [0.005, 0.004, -0.003] },
-          { bone: 'thorax', rest: [0.04, 1.425, -0.089] },
+          { bone: 'thorax', rest: [0.022, 1.433, -0.089] },
           { bone: 'scapula', rest: [0.079, 1.39, -0.098] },
         ],
         radius: 0.003,
@@ -617,8 +616,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '大菱形筋（T2〜T3）',
         path: [
           { ref: 'thorax:spinous_T2', off: [0.005, -0.004, -0.002] },
-          { bone: 'thorax', rest: [0.04, 1.39, -0.101] },
-          { mix: [{ bone: 'thorax', rest: [0.066, 1.36, -0.111] }, { bone: 'scapula', rest: [0.066, 1.36, -0.111] }], t: 0.5 },
+          { bone: 'thorax', rest: [0.022, 1.398, -0.101] },
           { bone: 'scapula', rest: [0.083, 1.345, -0.1] },
         ],
         radius: 0.0032,
@@ -629,8 +627,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '大菱形筋（T3〜T4）',
         path: [
           { ref: 'thorax:spinous_T4', off: [0.005, -0.005, 0.0] },
-          { bone: 'thorax', rest: [0.045, 1.335, -0.115] },
-          { mix: [{ bone: 'thorax', rest: [0.066, 1.307, -0.119] }, { bone: 'scapula', rest: [0.066, 1.307, -0.119] }], t: 0.5 },
+          { bone: 'thorax', rest: [0.025, 1.343, -0.115] },
           { bone: 'scapula', rest: [0.085, 1.29, -0.104] },
         ],
         radius: 0.0032,
@@ -641,8 +638,7 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
         name: '大菱形筋（T4〜T5）',
         path: [
           { ref: 'thorax:spinous_T5', off: [0.005, -0.006, 0.0] },
-          { bone: 'thorax', rest: [0.045, 1.29, -0.118] },
-          { mix: [{ bone: 'thorax', rest: [0.066, 1.262, -0.12] }, { bone: 'scapula', rest: [0.066, 1.262, -0.12] }], t: 0.5 },
+          { bone: 'thorax', rest: [0.025, 1.298, -0.118] },
           { ref: 'scapula:inferior_angle', off: [-0.002, 0.004, -0.004] },
         ],
         radius: 0.003,

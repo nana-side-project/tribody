@@ -823,7 +823,9 @@ export const muscles: Partial<Record<MuscleId, MuscleRig>> = {
     strands: [
       {
         path: [
-          { ref: 'pelvis:ischial_tuberosity', off: [0.008, 0.006, -0.004] },
+          // femur leaf (t = 1 → the tuberosity) so the flat band faces back along the thigh in every hip angle (a pelvis
+          // frame turns parallel to the thigh at ~90° hip flexion and twists the band, e.g. in bridges / leg raises)
+          { mix: [{ bone: 'femur', rest: [0.07, 0.83, -0.035] }, { ref: 'pelvis:ischial_tuberosity', off: [0.008, 0.006, -0.004] }], t: 1 },
           { bone: 'femur', rest: [0.072, 0.64, -0.034] },
           { bone: 'femur', rest: [0.07, 0.56, -0.032] },
           { bone: 'femur', rest: [0.0705, 0.51, -0.0385] },
