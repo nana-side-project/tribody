@@ -79,6 +79,11 @@ interface Item extends LabelSpec {
   /** pre-pass statistics */
   bad: number;
   seen: number;
+  /** pre-pass positions → home (medoid): a soft prior that keeps the layout consistent over the clip */
+  hist: number[];
+  hx: number;
+  hy: number;
+  hasHome: boolean;
   /** per-frame flags */
   inVis: boolean;
   committed: boolean;
@@ -94,7 +99,9 @@ const DIST = [10, 22, 38, 58, 84, 118, 160];
 const VSTEP = [0, -1, 1, -2, 2, -3, 3, -4, 4, -6, 6, -8, 8];
 const ABOVE = [10, 22, 38, 58, 84];
 /** cost of moving a label to a different spot (hysteresis) */
-const SWITCH = 110;
+const SWITCH = 130;
+/** pull toward the label's typical spot over the clip (from the pre-pass) */
+const HOME_W = 0.3;
 // mirrors viewer.css (.tb3d-bar: left/right/bottom 8, 48 px tall; .tb3d-float 44 px at right/bottom 8;
 // .tb3d-phase / .tb3d-legend at top 10, ~26 px tall)
 const BAR_H = 48;
@@ -493,6 +500,10 @@ export class LabelLayer {
           lead: 0,
           bad: 0,
           seen: 0,
+          hist: [],
+          hx: 0,
+          hy: 0,
+          hasHome: false,
           inVis: false,
           committed: false,
         };
@@ -672,6 +683,7 @@ export class LabelLayer {
       const d = Math.min(Math.hypot(x - it.tx, y - it.ty), Math.hypot(x - it.sx - it.ox, y - it.sy - it.oy));
       c += 0.35 * d + (d > 6 ? SWITCH : 0);
     }
+    if (it.hasHome) c += HOME_W * Math.hypot(x - it.hx, y - it.hy);
     return c;
   }
 
@@ -777,6 +789,8 @@ export class LabelLayer {
       it.bad = 0;
       it.seen = 0;
       it.collapsed = false;
+      it.hist.length = 0;
+      it.hasHome = false;
     }
     if (this.needMeasure) this.measure();
   }
@@ -798,6 +812,7 @@ export class LabelLayer {
       // skipped by solve() (no good spot this frame), or only reachable with a very long leader → bad
       if (!it.committed || !it.ok || it.lead > Math.max(190, 0.6 * W)) it.bad++;
     }
+    for (const it of this.vis) if (it.committed) it.hist.push(it.tx, it.ty);
     for (const it of this.items) it.placed = false;
   }
 
@@ -805,6 +820,19 @@ export class LabelLayer {
   planEnd() {
     let n = 0;
     for (const it of this.items) {
+      // medoid of the planned positions
+      const h = it.hist;
+      let best = Infinity;
+      for (let i = 0; i < h.length; i += 2) {
+        let sum = 0;
+        for (let j = 0; j < h.length; j += 2) sum += Math.hypot(h[i] - h[j], h[i + 1] - h[j + 1]);
+        if (sum < best) {
+          best = sum;
+          it.hx = h[i];
+          it.hy = h[i + 1];
+          it.hasHome = true;
+        }
+      }
       it.collapsed = it.tier === 1 && it.seen > 0 && it.bad / it.seen > 0.15;
       if (it.collapsed) n++;
       it.placed = false;

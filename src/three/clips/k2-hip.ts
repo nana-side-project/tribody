@@ -857,6 +857,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       semimembranosus: 'primary',
       gastrocnemius: 'secondary',
     },
+    // the structure being glided: shown on top of the exercise's muscles ('involved' = amber, non-injured)
+    extraHighlights: { 'sciatic-nerve': 'involved' },
   },
   // Banded standing knee drive: standing on the left leg (knee soft, pelvis level, left hand on the wall), loop band
   // around both forefeet → drive the right knee above hip height (~1 s) → 3–5 s hold (trunk upright) → lower over 3 s
