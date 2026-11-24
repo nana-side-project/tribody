@@ -1,16 +1,18 @@
-import { useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useDeferredValue, useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { REGIONS, muscles, type RegionId } from '../data';
 import { MuscleCard } from '../components/cards';
 import { IconMuscle, IconSearch } from '../components/icons';
 import { Page } from '../components/Layout';
 import { EmptyState, SearchInput } from '../components/ui';
-import { regionName } from '../lib/labels';
+import { muscleName, regionName } from '../lib/labels';
 import { matches } from '../lib/search';
+import { useUrlSearchText } from '../lib/useUrlSearchText';
 
 export default function MusclesPage() {
   const [params, setParams] = useSearchParams();
-  const q = params.get('q') ?? '';
+  const search = useUrlSearchText('q');
+  const q = useDeferredValue(search.text);
   const r = params.get('region');
   const region = REGIONS.some((x) => x.id === r) ? (r as RegionId) : null;
 
@@ -35,13 +37,15 @@ export default function MusclesPage() {
     [q, region],
   );
 
-  // Group by primary region (first listed) unless filtered to one region.
+  // Group by primary region (first listed) unless filtered to one region. Muscles that also belong to a
+  // region (listed second) are shown there as compact links, so the group total matches the chip count.
   const groups = useMemo(() => {
-    if (region) return [{ region, list: filtered }];
+    if (region) return [{ region, list: filtered, also: [] as typeof filtered }];
     return REGIONS.map((reg) => ({
       region: reg.id as RegionId,
       list: filtered.filter((m) => m.regions[0] === reg.id),
-    })).filter((g) => g.list.length);
+      also: filtered.filter((m) => m.regions[0] !== reg.id && m.regions.includes(reg.id as RegionId)),
+    })).filter((g) => g.list.length || g.also.length);
   }, [filtered, region]);
 
   const counts = useMemo(() => {
@@ -59,9 +63,15 @@ export default function MusclesPage() {
       </header>
 
       <div style={{ marginTop: 16 }}>
-        <SearchInput value={q} onChange={(v) => update('q', v || null)} placeholder="筋肉名・ひらがな・英語名" label="筋肉を検索" />
+        <SearchInput
+          value={search.text}
+          onChange={search.setText}
+          inputProps={search.inputProps}
+          placeholder="筋肉名・ひらがな・英語名"
+          label="筋肉を検索"
+        />
       </div>
-      <div className="chips chips--scroll" style={{ marginTop: 10 }} aria-label="部位で絞り込む">
+      <div className="chips chips--scroll" style={{ marginTop: 10 }} aria-label="部位で絞り込む" role="group">
         <button type="button" className={`chip${!region ? ' is-active' : ''}`} aria-pressed={!region} onClick={() => update('region', null)}>
           すべて
         </button>
@@ -93,13 +103,28 @@ export default function MusclesPage() {
             <section key={g.region} className="section--tight" style={{ marginTop: 22 }}>
               <div className="section__head-row" style={{ marginBottom: 10 }}>
                 <h2 style={{ fontSize: 16 }}>{regionName(g.region)}</h2>
-                <span className="tiny">{g.list.length}</span>
+                <span className="tiny">{g.list.length + g.also.length}</span>
               </div>
               <div className="stack stack--sm">
                 {g.list.map((m) => (
                   <MuscleCard key={m.id} id={m.id} />
                 ))}
               </div>
+              {g.also.length > 0 && (
+                <div className="also">
+                  <p className="tiny" style={{ fontWeight: 700 }}>
+                    {g.list.length ? 'ほかの部位にも載っている筋肉' : 'ほかの部位に載っている筋肉'}
+                  </p>
+                  <div className="chips" style={{ marginTop: 6 }}>
+                    {g.also.map((m) => (
+                      <Link key={m.id} to={`/muscle/${m.id}`} className="chip">
+                        {muscleName(m.id)}
+                        <span className="chip__count">{regionName(m.regions[0])}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </section>
           ))
         )}

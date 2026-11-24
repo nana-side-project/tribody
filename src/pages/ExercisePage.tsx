@@ -1,13 +1,13 @@
-import { Link, useParams } from 'react-router-dom';
-import { conditionsUsingExercise, getExercise, getMuscle, type Exercise } from '../data';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { conditionsUsingExercise, getCondition, getExercise, getMuscle, type Condition, type Exercise } from '../data';
 import { LevelBadge, TypeBadge } from '../components/badges';
 import { ConditionCard } from '../components/cards';
-import { DISCIPLINE_ICON, IconAlert, IconCheck, IconChevron, IconPlus } from '../components/icons';
+import { DISCIPLINE_ICON, IconAlert, IconCheck, IconChevron, IconPlus, IconTarget } from '../components/icons';
 import { Page } from '../components/Layout';
 import { Bullets, EmptyState, PainRuleCallout, Section } from '../components/ui';
 import { SafeViewer } from '../components/Viewer3D';
-import { DISCIPLINE_JA, DISCIPLINE_ORDER, doseParts, exerciseName, isKnownExercise, muscleName, regionName } from '../lib/labels';
-import { toast } from '../lib/toast';
+import { DISCIPLINE_JA, DISCIPLINE_ORDER, PHASE_JA, doseParts, exerciseName, isKnownExercise, muscleName, regionName } from '../lib/labels';
+import { toast, toastSaved } from '../lib/toast';
 import { useMenu } from '../lib/useMenu';
 import NotFoundPage from './NotFoundPage';
 
@@ -44,7 +44,7 @@ export default function ExercisePage() {
   return <ExerciseView key={id} e={e} />;
 }
 
-function MenuToggle({ e, block }: { e: Exercise; block?: boolean }) {
+function MenuToggle({ e, block, from }: { e: Exercise; block?: boolean; from?: PlanContext }) {
   const menu = useMenu();
   const on = menu.has(e.id);
   return (
@@ -53,8 +53,9 @@ function MenuToggle({ e, block }: { e: Exercise; block?: boolean }) {
       className={`btn ${on ? 'btn--done' : 'btn--primary'}${block ? ' btn--block' : ''}`}
       aria-pressed={on}
       onClick={() => {
-        const added = menu.toggle(e.id);
-        toast(added ? 'マイメニューに追加しました' : 'マイメニューから外しました');
+        const added = menu.toggle(e.id, from ? { condition: from.c.id, phase: from.phase.id } : undefined);
+        if (added) toastSaved('マイメニューに追加しました');
+        else toast('マイメニューから外しました');
       }}
     >
       {on ? <IconCheck /> : <IconPlus />}
@@ -63,9 +64,55 @@ function MenuToggle({ e, block }: { e: Exercise; block?: boolean }) {
   );
 }
 
+interface PlanContext {
+  c: Condition;
+  phase: Condition['phases'][number];
+}
+
+/** ?from=<condition>&phase=<phase> — the recovery-plan step this exercise was opened from (if it is part of it). */
+function usePlanContext(e: Exercise): PlanContext | undefined {
+  const [params] = useSearchParams();
+  const c = getCondition(params.get('from') ?? '');
+  const phase = c?.phases?.find((p) => p.id === params.get('phase'));
+  if (!c || !phase || !phase.exercises.includes(e.id)) return undefined;
+  return { c, phase };
+}
+
+/** Lines of the step's guidance that talk about this exercise come first. */
+function planPoints(e: Exercise, guidance: string[]): string[] {
+  const key = e.nameJa.split(/[（(]/)[0].split('・').pop() ?? e.nameJa;
+  const about = (g: string) => g.includes(e.nameJa) || (key.length >= 3 && g.includes(key));
+  return [...guidance.filter(about), ...guidance.filter((g) => !about(g))];
+}
+
+function PlanBanner({ e, ctx }: { e: Exercise; ctx: PlanContext }) {
+  const points = planPoints(e, ctx.phase.guidance ?? []);
+  return (
+    <div className="plan-banner" role="note" aria-label="回復プランでのポイント">
+      <p className="plan-banner__head">
+        <IconTarget />
+        <span>
+          <Link to={`/condition/${ctx.c.id}${ctx.phase.id === ctx.c.phases[0]?.id ? '' : `?phase=${ctx.phase.id}`}`} className="link">
+            {ctx.c.nameJa}
+          </Link>
+          の回復プラン「{PHASE_JA[ctx.phase.id]}」のポイント
+        </span>
+      </p>
+      {points.length > 0 && <Bullets items={points.slice(0, 4)} />}
+    </div>
+  );
+}
+
+function targetDesc(type: Exercise['type']): string {
+  if (type === 'stretch' || type === 'mobility') return '主に伸ばされる筋肉';
+  if (type === 'nerve-glide') return '神経と一緒に動く（軽く伸ばされる）筋肉。ねらいは神経の滑りです';
+  return '主に働く筋肉';
+}
+
 function ExerciseView({ e }: { e: Exercise }) {
   const dose = doseParts(e.dose);
   const usedIn = conditionsUsingExercise(e.id);
+  const plan = usePlanContext(e);
   return (
     <Page title={e.nameJa} back="/exercises">
       <div className="viewer-hero">
@@ -87,10 +134,22 @@ function ExerciseView({ e }: { e: Exercise }) {
         </div>
       </header>
 
+      {plan && <PlanBanner e={e} ctx={plan} />}
+
       {dose.length > 0 && <DoseBox parts={dose} />}
 
+      {e.caution && (
+        <div className="callout callout--note" style={{ marginTop: 12 }}>
+          <IconAlert />
+          <div>
+            <p className="callout__title">注意</p>
+            <p>{e.caution}</p>
+          </div>
+        </div>
+      )}
+
       <div style={{ marginTop: 12 }}>
-        <MenuToggle e={e} block />
+        <MenuToggle e={e} block from={plan} />
       </div>
 
       <p className="lead" style={{ marginTop: 20, color: 'var(--text)' }}>
@@ -151,23 +210,12 @@ function ExerciseView({ e }: { e: Exercise }) {
         </Section>
       )}
 
-      <section className="section" aria-label="注意">
-        <div className="stack">
-          {e.caution && (
-            <div className="callout callout--note">
-              <IconAlert />
-              <div>
-                <p className="callout__title">注意</p>
-                <p>{e.caution}</p>
-              </div>
-            </div>
-          )}
-          <PainRuleCallout />
-        </div>
+      <section className="section" aria-label="痛みのルール">
+        <PainRuleCallout text={plan?.c.painRule} />
       </section>
 
       {(e.primary.length > 0 || e.secondary.length > 0) && (
-        <Section kicker="Target muscles" title="使う筋肉" desc={e.type === 'stretch' || e.type === 'mobility' ? '主に伸ばされる筋肉' : '主に働く筋肉'}>
+        <Section kicker="Target muscles" title="使う筋肉" desc={targetDesc(e.type)}>
           <div className="card">
             {e.primary.length > 0 && (
               <>
@@ -225,7 +273,7 @@ function ExerciseView({ e }: { e: Exercise }) {
       )}
 
       <div style={{ marginTop: 28 }}>
-        <MenuToggle e={e} block />
+        <MenuToggle e={e} block from={plan} />
       </div>
     </Page>
   );
@@ -250,7 +298,7 @@ function DoseBox({ parts }: { parts: { k: string; v: string }[] }) {
   const cells = parts.filter((d) => !isWide(d));
   const wide = parts.filter(isWide);
   return (
-    <div className="dose" style={{ marginTop: 16 }} aria-label="回数・頻度">
+    <div className="dose" style={{ marginTop: 16 }} role="group" aria-label="回数・頻度">
       {cells.length > 0 && (
         <div className="dose__grid" style={{ gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr))` }}>
           {cells.map((d) => (

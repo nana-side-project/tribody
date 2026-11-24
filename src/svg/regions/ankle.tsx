@@ -26,6 +26,43 @@ function HFade({ id, from, to }: { id: string; from: number; to: number }) {
 }
 const Faded = ({ id, children }: { id: string; children: ReactNode }) => <g mask={`url(#${id})`}>{children}</g>;
 
+/**
+ * The fibularis (peroneal) tendons are one part of their own ('peroneal-tendons', highlighted on condition pages) and
+ * also the distal end of each fibularis muscle. Each muscle therefore carries a copy of its own tendon: normally the
+ * shared tendon part sits on top, but when a fibularis muscle is highlighted on its own (muscle page) its tendon copy
+ * comes to the top, so the highlight runs on round the malleolus to the insertion.
+ */
+function FibTendons({ k, pb, pl }: { k: Ctx; pb: ReactNode; pl: ReactNode }) {
+  const own = !k.hl['peroneal-tendons'] && (k.hl['fibularis-brevis'] || k.hl['fibularis-longus']);
+  if (!own) {
+    return (
+      <Part k={k} id="peroneal-tendons">
+        {pb}
+        {pl}
+      </Part>
+    );
+  }
+  const b = (
+    <Part key="b" k={k} id="fibularis-brevis">
+      {pb}
+    </Part>
+  );
+  const l = (
+    <Part key="l" k={k} id="fibularis-longus">
+      {pl}
+    </Part>
+  );
+  return (
+    <>
+      <Part k={k} id="peroneal-tendons">
+        {pb}
+        {pl}
+      </Part>
+      {k.hl['fibularis-brevis'] && !k.hl['fibularis-longus'] ? [l, b] : [b, l]}
+    </>
+  );
+}
+
 /** A bony prominence drawn over its parent bone: filled shape whose first `cut` points form an edge that is not outlined. */
 function Prom({ pts, cut = 3 }: { pts: P[]; cut?: number }) {
   return (
@@ -237,10 +274,11 @@ function AnkleLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <Part k={k} id="fibularis-longus">
           <M g={LM.pl} />
         </Part>
-        <Part k={k} id="peroneal-tendons">
-          <Ten c={PB_TEN_L} w={[6, 7, 7, 7, 7, 6.5, 6.5, 6.5, 7, 8]} lines={1} />
-          <Ten c={PL_TEN_L} w={[6, 7, 7, 7, 7, 7, 7, 6.5, 4]} lines={1} />
-        </Part>
+        <FibTendons
+          k={k}
+          pb={<Ten c={PB_TEN_L} w={[6, 7, 7, 7, 7, 6.5, 6.5, 6.5, 7, 8]} lines={1} />}
+          pl={<Ten c={PL_TEN_L} w={[6, 7, 7, 7, 7, 7, 7, 6.5, 4]} lines={1} />}
+        />
         <Part k={k} id="soleus">
           <M g={LM.sol} />
         </Part>
@@ -391,6 +429,7 @@ function AnkleMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   ];
   const spots: Spot[] = [
     { id: 'ankle-inner', at: [200, 302] },
+    { id: 'achilles-mid', at: [259, 258] },
     { id: 'heel-back', at: [252, 330] },
   ];
   return (
@@ -644,10 +683,11 @@ function AnkleBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       <Part k={k} id="fibularis-longus">
         <M g={KM.pl} />
       </Part>
-      <Part k={k} id="peroneal-tendons">
-        <Ten c={[[218, 250], [217, 280], [218, 306], [222, 322], [227, 332]]} w={[6, 6.5, 6.5, 6, 5]} lines={1} />
-        <Ten c={[[223.5, 250], [223.5, 282], [225, 304], [228, 320], [232, 328]]} w={[5.5, 6, 6, 5.5, 4.5]} lines={1} />
-      </Part>
+      <FibTendons
+        k={k}
+        pb={<Ten c={[[218, 250], [217, 280], [218, 306], [222, 322], [227, 332]]} w={[6, 6.5, 6.5, 6, 5]} lines={1} />}
+        pl={<Ten c={[[223.5, 250], [223.5, 282], [225, 304], [228, 320], [232, 328]]} w={[5.5, 6, 6, 5.5, 4.5]} lines={1} />}
+      />
       <Part k={k} id="soleus">
         <M g={KM.sol} />
       </Part>
@@ -702,7 +742,7 @@ const diagram: RegionDiagram = {
   },
   spots: {
     lateral: ['ankle-outer', 'achilles-mid', 'heel-back'],
-    medial: ['ankle-inner', 'heel-back'],
+    medial: ['ankle-inner', 'achilles-mid', 'heel-back'],
     back: ['achilles-mid', 'heel-back', 'ankle-outer', 'ankle-inner'],
   },
   Component: AnkleDiagram,

@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { GUIDES, PAIN_SPOTS, REGIONS, getPainSpot, type GuideId, type PainSpotId, type RegionId, type Side } from '../data';
-import { BottomSheet } from '../components/BottomSheet';
+import { BottomSheet, afterSheetClose } from '../components/BottomSheet';
 import { GuideCard } from '../components/cards';
 import { LikelihoodBadge, Wip } from '../components/badges';
 import { IconAlert, IconChecklist, IconChevron, IconEdit, IconLayers, IconSearch } from '../components/icons';
@@ -40,6 +40,7 @@ export default function HomePage() {
   const [sel, setSel] = useState<{ id: PainSpotId; side?: Side } | null>(null);
   const [picker, setPicker] = useState(false);
   const [q, setQ] = useState('');
+  const pickerBtnRef = useRef<HTMLButtonElement>(null);
   const menu = useMenu();
   const log = usePainLog();
   const recent = useMemo(() => Object.keys(log.recentIntensity(14)) as PainSpotId[], [log]);
@@ -49,12 +50,16 @@ export default function HomePage() {
       <header className="page-head">
         <span className="kicker">Where does it hurt?</span>
         <h1>どこが痛む？</h1>
-        <p className="lead">痛む場所をタップすると、考えられる原因と「実際にどこが傷んでいるか」、補強・ストレッチの方法がわかります。</p>
+        <p className="lead">痛む場所をタップすると、考えられる原因と傷んでいる組織、補強・ストレッチの方法がわかります。</p>
       </header>
 
       <div className="card" style={{ marginTop: 16, padding: 12 }}>
         <Segmented label="からだの向き" value={view} options={VIEWS} onChange={setView} />
-        <div className="bodymap-frame">
+        {/* keyboard users can skip the ~30 hotspots */}
+        <button type="button" className="skip-link" onClick={() => pickerBtnRef.current?.focus()}>
+          図をとばして「リストから選ぶ」へ
+        </button>
+        <div className="bodymap-frame bodymap-frame--home">
           <SafeBodyMap
             view={view}
             activeSpots={recent}
@@ -64,9 +69,9 @@ export default function HomePage() {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
           <p className="tiny" style={{ paddingLeft: 4 }}>
-            左右どちらをタップしてもOK
+            痛む側をタップ（左右を記録）
           </p>
-          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setPicker(true)}>
+          <button type="button" className="btn btn--ghost btn--sm" ref={pickerBtnRef} onClick={() => setPicker(true)}>
             リストから選ぶ
             <IconChevron />
           </button>
@@ -109,7 +114,7 @@ export default function HomePage() {
       <p className="footer-note">
         この情報は一般的な教育目的です。診断ではありません。
         <br />
-        強い痛み・腫れ・しびれ・体重をかけられない場合は医療機関へ。 <Link to="/about">詳しく</Link>
+        強い痛み・腫れ・しびれ・体重をかけられない場合は医療機関へ。<Link to="/about">詳しく</Link>
       </p>
 
       <BottomSheet
@@ -152,6 +157,7 @@ function SpotSheetHeader({ id, side }: { id: PainSpotId; side?: Side }) {
         {spotLabel(id)}
         {side && (
           <span className="badge badge--neutral" style={{ marginLeft: 8, verticalAlign: '3px' }}>
+            <span className="sr-only">・</span>
             {side === 'left' ? '左' : '右'}
           </span>
         )}
@@ -167,8 +173,8 @@ function SpotSheetBody({ id, side, onClose }: { id: PainSpotId; side?: Side; onC
   const candidates = spotConditions(id);
   const go = (to: string) => {
     onClose();
-    // let the sheet unmount (restores scroll lock) before navigating
-    setTimeout(() => navigate(to), 0);
+    // let the sheet unmount (scroll lock, its history entry) before navigating
+    afterSheetClose(() => navigate(to));
   };
   const logUrl = `/menu?tab=log&spot=${id}${side ? `&side=${side}` : ''}`;
   return (
@@ -211,7 +217,7 @@ function SpotSheetBody({ id, side, onClose }: { id: PainSpotId; side?: Side; onC
         <IconAlert />
         <p>
           場所だけでは判断できません。強い痛み・腫れ・しびれ・体重をかけられない場合は受診を。{' '}
-          <button type="button" className="link" onClick={() => go('/guide/red-flags')} style={{ color: 'var(--accent)', textDecoration: 'underline' }}>
+          <button type="button" className="link" onClick={() => go('/guide/red-flags')} style={{ color: 'var(--accent-ink)', textDecoration: 'underline' }}>
             受診の目安
           </button>
         </p>

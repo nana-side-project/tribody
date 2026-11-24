@@ -1,7 +1,7 @@
 // App shell: page wrapper (top bar on detail pages), bottom tab bar, scroll management, toasts.
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ReactNode, type SVGProps } from 'react';
 import { Link, Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
-import { useToast } from '../lib/toast';
+import { dismissToast, useToast } from '../lib/toast';
 import { AppMark } from './Logo';
 import { IconBack, IconBody, IconBook, IconCheck, IconChecklist, IconDumbbell, IconInfo, IconMuscle } from './icons';
 
@@ -70,14 +70,62 @@ function ScrollManager() {
   return null;
 }
 
+/**
+ * After moving to another page, put keyboard / screen-reader focus on the new page's heading
+ * (otherwise focus is lost on the removed link and the page change is silent).
+ */
+function RouteFocus() {
+  const loc = useLocation();
+  const navType = useNavigationType();
+  const prevPath = useRef(loc.pathname);
+  useEffect(() => {
+    if (prevPath.current === loc.pathname) return; // first render (also StrictMode's re-run)
+    prevPath.current = loc.pathname;
+    if (navType === 'REPLACE') return;
+    const t = setTimeout(() => {
+      const target = document.querySelector<HTMLElement>('#main h1') ?? document.getElementById('main');
+      if (!target) return;
+      if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+      try {
+        target.focus({ preventScroll: true });
+      } catch {
+        /* ignore */
+      }
+    }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loc.pathname]);
+  return null;
+}
+
 function Toaster() {
   const t = useToast();
+  const loc = useLocation();
+  // a message belongs to the page it was shown on
+  const prevPath = useRef(loc.pathname);
+  useEffect(() => {
+    if (prevPath.current === loc.pathname) return;
+    prevPath.current = loc.pathname;
+    dismissToast();
+  }, [loc.pathname]);
   return (
     <div className="toast-region" aria-live="polite" role="status">
       {t && (
-        <div className="toast" key={t.id}>
+        <div className={`toast${t.action ? ' toast--action' : ''}`} key={t.id}>
           <IconCheck />
-          {t.text}
+          <span className="grow">{t.text}</span>
+          {t.action && (
+            <button
+              type="button"
+              className="toast__action"
+              onClick={() => {
+                t.action?.onClick();
+                dismissToast();
+              }}
+            >
+              {t.action.label}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -88,6 +136,7 @@ export function AppLayout() {
   return (
     <div className="app">
       <ScrollManager />
+      <RouteFocus />
       <Outlet />
       <TabBar />
       <Toaster />

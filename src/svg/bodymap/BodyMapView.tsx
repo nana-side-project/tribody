@@ -11,6 +11,7 @@ import {
   useState,
   type KeyboardEvent,
   type MouseEvent,
+  type PointerEvent as RPointerEvent,
 } from 'react';
 import type { PainSpotId } from '../../data/registry';
 import type { BodyMapProps } from '../types';
@@ -34,8 +35,13 @@ export interface BodyMapViewProps extends BodyMapProps {
 
 /** Hit radius in CSS px → 44 px tap targets. */
 const HIT_PX = 22;
-/** Tapping the body (away from any hotspot) selects the nearest hotspot within this radius. */
+/**
+ * Tapping the body (away from any hotspot) selects the nearest hotspot within this radius — capped
+ * in figure units too, so a smaller rendered map (short phones) doesn't snap e.g. a mid-thigh tap to
+ * the groin; farther taps get the 「この場所の解説はまだありません」 popover instead.
+ */
 const BODY_PX = 40;
+const BODY_UNITS = 70;
 /** The nearest hotspot wins outright if it is clearly closer than the runner-up. */
 const CLEAR_WIN = 0.7;
 const LABEL_PAD = 290;
@@ -63,6 +69,13 @@ interface Chooser {
   top: number;
   above: boolean;
   items: PlacedSpot[];
+  /** A tap on the body away from every hotspot: explain and offer the nearest ones. */
+  miss?: boolean;
+}
+
+/** Nearest-first hotspots around a canvas point, with distances in CSS px. */
+function rankSpots(spots: PlacedSpot[], x: number, y: number, scale: number) {
+  return spots.map((s) => ({ s, d: Math.hypot(s.x - x, s.y - y) * scale })).sort((a, b) => a.d - b.d);
 }
 
 export default function BodyMapView(props: BodyMapViewProps) {
@@ -87,6 +100,8 @@ export default function BodyMapView(props: BodyMapViewProps) {
   const [pxPerUnit, setPxPerUnit] = useState(0.57);
   const [lastPick, setLastPick] = useState<{ id: PainSpotId; side: Side } | null>(null);
   const [chooser, setChooser] = useState<Chooser | null>(null);
+  /** Hotspot under the mouse (hover is computed with the same nearest-spot rule as taps). */
+  const [hoverKey, setHoverKey] = useState<string | null>(null);
 
   const art = useMemo(() => (view === 'sole' ? buildSole() : buildFigure(view)), [view]);
   const spots = useMemo(() => placeSpots(view), [view]);
@@ -139,10 +154,33 @@ export default function BodyMapView(props: BodyMapViewProps) {
     (s: PlacedSpot) => {
       setChooser(null);
       setLastPick({ id: s.id, side: s.side });
+      // focus the picked hotspot, so a sheet opened by onSelect returns focus to it when closed
+      try {
+        svgRef.current?.querySelector<SVGGElement>(`.tb-spots [data-key="${s.key}"]`)?.focus({ preventScroll: true });
+      } catch {
+        /* ignore */
+      }
       onSelect?.(s.id, s.side);
     },
     [onSelect],
   );
+
+  const toCanvas = (clientX: number, clientY: number) => {
+    const svg = svgRef.current;
+    const ctm = svg?.getScreenCTM();
+    if (!svg || !ctm) return null;
+    const pt = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
+    return { x: pt.x, y: pt.y, scale: Math.hypot(ctm.a, ctm.b) || pxPerUnit };
+  };
+
+  const onPointerMove = (e: RPointerEvent<SVGSVGElement>) => {
+    if (e.pointerType !== 'mouse') return;
+    const c = toCanvas(e.clientX, e.clientY);
+    if (!c) return;
+    const near = rankSpots(spots, c.x, c.y, c.scale)[0];
+    const key = near && near.d <= HIT_PX ? near.s.key : null;
+    if (key !== hoverKey) setHoverKey(key);
+  };
 
   const onSvgClick = (e: MouseEvent<SVGSVGElement>) => {
     const svg = svgRef.current;
@@ -155,36 +193,45 @@ export default function BodyMapView(props: BodyMapViewProps) {
       if (s) pick(s);
       return;
     }
-    const ctm = svg.getScreenCTM();
-    if (!ctm) return;
-    const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
-    const scale = Math.hypot(ctm.a, ctm.b) || pxPerUnit;
-    const ranked = spots
-      .map((s) => ({ s, d: Math.hypot(s.x - pt.x, s.y - pt.y) * scale }))
-      .sort((a, b) => a.d - b.d);
+    const c = toCanvas(e.clientX, e.clientY);
+    if (!c) return;
+    const ranked = rankSpots(spots, c.x, c.y, c.scale);
     const near = ranked.filter((r) => r.d <= HIT_PX);
+    const wrap = wrapRef.current;
+    const place = () => {
+      const wr = wrap!.getBoundingClientRect();
+      const x = e.clientX - wr.left;
+      const y = e.clientY - wr.top;
+      const cardW = Math.min(300, wr.width - 16);
+      const left = Math.max(8, Math.min(wr.width - cardW - 8, x - cardW / 2));
+      const above = y > wr.height * 0.6;
+      return { left, top: above ? y - 20 : y + 20, above };
+    };
     if (near.length === 0) {
       const onBody = !!target.closest?.('[data-body]');
-      if (onBody && ranked[0] && ranked[0].d <= BODY_PX) pick(ranked[0].s);
-      else setChooser(null);
+      if (onBody && ranked[0] && ranked[0].d <= Math.min(BODY_PX, BODY_UNITS * c.scale)) pick(ranked[0].s);
+      else if (onBody && wrap && disambiguate) {
+        // a tap on the body with no hotspot nearby: say so and offer the nearest places
+        const seen = new Set<string>();
+        const items = ranked
+          .filter((r) => (seen.has(r.s.id) ? false : (seen.add(r.s.id), true)))
+          .slice(0, 2)
+          .map((r) => r.s);
+        setChooser({ ...place(), items, miss: true });
+      } else setChooser(null);
       return;
     }
-    if (near.length === 1 || !disambiguate || near[0].d <= near[1].d * CLEAR_WIN) {
+    const limit = Math.max(near[0].d * 2.2, 12);
+    const close = near.filter((r) => r.d <= limit);
+    // one spot drawn as a left/right pair close together (neck, low back): no need to ask
+    const sameSpot = close.every((r) => r.s.id === close[0].s.id);
+    if (near.length === 1 || !disambiguate || sameSpot || near[0].d <= near[1].d * CLEAR_WIN) {
       pick(near[0].s);
       return;
     }
     // ambiguous tap between several hotspots → let the user choose
-    const wrap = wrapRef.current;
     if (!wrap) return pick(near[0].s);
-    const wr = wrap.getBoundingClientRect();
-    const x = e.clientX - wr.left;
-    const y = e.clientY - wr.top;
-    const cardW = Math.min(300, wr.width - 16);
-    const left = Math.max(8, Math.min(wr.width - cardW - 8, x - cardW / 2));
-    const above = y > wr.height * 0.6;
-    const limit = Math.max(near[0].d * 2.2, 12);
-    const items = near.filter((r) => r.d <= limit).slice(0, 4).map((r) => r.s);
-    setChooser({ left, top: above ? y - 20 : y + 20, above, items });
+    setChooser({ ...place(), items: close.slice(0, 4).map((r) => r.s) });
   };
 
   const onSpotKey = (e: KeyboardEvent<SVGGElement>, s: PlacedSpot) => {
@@ -229,6 +276,9 @@ export default function BodyMapView(props: BodyMapViewProps) {
         role="group"
         aria-label={`${VIEW_NAME[view]}の図。痛む場所を選んでください`}
         onClick={onSvgClick}
+        onPointerMove={onPointerMove}
+        onPointerLeave={() => setHoverKey(null)}
+        style={hoverKey ? { cursor: 'pointer' } : undefined}
       >
         <defs>
           <filter
@@ -311,7 +361,8 @@ export default function BodyMapView(props: BodyMapViewProps) {
             const v = intensity?.[s.id];
             const heat = typeof v === 'number' && v > 0;
             const cand = !!chooser?.items.some((c) => c.key === s.key);
-            const cls = `tb-spot${act ? ' is-active' : ''}${sel ? ' is-selected' : ''}${heat ? ' is-heat' : ''}${cand ? ' is-candidate' : ''}`;
+            const hov = hoverKey === s.key;
+            const cls = `tb-spot${act ? ' is-active' : ''}${sel ? ' is-selected' : ''}${heat ? ' is-heat' : ''}${cand ? ' is-candidate' : ''}${hov ? ' is-hover' : ''}`;
             const dotR = sel ? MARK.dotSelected : act || heat ? MARK.dotActive : MARK.dot;
             return (
               <g
@@ -330,6 +381,7 @@ export default function BodyMapView(props: BodyMapViewProps) {
                 <title>{spotAriaLabel(s)}</title>
                 <circle className="tb-spot-hit" r={HIT_PX} />
                 <circle className="tb-spot-halo" r={MARK.halo} />
+                <circle className="tb-spot-focus" r={MARK.halo + 2.5} />
                 <circle className="tb-spot-dot" r={dotR} style={heatFill(s.id)} />
               </g>
             );
@@ -352,21 +404,36 @@ export default function BodyMapView(props: BodyMapViewProps) {
         <div
           className="tb-chooser"
           role="dialog"
-          aria-label="痛む場所を選ぶ"
+          aria-label={chooser.miss ? 'この場所の解説はまだありません' : '痛む場所を選ぶ'}
           style={{
             left: chooser.left,
             top: chooser.top,
             transform: chooser.above ? 'translateY(-100%)' : undefined,
           }}
         >
-          <div className="tb-chooser-title">どこが痛みますか？</div>
+          <div className="tb-chooser-title">
+            {chooser.miss ? (
+              <>
+                この場所の解説はまだありません。
+                <br />
+                近い場所：
+              </>
+            ) : (
+              'どこが痛みますか？'
+            )}
+          </div>
           {chooser.items.map((s) => (
-            <button key={s.key} type="button" onClick={() => pick(s)}>
+            <button key={s.key} type="button" onClick={() => pick(s)} aria-label={spotAriaLabel(s)}>
               <span className="tb-chooser-dot" aria-hidden="true" />
               <span>{s.label}</span>
               <span className="tb-chooser-side">{SIDE_JA[s.side]}</span>
             </button>
           ))}
+          {chooser.miss && (
+            <button type="button" className="tb-chooser-close" onClick={() => setChooser(null)}>
+              閉じる
+            </button>
+          )}
         </div>
       )}
     </div>

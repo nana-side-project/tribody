@@ -21,6 +21,7 @@ import {
   Vector3,
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Prop, PropPoint } from './clips/types';
 import { TubeWriter } from './geometry';
 import { type CompiledPoint, evalPoint, pointSeg, tryCompile } from './landmarks';
@@ -63,15 +64,40 @@ function spiralGeometry(r: number, y: number) {
   }
   return new TubeGeometry(new CatmullRomCurve3(pts), 120, r * 0.035, 5, false);
 }
-/** Rounded box with a puffed (pillow-like) top and bottom; its top centre is at the origin. */
-function pillowGeometry(sx: number, h: number, sz: number) {
-  const g = new RoundedBoxGeometry(sx, h, sz, 5, Math.min(h * 0.45, sx / 4, sz / 4));
+/**
+ * Cushion: a finely subdivided rounded box (edge radius min(0.45 h, sx/4, sz/4)) with a FLAT bottom and a top that
+ * puffs up smoothly toward the middle, so the centre is (1 + puffAmount) × h tall and the edges h. Its top centre is
+ * at the origin, so a cushion with its top at y = (1 + puffAmount) × h stands on the floor.
+ * (three's RoundedBoxGeometry has no vertices inside its flat faces, so it cannot be puffed — the old pillow kept a
+ * flat top and floated 2–3 cm above the floor.)
+ */
+export function pillowGeometry(sx: number, h: number, sz: number, puffAmount = 0.35) {
+  const n = 22;
+  const box = new BoxGeometry(sx, h, sz, n, Math.max(6, Math.round((n * h) / Math.min(sx, sz))), n);
+  box.deleteAttribute('normal');
+  box.deleteAttribute('uv');
+  const g = mergeVertices(box, 1e-6);
+  box.dispose();
+  const r = Math.min(h * 0.45, sx / 4, sz / 4);
+  const hx = sx / 2 - r, hy = h / 2 - r, hz = sz / 2 - r;
   const pos = g.attributes.position;
   for (let i = 0; i < pos.count; i++) {
-    const x = (2 * pos.getX(i)) / sx;
-    const z = (2 * pos.getZ(i)) / sz;
-    const puff = Math.max(0, 1 - x * x) * Math.max(0, 1 - z * z);
-    pos.setY(i, pos.getY(i) * (1 + 0.35 * puff));
+    let x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    // round the box: push every vertex onto the surface at distance r from the inner box
+    const cx = Math.max(-hx, Math.min(hx, x)), cy = Math.max(-hy, Math.min(hy, y)), cz = Math.max(-hz, Math.min(hz, z));
+    const dx = x - cx, dy = y - cy, dz = z - cz;
+    const d = Math.hypot(dx, dy, dz);
+    if (d > 1e-9) {
+      x = cx + (dx / d) * r;
+      y = cy + (dy / d) * r;
+      z = cz + (dz / d) * r;
+    }
+    // puff the upper half only (the bottom rests flat on the floor)
+    if (y > 0) {
+      const u = (2 * x) / sx, w = (2 * z) / sz;
+      y *= 1 + 2 * puffAmount * Math.max(0, 1 - u * u) * Math.max(0, 1 - w * w);
+    }
+    pos.setXYZ(i, x, y, z);
   }
   g.computeVertexNormals();
   g.computeBoundingBox();
@@ -203,14 +229,33 @@ export class PropLayer {
           break;
         }
         case 'towel': {
+          // dusty lavender: a hue no anatomy colour uses, so the towel reads on the white card, the cream bones, the
+          // beige furniture and the blue-grey mat alike (a cream towel vanished against the bones in the light theme)
+          const cloth = this.mat(prop.color ?? (P.dark ? '#b3a6cf' : '#c4b8dc'), { roughness: 0.97 });
+          const line = this.mat(P.dark ? '#7d7099' : '#8a7dab', { roughness: 0.97 });
+          const stripe = this.mat(P.dark ? '#d6cde8' : '#e6e0f1', { roughness: 0.97 });
+          if (prop.size) {
+            // folded flat towel (placed once): soft pad with woven border stripes across both ends
+            const [sx, h, sz] = prop.size;
+            const top = place(prop.at, new Vector3(pelvis.x, h, pelvis.z));
+            const g = new Group();
+            g.add(new Mesh(this.geo(pillowGeometry(sx, h / 1.08, sz, 0.08)), cloth));
+            for (const sgn of [-1, 1]) {
+              const band = new Mesh(this.geo(new BoxGeometry(sx * 0.9, h * 0.25, 0.008)), stripe);
+              band.position.set(0, -h * 0.05, sgn * (sz / 2 - 0.025));
+              g.add(band);
+            }
+            g.position.copy(top);
+            g.rotation.y = (((prop.rotY ?? 0) * (mirror ? -1 : 1)) * Math.PI) / 180;
+            this.group.add(g);
+            this.pushBox(new Vector3(top.x, top.y - h / 2, top.z), [Math.max(sx, sz), h, Math.max(sx, sz)]);
+            break;
+          }
           const r = this.resolve(prop.at, side, mirror, ctx);
           if (!r) break;
           const rad = prop.radius ?? 0.03;
           const len = prop.length ?? 0.2;
           const g = new Group();
-          const cloth = this.mat(prop.color ?? (P.dark ? '#d3cab9' : '#f3ede2'), { roughness: 0.97 });
-          const line = this.mat(P.dark ? '#9a907f' : '#cbbfa9', { roughness: 0.97 });
-          const stripe = this.mat(P.dark ? '#a99a80' : '#ddcfb6', { roughness: 0.97 });
           g.add(new Mesh(this.geo(rollGeometry(rad, len)), cloth));
           for (const sgn of [-1, 1]) {
             g.add(new Mesh(this.geo(spiralGeometry(rad * 0.93, sgn * (len / 2 - rad * 0.08))), line));
@@ -242,7 +287,7 @@ export class PropLayer {
         case 'pillow': {
           const s = prop.size ?? [0.45, 0.12, 0.3];
           const top = place(prop.at, new Vector3(pelvis.x, s[1], pelvis.z));
-          const m = new Mesh(this.geo(pillowGeometry(s[0], s[1], s[2])), this.mat(prop.color ?? (P.dark ? '#8f969e' : '#eef0f3'), { roughness: 0.92 }));
+          const m = new Mesh(this.geo(pillowGeometry(s[0], s[1], s[2])), this.mat(prop.color ?? (P.dark ? '#8f969e' : '#e1e6ee'), { roughness: 0.92 }));
           m.position.copy(top);
           m.rotation.y = (((prop.rotY ?? 0) * (mirror ? -1 : 1)) * Math.PI) / 180;
           this.group.add(m);

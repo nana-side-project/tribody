@@ -114,7 +114,7 @@
   height: 22px;
 }
 .tab.is-active {
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 .tab.is-active .tab__icon {
   background: var(--accent-soft);
@@ -183,7 +183,7 @@
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--accent-ink);
   line-height: 1.4;
 }
 
@@ -219,7 +219,7 @@
   align-items: center;
   gap: 2px;
   min-height: 44px;
-  color: var(--accent);
+  color: var(--accent-ink);
   font-size: 13px;
   font-weight: 600;
 }
@@ -398,7 +398,7 @@ button.row:active {
   line-height: 1;
   white-space: nowrap;
   letter-spacing: 0.02em;
-  color: color-mix(in srgb, var(--c) 80%, var(--text));
+  color: color-mix(in srgb, var(--c) var(--mix-ink), var(--text));
   background: color-mix(in srgb, var(--c) 13%, transparent);
 }
 .badge svg {
@@ -448,7 +448,7 @@ button.row:active {
 }
 .badge--involved {
   --c: var(--involved);
-  color: color-mix(in srgb, var(--involved) 55%, var(--text));
+  color: color-mix(in srgb, var(--involved) calc(var(--mix-ink) - 7%), var(--text));
 }
 .badge--lg {
   height: 26px;
@@ -510,7 +510,7 @@ button.row:active {
   box-shadow: inset 0 0 0 1px var(--border);
 }
 .btn--ghost {
-  color: var(--accent);
+  color: var(--accent-ink);
   padding: 0 10px;
 }
 .btn--danger {
@@ -519,7 +519,7 @@ button.row:active {
 }
 .btn--done {
   background: color-mix(in srgb, var(--ok) 14%, var(--surface));
-  color: color-mix(in srgb, var(--ok) 80%, var(--text));
+  color: color-mix(in srgb, var(--ok) var(--mix-ink), var(--text));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 35%, transparent);
 }
 .btn--block {
@@ -606,17 +606,22 @@ button.row:active {
   box-shadow: var(--shadow-sm), 0 0 0 1px var(--card-border);
 }
 .seg--sm .seg__btn {
-  min-height: 32px;
+  min-height: 34px;
   font-size: 12.5px;
+}
+/* 34 px button + 5 px of padding/gap on each side → a 44 px tap target */
+.seg--sm .seg__btn::after {
+  inset: -5px -1px;
 }
 
 .tabs {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  /* columns share the width by content (「① 痛みを鎮める」 is longer than 「② 強くする」) so labels stay on one line */
+  display: flex;
   border-bottom: 1px solid var(--border);
 }
 .tabs__btn {
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 46px;
   padding: 8px 4px 10px;
   font-size: 13.5px;
@@ -628,7 +633,7 @@ button.row:active {
   transition: color 0.15s, border-color 0.15s;
 }
 .tabs__btn.is-active {
-  color: var(--accent);
+  color: var(--accent-ink);
   border-bottom-color: var(--accent);
 }
 
@@ -743,6 +748,9 @@ button.row:active {
 }
 .muted {
   color: var(--text-2);
+}
+.nowrap {
+  white-space: nowrap;
 }
 .small {
   font-size: 12.5px;
@@ -986,7 +994,7 @@ button.row:active {
   gap: 8px;
   font-weight: 800;
   font-size: 14px;
-  color: color-mix(in srgb, var(--c) 82%, var(--text));
+  color: color-mix(in srgb, var(--c) var(--mix-ink), var(--text));
 }
 .disc-card__head svg {
   width: 20px;
@@ -1275,7 +1283,7 @@ button.row:active {
   background-size: 18px;
 }
 .select--sm {
-  min-height: 40px;
+  min-height: 44px;
   font-size: 14px;
   padding: 6px 30px 6px 12px;
   background-position: right 6px center;
@@ -1330,8 +1338,19 @@ button.row:active {
 
 .filters {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.9fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr) minmax(0, 1fr);
   gap: 8px;
+}
+.filter {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.filter__label {
+  padding-left: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
 }
 .filters .select {
   text-overflow: ellipsis;
@@ -1355,7 +1374,7 @@ button.row:active {
   place-items: center;
   align-content: center;
   background: color-mix(in srgb, var(--c) 14%, var(--surface));
-  color: color-mix(in srgb, var(--c) 85%, var(--text));
+  color: color-mix(in srgb, var(--c) var(--mix-ink), var(--text));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 30%, transparent);
   line-height: 1;
 }
@@ -1668,6 +1687,12 @@ button.row:active {
   line-height: 1.75;
   color: var(--text-2);
 }
+.involve__hint {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+}
 a.involve:active {
   background: var(--surface-2);
 }
@@ -1844,7 +1869,7 @@ a.involve:active {
   font-variant-numeric: tabular-nums;
 }
 .week__day.is-today {
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 .week__day.is-today .week__ring {
   box-shadow: 0 0 0 2px var(--accent-soft);
@@ -1889,7 +1914,7 @@ a.involve:active {
   font-size: 17px;
   font-variant-numeric: tabular-nums;
   background: color-mix(in srgb, var(--c) 15%, var(--surface));
-  color: color-mix(in srgb, var(--c) 85%, var(--text));
+  color: color-mix(in srgb, var(--c) var(--mix-ink), var(--text));
 }
 .entry__main {
   flex: 1;
@@ -1983,6 +2008,7 @@ a.involve:active {
   color: var(--text-2);
   text-decoration: underline;
   text-underline-offset: 3px;
+  white-space: nowrap;
 }
 
 .result-group + .result-group {
@@ -2073,7 +2099,7 @@ a.involve:active {
 .hit::after {
   content: "";
   position: absolute;
-  inset: -12px -8px;
+  inset: -15px -8px;
 }
 .parts__name .en {
   font-weight: 600;
@@ -2102,4 +2128,244 @@ a.involve:active {
   padding-top: 3px;
   padding-bottom: 3px;
   line-height: 1.35;
+}
+
+/* muscles list: muscles also belonging to this region (cross-listed) */
+.also {
+  margin-top: 12px;
+  padding: 0 2px;
+}
+
+/* region figure: views that contain the highlighted parts, empty-view note, zoom */
+.seg__mark {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--injured);
+  vertical-align: 2px;
+}
+.figure__canvas {
+  position: relative;
+}
+.figure__zoom {
+  transform-origin: 0 0;
+  transition: transform 0.25s var(--ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .figure__zoom {
+    transition: none;
+  }
+}
+.figure__empty {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: var(--shadow);
+  text-align: center;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+.figure__tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.figure__zoom-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 700;
+  box-shadow: var(--shadow), inset 0 0 0 1px var(--border);
+}
+.figure__zoom-btn::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
+.figure__zoom-btn svg {
+  width: 15px;
+  height: 15px;
+}
+.figure__zoom-btn[aria-pressed="true"] {
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: none;
+}
+
+/* exercise page: the recovery-plan step it was opened from */
+.plan-banner {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+}
+.plan-banner__head {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 13.5px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+.plan-banner__head svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  color: var(--accent-ink);
+}
+.plan-banner .bullets {
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+/* toast with an action (e.g. 元に戻す) */
+.toast--action {
+  pointer-events: auto;
+  padding: 4px 6px 4px 16px;
+}
+.toast__action {
+  flex: none;
+  position: relative;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-weight: 800;
+  color: var(--bg);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.toast__action::after {
+  content: "";
+  position: absolute;
+  inset: -4px -2px;
+}
+
+/* my menu: where an item came from, per-step removal */
+.menu-item__src {
+  margin-top: 3px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-3);
+  /* wrap (max 2 lines) so the step number at the end (・②) is never cut off */
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.menu-sources {
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.menu-sources__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.menu-sources__row .btn {
+  flex: none;
+}
+.week__day.is-future .week__ring {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--border);
+}
+/* small count bubble inside a segmented button (pain map views with records) */
+.seg__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  margin-left: 5px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 10.5px;
+  font-weight: 800;
+  vertical-align: 1px;
+}
+
+/* skip link: invisible until focused with the keyboard */
+.skip-link {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.skip-link:focus-visible {
+  position: static;
+  width: auto;
+  height: auto;
+  clip: auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* home: the whole figure (down to the feet) fits above the tab bar on common phones */
+.bodymap-frame--home {
+  --tb-bodymap-max-h: max(400px, calc(100vh - var(--tabbar-h) - var(--safe-bottom) - 296px));
+  --tb-bodymap-max-h: max(400px, calc(100dvh - var(--tabbar-h) - var(--safe-bottom) - 296px));
+}
+
+/* guide: walk-run stage table */
+.stages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--card-border);
+  overflow: hidden;
+}
+.stages li {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  padding: 12px 16px;
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+.stages li + li {
+  border-top: 1px solid var(--border);
+}
+.stages__n {
+  flex: none;
+  min-width: 3.6em;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--accent-ink);
 }

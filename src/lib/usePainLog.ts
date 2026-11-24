@@ -64,12 +64,13 @@ export function usePainLog() {
     const sorted = [...entries].sort((a, b) =>
       a.date === b.date ? b.createdAt - a.createdAt : a.date < b.date ? 1 : -1,
     );
-    /** Max score per spot over the last `days` days (for BodyMap intensity). */
+    /** Max score (> 0) per spot over the last `days` days (for BodyMap intensity / recently painful spots). */
     const recentIntensity = (days = 14) => {
       const from = addDays(todayISO(), -(days - 1));
       const out: Partial<Record<PainSpotId, number>> = {};
       for (const e of entries) {
-        if (e.date < from) continue;
+        // a 0 (痛みなし) entry is not a painful spot
+        if (e.date < from || e.score <= 0) continue;
         out[e.spot] = Math.max(out[e.spot] ?? 0, e.score);
       }
       return out;

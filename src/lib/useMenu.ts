@@ -83,6 +83,22 @@ export const menuActions = {
   remove(id: ExerciseId) {
     menuStore.set((s) => ({ ...s, items: s.items.filter((i) => i.id !== id) }));
   },
+  /** Remove several items at once (e.g. every exercise added from one recovery-plan step). */
+  removeMany(ids: ExerciseId[]) {
+    const drop = new Set(ids);
+    menuStore.set((s) => ({ ...s, items: s.items.filter((i) => !drop.has(i.id)) }));
+  },
+  /** Put back removed items at their old positions (undo). */
+  restore(entries: { item: MenuItem; index: number }[]) {
+    menuStore.set((s) => {
+      const items = [...s.items];
+      for (const { item, index } of [...entries].sort((a, b) => a.index - b.index)) {
+        if (items.some((i) => i.id === item.id) || !VALID.has(item.id)) continue;
+        items.splice(Math.min(index, items.length), 0, item);
+      }
+      return { ...s, items };
+    });
+  },
   toggle(id: ExerciseId, from?: MenuItem['from']): boolean {
     const has = menuStore.get().items.some((i) => i.id === id);
     if (has) menuActions.remove(id);
@@ -114,9 +130,10 @@ export function useMenu() {
   return useMemo(() => {
     const ids = new Set(state.items.map((i) => i.id));
     const doneToday = new Set((state.done[today] ?? []).filter((x) => ids.has(x)));
+    // only exercises that are still on the menu count (same rule as today's progress)
     const week = weekOf(today).map((date) => ({
       date,
-      count: (state.done[date] ?? []).length,
+      count: (state.done[date] ?? []).filter((x) => ids.has(x)).length,
     }));
     return {
       items: state.items,

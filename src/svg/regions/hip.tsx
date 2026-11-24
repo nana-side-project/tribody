@@ -343,8 +343,8 @@ export const KIT_CSS = `
 .thk .inset-bg { fill: var(--surface); stroke: var(--border); stroke-width: 1.2; }
 .thk .inset-ring { fill: none; stroke: var(--text-2); stroke-width: .9; opacity: .55; }
 .thk .inset-ln { fill: none; stroke: var(--text-2); stroke-width: .8; opacity: .55; stroke-dasharray: 2.5 2.5; }
-.thk .cap-t { font-size: 10.5px; fill: var(--text-2); opacity: .85; font-weight: 600; letter-spacing: .02em; }
-.thk .note-t { font-size: 10.5px; fill: var(--text-2); font-weight: 600; }
+.thk .cap-t { font-size: 12px; fill: var(--text-2); opacity: .85; font-weight: 600; letter-spacing: .02em; }
+.thk .note-t { font-size: 12px; fill: var(--text-2); font-weight: 600; }
 
 /* parts & highlight roles */
 .thk-part, .thk-ctx { transition: opacity .25s ease; }
@@ -374,7 +374,7 @@ export const KIT_CSS = `
 /* labels */
 .thk-lab { cursor: default; }
 .thk-lab[role="button"] { cursor: pointer; }
-.thk-lab text { font-size: 12.5px; font-weight: 500; fill: var(--text-2); paint-order: stroke; stroke: var(--surface);
+.thk-lab text { font-size: 13px; font-weight: 500; fill: var(--text-2); paint-order: stroke; stroke: var(--surface);
   stroke-width: 3.2px; stroke-linejoin: round; }
 .thk-lab .ld { fill: none; stroke: var(--text-2); stroke-width: .75; opacity: .65; }
 .thk-lab .ldot { fill: var(--text-2); opacity: .85; }
@@ -580,8 +580,8 @@ export interface Spot {
   at: readonly number[];
 }
 
-const FS = 12.5; // label font size in user units (≈ 11.5 CSS px on a 390 px phone)
-const LH = 14.5;
+const FS = 13; // label font size in user units (≈ 11 CSS px on a 360 px phone, 12 px at 390)
+const LH = 15;
 
 function Label({ k, l }: { k: Ctx; l: Lab }) {
   const lines = l.t.split('\n');
@@ -988,7 +988,7 @@ function HipFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { t: '軟骨', at: [IC[0] + 23.5, IC[1] - 9.5], x: IC[0] + 23, y: IC[1] - 23, a: 'middle' },
     { id: 'iliopsoas', t: '腸腰筋', at: [262, 36], x: 306, y: 42 },
     { id: 'rectus-abdominis', t: '腹直筋', at: [288, 146], x: 306, y: 114 },
-    { id: 'pubic-symphysis', t: '恥骨結合', at: [303, 222], x: 308, y: 238 },
+    { id: 'pubic-symphysis', t: '恥骨結合', at: [303, 222], x: 305, y: 238 },
     { id: 'adductor-longus', t: '長内転筋', at: [263, 262], x: 306, y: 272 },
     { id: 'gracilis', t: '薄筋', at: [289, 318], x: 306, y: 316 },
     { id: 'adductor-magnus', t: '大内転筋', at: [272, 384], x: 306, y: 364 },
@@ -1359,7 +1359,7 @@ function HipDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'greater-trochanter', t: '大転子', at: [246, 182], x: 264, y: 172 },
     { id: 'trochanteric-bursa', t: '大転子滑液包', at: [240, 202], x: 264, y: 204 },
     { t: '外旋筋群', at: [190, 198], x: 264, y: 236 },
-    { id: 'proximal-hamstring-tendon', t: 'ハムストリング腱', at: [134, 262], x: 252, y: 268 },
+    { id: 'proximal-hamstring-tendon', t: 'ハムストリング腱', at: [134, 262], x: 248, y: 268 },
     { id: 'sciatic-nerve', t: '坐骨神経', at: [164, 318], x: 264, y: 322 },
     { id: 'biceps-femoris', t: '大腿二頭筋', at: [184, 404], x: 264, y: 418 },
   ];
@@ -1554,7 +1554,7 @@ function HipSide({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const labels: Lab[] = [
     { id: 'gluteus-medius', t: '中殿筋', at: [160, 104], x: 88, y: 70, a: 'end' },
     { id: 'gluteus-maximus', t: '大殿筋', at: [116, 196], x: 70, y: 150, a: 'end' },
-    { id: 'gluteal-tendons', t: '中・小殿筋の腱', at: [176, 204], x: 93, y: 196, a: 'end' },
+    { id: 'gluteal-tendons', t: '中・小殿筋の腱', at: [176, 204], x: 96, y: 196, a: 'end' },
     { id: 'greater-trochanter', t: '大転子', at: [186, 238], x: 70, y: 228, a: 'end' },
     { id: 'trochanteric-bursa', t: '大転子滑液包', at: [156, 236], x: 88, y: 262, a: 'end' },
     { id: 'iliotibial-band', t: '腸脛靱帯', at: [180, 340], x: 88, y: 330, a: 'end' },

@@ -109,13 +109,14 @@
 }
 
 /* ── hotspots ── */
+/* Hotspots don't take pointer input themselves: the SVG-level picker chooses the nearest one
+   (overlapping 44 px hit circles would otherwise hover/focus the neighbour drawn on top). */
 .tb-spot {
-  cursor: pointer;
   outline: none;
+  pointer-events: none;
 }
 .tb-spot-hit {
   fill: transparent;
-  pointer-events: all;
 }
 .tb-debug .tb-spot-hit {
   fill: rgba(0, 120, 255, 0.06);
@@ -134,13 +135,11 @@
   stroke-width: 1.05;
   transition: fill-opacity 0.15s ease;
 }
-@media (hover: hover) {
-  .tb-spot:hover .tb-spot-halo {
-    opacity: 0.28;
-  }
-  .tb-spot:hover .tb-spot-dot {
-    fill-opacity: 0.9;
-  }
+.tb-spot.is-hover .tb-spot-halo {
+  opacity: 0.28;
+}
+.tb-spot.is-hover .tb-spot-dot {
+  fill-opacity: 0.9;
 }
 .tb-spot.is-active .tb-spot-dot {
   fill-opacity: 1;
@@ -197,10 +196,17 @@
 .tb-spot.is-candidate .tb-spot-dot {
   fill-opacity: 1;
 }
+.tb-spot-focus {
+  fill: none;
+  stroke: var(--text, #1e1b18);
+  stroke-width: 2;
+  opacity: 0;
+}
 .tb-spot:focus-visible .tb-spot-halo {
-  opacity: 0.35;
-  stroke: var(--tb-accent);
-  stroke-width: 1.5;
+  opacity: 0.5;
+}
+.tb-spot:focus-visible .tb-spot-focus {
+  opacity: 1;
 }
 
 /* ── heat tint (pain log intensity) ── */
@@ -284,6 +290,12 @@
   height: 10px;
   border-radius: 50%;
   background: var(--tb-accent);
+}
+.tb-chooser .tb-chooser-close {
+  justify-content: center;
+  min-height: 40px;
+  color: var(--text-2, #5f5852);
+  font-size: 13px;
 }
 .tb-chooser-side {
   margin-left: auto;

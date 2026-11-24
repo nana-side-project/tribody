@@ -125,3 +125,34 @@ export function matches(query: string, fields: (string | undefined)[]): boolean 
   const hay = fields.filter(Boolean).map((f) => normalize(f as string));
   return terms.every((t) => hay.some((h) => h.includes(t)));
 }
+
+/** Normalised search terms of a query (split on spaces). */
+export function queryTerms(query: string): string[] {
+  return query
+    .split(/[\s　]+/)
+    .map(normalize)
+    .filter(Boolean);
+}
+
+/**
+ * Rank pre-normalised field tiers (tier 0 = best, e.g. the name) against `terms`.
+ * Every term must be found in some tier; returns 0 when one is missing, otherwise a score where
+ * hits in earlier tiers weigh more (and a name that starts with the term gets a bonus).
+ */
+export function tierScore(terms: string[], tiers: string[][]): number {
+  if (!terms.length) return 1;
+  let total = 0;
+  for (const t of terms) {
+    let best = 0;
+    tiers.forEach((fields, i) => {
+      const w = (tiers.length - i) * 10;
+      for (const f of fields) {
+        if (!f.includes(t)) continue;
+        best = Math.max(best, w + (i === 0 && f.startsWith(t) ? 5 : 0));
+      }
+    });
+    if (!best) return 0;
+    total += best;
+  }
+  return total;
+}

@@ -35,7 +35,7 @@ export const LIKELIHOOD_JA = { common: 'よくある', possible: '可能性あ�
 export const LIKELIHOOD_ORDER = { common: 0, possible: 1, rare: 2 } as const;
 
 export const ROLE_JA: Record<InvolvementRole, string> = {
-  injured: '痛んでいる',
+  injured: '傷んでいる',
   irritated: '刺激されている',
   compressed: '圧迫されている',
   overloaded: '負担過多',
@@ -56,6 +56,9 @@ export const EXERCISE_TYPE_JA: Record<ExerciseType, string> = {
   balance: 'バランス',
   'nerve-glide': '神経グライド',
 };
+
+/** Recovery-plan step labels (short; the content titles are longer). */
+export const PHASE_JA: Record<'calm' | 'build' | 'return', string> = { calm: '① 痛みを鎮める', build: '② 強くする', return: '③ 競技に戻る' };
 
 export const LEVEL_JA: Record<1 | 2 | 3, string> = { 1: 'Lv.1 やさしい', 2: 'Lv.2 標準', 3: 'Lv.3 上級' };
 
@@ -145,11 +148,24 @@ export const regionConditionCount = (id: RegionId) => CONDITIONS.filter((c) => c
 
 // ── dose formatting ───────────────────────────────────────────
 
+/**
+ * Add 「左右」 to a dose value without doubling brackets:
+ * '15回' → '15回（左右）', '5〜10回（慣れたら15回まで）' → '5〜10回（慣れたら15回まで、左右それぞれ）',
+ * '15回（膝を伸ばして・膝を曲げて、それぞれ）' → '15回（膝を伸ばして・膝を曲げて、それぞれ左右で）'.
+ */
+export function withPerSide(v: string): string {
+  if (/左右/.test(v)) return v;
+  const m = v.match(/^(.*)[（(]([^（）()]*)[）)]$/);
+  if (!m) return `${v}（左右）`;
+  const inner = m[2].endsWith('それぞれ') ? `${m[2]}左右で` : `${m[2]}、左右それぞれ`;
+  return `${m[1]}（${inner}）`;
+}
+
 export function doseParts(d: Exercise['dose']): { k: string; v: string }[] {
   const out: { k: string; v: string }[] = [];
   if (d.sets) out.push({ k: 'セット', v: `${d.sets}セット` });
-  if (d.reps) out.push({ k: '回数', v: d.reps + (d.perSide ? '（左右）' : '') });
-  if (d.holdSec) out.push({ k: '保持', v: `${d.holdSec}秒` + (d.perSide && !d.reps ? '（左右）' : '') });
+  if (d.reps) out.push({ k: '回数', v: d.perSide ? withPerSide(d.reps) : d.reps });
+  if (d.holdSec) out.push({ k: '保持', v: d.perSide && !d.reps ? withPerSide(`${d.holdSec}秒`) : `${d.holdSec}秒` });
   if (d.tempo) out.push({ k: 'テンポ', v: d.tempo });
   if (d.rest) out.push({ k: '休息', v: d.rest });
   if (d.frequency) out.push({ k: '頻度', v: d.frequency });
@@ -164,10 +180,53 @@ export function doseShort(d: Exercise['dose'] | undefined): string {
   if (d.reps) main.push(d.reps);
   else if (d.holdSec) main.push(`${d.holdSec}秒`);
   let s = main.join(' × ');
-  if (d.perSide && !/左右/.test(s)) s += '（左右）';
+  if (d.perSide && s) s = withPerSide(s);
   const freq = (d.frequency ?? '').replace(/[（(].*?[）)]/g, '').trim();
   if (freq) s += (s ? ' · ' : '') + freq;
   return s;
 }
 
-export const GENERIC_PAIN_RULE = '運動中の痛みは10段階で3以下、翌朝に悪化していなければOK';
+export const GENERIC_PAIN_RULE =
+  '運動中の痛みは10段階で3以下（腱のリハビリでは5まで）、翌朝に悪化していなければOK。しびれ・電気が走る痛みが出たら中止します。';
+
+// ── exercise library filters ──────────────────────────────────
+
+/** Longer option text for the 種類 filter (the badge keeps the short EXERCISE_TYPE_JA). */
+export const EXERCISE_TYPE_HINT_JA: Partial<Record<ExerciseType, string>> = {
+  isometric: 'アイソメトリック（止まったまま力を出す）',
+  mobility: 'モビリティ（関節を大きく動かす）',
+  activation: '活性化（筋肉のスイッチを入れる）',
+  plyometric: 'プライオメトリクス（跳ぶ・弾む）',
+  'nerve-glide': '神経の滑走（神経グライド）',
+};
+
+export type EquipmentTag = 'none' | 'mat' | 'wall' | 'chair' | 'towel' | 'band' | 'weight' | 'step' | 'roller' | 'ball';
+
+/** A small fixed set of equipment tags for filtering; the detailed free-text strings stay as badges. */
+export const EQUIPMENT_TAGS: { id: EquipmentTag; label: string; short: string; re?: RegExp }[] = [
+  { id: 'none', label: 'なし（器具不要）', short: 'なし' },
+  { id: 'mat', label: 'マット', short: 'マット', re: /マット/ },
+  { id: 'wall', label: '壁・ドア枠', short: '壁', re: /壁|ドア枠/ },
+  { id: 'chair', label: '椅子・ベンチ・台', short: '椅子・台', re: /椅子|ベンチ|ベッド|ソファ|台や|などの台/ },
+  { id: 'towel', label: 'タオル', short: 'タオル', re: /タオル(?!で代用)/ },
+  { id: 'band', label: 'チューブ・バンド', short: 'チューブ', re: /チューブ|バンド/ },
+  { id: 'weight', label: 'ダンベル・重り', short: '重り', re: /ダンベル|ケトルベル|バーベル|重り|ペットボトル/ },
+  { id: 'step', label: '段差・階段', short: '段差', re: /段差|階段|傾斜台|厚い板/ },
+  { id: 'roller', label: 'フォームローラー', short: 'ローラー', re: /フォームローラー/ },
+  { id: 'ball', label: 'ボール・クッション', short: 'クッション', re: /ボール|クッション/ },
+];
+
+const OPTIONAL_RE = /（(任意|応用|あれば)）/;
+
+/** Equipment tags of an exercise. 'none' = nothing is required (only なし… or optional items). */
+export function equipmentTags(e: Pick<Exercise, 'equipment'>): EquipmentTag[] {
+  const list = e.equipment ?? [];
+  const out = new Set<EquipmentTag>();
+  const required = list.filter((x) => !x.startsWith('なし') && !OPTIONAL_RE.test(x));
+  if (!list.length || list.some((x) => x.startsWith('なし')) || required.length === 0) out.add('none');
+  for (const x of list) {
+    if (x.startsWith('なし')) continue;
+    for (const t of EQUIPMENT_TAGS) if (t.re?.test(x)) out.add(t.id);
+  }
+  return [...out];
+}

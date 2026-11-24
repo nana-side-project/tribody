@@ -17,7 +17,7 @@ export const conditions: Condition[] = [
       'お皿（膝蓋骨）のまわりや奥がじわっと痛む、ランナーに最も多い膝の痛みです。お皿と太ももの骨の間の関節にかかる負荷が、組織の許容量を上回ることで起こります。股関節と膝の筋力強化と練習量の調整で、多くは改善します。',
     whatHappens: [
       '膝蓋骨（しつがいこつ＝お皿）は、太ももの骨（大腿骨）の溝の上を滑りながら、大腿四頭筋の力をすねに伝えています。膝を曲げて体重を支えるほど、お皿と大腿骨の間の圧は大きくなります。しゃがむ、階段を下りる、下り坂を走る動作は特に負担が大きくなります。',
-      '痛みの正体は、関節まわりの組織（お皿の裏の軟骨の下にある骨、関節を包む滑膜、お皿を支える支帯、膝蓋下脂肪体など）が、許容量を超える負荷で敏感になった状態と考えられています。軟骨そのものには神経がないため、「軟骨がすり減った」とは限りません。画像で異常が見つからないことも多いです。',
+      '痛みの正体は、関節まわりの組織（お皿の裏の軟骨の下にある骨、関節を包む滑膜、お皿を支える支帯、膝蓋下脂肪体（しつがいかしぼうたい）など）が、許容量を超える負荷で敏感になった状態と考えられています。軟骨そのものには神経がないため、「軟骨がすり減った」とは限りません。画像で異常が見つからないことも多いです。',
       '原因は一つではありません。急な練習量の増加、大腿四頭筋やお尻（中殿筋・大殿筋）の筋力不足、着地で膝が内側に入る動き、低すぎるサドルなどが重なります。組織が「耐えられる負荷」と「実際の負荷」のバランスを整えれば、多くは改善します。',
     ],
     involved: [
@@ -147,8 +147,8 @@ export const conditions: Condition[] = [
         exercises: [
           'ex-terminal-knee-ext',
           'ex-wall-sit',
+          'ex-isometric-abduction',
           'ex-clamshell',
-          'ex-sidelying-abduction',
           'ex-glute-bridge',
         ],
         progressWhen: [
@@ -395,7 +395,7 @@ export const conditions: Condition[] = [
           'バイクは痛まない範囲で続けられることが多いです。サドル高とクリート位置を見直します。',
           'スイムは通常問題なく続けられます。',
         ],
-        exercises: ['ex-isometric-abduction', 'ex-clamshell', 'ex-sidelying-abduction', 'ex-glute-bridge'],
+        exercises: ['ex-isometric-abduction', 'ex-clamshell', 'ex-glute-bridge'],
         progressWhen: [
           '階段の昇り降りで膝の外側が痛まない',
           '20〜30分のバイクや早歩きが痛みなくできる',
@@ -412,7 +412,7 @@ export const conditions: Condition[] = [
           'ピッチを5〜10%上げて、歩幅を小さくします。',
           'ゆっくり長く走るより、少し速めに短く走る方が痛みにくいことがあります。',
         ],
-        exercises: ['ex-band-walk', 'ex-side-plank', 'ex-single-leg-bridge', 'ex-step-down'],
+        exercises: ['ex-sidelying-abduction', 'ex-band-walk', 'ex-side-plank', 'ex-single-leg-bridge', 'ex-step-down'],
         progressWhen: [
           'サイドプランクを左右差なく30秒×3回できる',
           'ステップダウンで膝が内に入らず、骨盤を水平に保てる',
@@ -514,7 +514,7 @@ export const conditions: Condition[] = [
   // ───────────────────────────────────────────── 膝蓋腱障害
   {
     id: 'patellar-tendinopathy',
-    nameJa: '膝蓋腱障害',
+    nameJa: '膝蓋腱障害（ジャンパー膝）',
     nameEn: 'Patellar tendinopathy',
     aka: ['ジャンパー膝', '膝蓋腱炎'],
     region: 'knee',
@@ -523,7 +523,7 @@ export const conditions: Condition[] = [
     summary:
       'お皿のすぐ下の膝蓋腱が、繰り返しの負荷に耐えきれずに痛む状態です。炎症というより、腱の「負荷に耐える力」が追いついていない状態で、段階的に負荷をかけて腱を強くすることが治療の中心です。',
     whatHappens: [
-      '膝蓋腱（しつがいけん）は、お皿の下端から脛骨の前の出っ張り（脛骨粗面）まで続く腱で、大腿四頭筋の力をすねに伝えます。ジャンプの着地や踏み込みでは、バネのように力をためてすばやく放出しています。痛みの多くはお皿の下端の付け根に出ます。',
+      '膝蓋腱（しつがいけん）は、お皿の下端から脛骨の前の出っ張り（脛骨粗面＝けいこつそめん）まで続く腱で、大腿四頭筋の力をすねに伝えます。ジャンプの着地や踏み込みでは、バネのように力をためてすばやく放出しています。痛みの多くはお皿の下端の付け根に出ます。',
       '急に負荷が増えると、腱の細胞が反応して腱の構造が変化し、痛みが出やすくなります（腱障害の連続体モデル）。いわゆる「炎症」が主役ではないため、安静や消炎だけでは負荷に耐える力は戻りません。長く休みすぎると、腱が負荷に耐える力はかえって落ちてしまいます。',
       '腱は、適切な負荷をかけると少しずつ強くなります。痛みを目安にしながら、等尺性運動（止めて耐える）→ゆっくり重い筋力トレーニング→ジャンプなどバネの動き、と段階的に進めるのが現在の標準的な考え方です。改善には通常3か月ほどかかります。',
     ],
@@ -603,7 +603,7 @@ export const conditions: Condition[] = [
         hint: '痛みがお皿のまわり全体にぼんやり広がり、場所を一点で示せない場合。',
       },
       {
-        name: '膝蓋下脂肪体の痛み',
+        name: '膝蓋下脂肪体（しつがいかしぼうたい）の痛み',
         hint: '膝を伸ばしきると、お皿の下の腱の両わきが痛む場合。',
       },
       {
@@ -1120,8 +1120,9 @@ export const conditions: Condition[] = [
           '数日後から、痛みのない範囲で歩き、足首を動かし始めます。完全な安静は不要です。',
           'この時期の強いストレッチは控え、伸ばすのは「軽く突っ張る」程度までにします。',
           'スイム（キックは控えめ）や軽いバイクは、痛みがなければ早めに再開できます。',
+          'つま先立ち（カーフレイズ）は、普通に歩けるようになってから両脚で試し、②の段階で本格的に始めます。',
         ],
-        exercises: ['ex-isometric-calf-hold', 'ex-calf-raise-straight', 'ex-calf-raise-bent'],
+        exercises: ['ex-isometric-calf-hold'],
         progressWhen: [
           '普通に歩いて痛みがない',
           '両脚のつま先立ちを痛みなく15回できる',
@@ -1530,7 +1531,7 @@ export const conditions: Condition[] = [
       'すねの骨の一点（数cm以内）を押すと、飛び抜けて強く痛む',
       '走る・歩くなど、体重をかけるたびに痛む',
       '夜間や安静時にもうずくように痛む',
-      '片脚で軽く跳ぶと痛む（確かめるために跳ぶ必要はありません）',
+      '走る・跳ぶなど、着地の衝撃で同じ一点が痛む（確かめるために跳ばないでください）',
       '骨の表面が少し腫れていることがある',
     ],
     patterns: [
@@ -1724,7 +1725,7 @@ export const conditions: Condition[] = [
         ref: 'gastrocnemius',
         kind: 'muscle',
         role: 'irritated',
-        note: '疲労で神経の制御が乱れ、筋が過剰に興奮して勝手に強く縮み続けます（筋が傷んでいるわけではありません）。',
+        note: '疲労で神経の制御が乱れ、筋が過剰に興奮して勝手に強く縮み続けます（痛むのはこの筋肉ですが、肉離れのように線維が傷ついているわけではありません）。',
       },
       {
         ref: 'soleus',
@@ -1950,7 +1951,7 @@ export const muscles: Muscle[] = [
     regions: ['knee', 'hip'],
     group: '大腿四頭筋',
     origin: '下前腸骨棘（直頭）と、寛骨臼の上縁（反転頭）',
-    insertion: '大腿四頭筋腱としてお皿（膝蓋骨）に付き、膝蓋腱を介して脛骨粗面に付く',
+    insertion: '大腿四頭筋腱としてお皿（膝蓋骨）に付き、膝蓋腱を介して脛骨粗面（けいこつそめん）に付く',
     actions: ['膝関節の伸展', '股関節の屈曲', '骨盤の前傾を助ける'],
     innervation: '大腿神経（L2–L4）',
     summary:
@@ -1978,7 +1979,7 @@ export const muscles: Muscle[] = [
     group: '大腿四頭筋',
     origin: '大腿骨の転子間線の上部・大転子の前縁と下縁・殿筋粗面の外側・粗線の外側唇（太ももの骨の外側〜後ろ）',
     insertion:
-      '大腿四頭筋腱としてお皿の外側上縁に付き、膝蓋腱を介して脛骨粗面に付く（一部は外側膝蓋支帯へ）',
+      '大腿四頭筋腱としてお皿の外側上縁に付き、膝蓋腱を介して脛骨粗面（けいこつそめん）に付く（一部は外側膝蓋支帯へ）',
     actions: ['膝関節の伸展'],
     innervation: '大腿神経（L2–L4）',
     summary:
@@ -2021,7 +2022,7 @@ export const muscles: Muscle[] = [
     ],
     origin: '大腿骨の転子間線の下部・粗線の内側唇・内側筋間中隔（下部の線維は大内転筋の腱からも起こる）',
     insertion:
-      '大腿四頭筋腱としてお皿の内側上縁に付き、膝蓋腱を介して脛骨粗面に付く（一部は内側膝蓋支帯へ）',
+      '大腿四頭筋腱としてお皿の内側上縁に付き、膝蓋腱を介して脛骨粗面（けいこつそめん）に付く（一部は内側膝蓋支帯へ）',
     actions: ['膝関節の伸展', 'お皿（膝蓋骨）を内側から安定させる（下部の斜めの線維）'],
     innervation: '大腿神経（L2–L4）',
     summary:
@@ -2185,11 +2186,15 @@ export const muscles: Muscle[] = [
       'achilles-midportion',
       'achilles-insertional',
       'plantar-heel-pain',
+      'tibial-stress-fracture',
+      'posterior-tibial-tendinopathy',
+      'mortons-neuroma',
     ],
     strengthen: [
       'ex-calf-raise-straight',
       'ex-isometric-calf-hold',
       'ex-eccentric-heel-drop',
+      'ex-towel-heel-raise',
       'ex-pogo-hops',
     ],
     stretch: ['ex-gastroc-stretch'],
@@ -2223,6 +2228,9 @@ export const muscles: Muscle[] = [
       'mtss',
       'tibial-stress-fracture',
       'achilles-midportion',
+      'achilles-insertional',
+      'plantar-heel-pain',
+      'metatarsal-stress-fracture',
       'muscle-cramps',
     ],
     strengthen: [
@@ -2230,6 +2238,7 @@ export const muscles: Muscle[] = [
       'ex-calf-raise-straight',
       'ex-isometric-calf-hold',
       'ex-eccentric-heel-drop',
+      'ex-towel-heel-raise',
       'ex-pogo-hops',
     ],
     stretch: ['ex-soleus-stretch', 'ex-knee-to-wall'],
@@ -2590,10 +2599,10 @@ export const exercises: Exercise[] = [
     primary: ['gastrocnemius', 'soleus'],
     secondary: ['fibularis-longus', 'tibialis-posterior', 'flexor-hallucis-longus'],
     equipment: ['壁（支え）', '段差（任意）', 'ダンベルやリュック（任意）'],
-    level: 2,
+    level: 1,
     dose: {
       sets: 3,
-      reps: '12〜25回',
+      reps: '両脚10〜15回 → 片脚12〜25回',
       perSide: true,
       tempo: '2秒で上げ、3秒で下ろす',
       rest: '1〜2分',
@@ -2633,10 +2642,10 @@ export const exercises: Exercise[] = [
     primary: ['soleus'],
     secondary: ['gastrocnemius', 'tibialis-posterior', 'flexor-hallucis-longus', 'fibularis-longus'],
     equipment: ['壁（支え）', 'ダンベル（任意）'],
-    level: 2,
+    level: 1,
     dose: {
       sets: 3,
-      reps: '15〜25回',
+      reps: '両脚10〜15回 → 片脚15〜25回',
       perSide: true,
       tempo: '2秒で上げ、3秒で下ろす',
       rest: '1〜2分',

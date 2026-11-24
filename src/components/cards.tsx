@@ -111,10 +111,10 @@ export function TypeIcon({ type }: { type: ExerciseType }) {
   }
 }
 
-export function ExerciseCard({ id, extra }: { id: ExerciseId; extra?: ReactNode }) {
+export function ExerciseCard({ id, extra, search = '' }: { id: ExerciseId; extra?: ReactNode; /** e.g. '?from=<condition>&phase=build' */ search?: string }) {
   const e = getExercise(id);
   return (
-    <Link to={`/exercise/${id}`} className="card">
+    <Link to={`/exercise/${id}${search}`} className="card">
       <div className="card__row">
         <span className={`ex-card__icon${e ? ` ex-card__icon--${e.type}` : ''}`} aria-hidden="true">
           {e ? <TypeIcon type={e.type} /> : <IconDumbbell />}

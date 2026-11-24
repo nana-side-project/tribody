@@ -749,7 +749,7 @@ Non-scope muscles are hidden (`?all=1` shows every rigged muscle faintly).
 |---|---|---|
 | `tendon`, `ligament` | `path`, `radius`, `flat?` | cream cord / band |
 | `fascia` | `path`, `radius` (thickness), `flat: { width, normal }` | wide translucent cream sheet (ITB, plantar fascia, thoracolumbar fascia) |
-| `nerve` | `path`, `radius` (~0.003–0.005) | thin yellow cord (sciatic, interdigital) |
+| `nerve` | `path`, `radius` (~0.003–0.005) | thin yellow cord (sciatic, interdigital); where muscles or bones hide it, a see-through copy keeps it visible (any mode) |
 | `bursa` | `at`, `radii: [lat, y, z]`, `off?` | soft blue ellipsoid oriented with `at`'s bone |
 | `cartilage`, `fatpad` | `at`, `radii`, `off?` | pale cushion (labrum, meniscus, disc, PF cartilage, heel fat pad) |
 | `spot` | `at`, `radius` | glow sphere on a bony point or joint (greater trochanter, joint line, medial tibial border, stress-fracture site) |
@@ -798,15 +798,30 @@ Flat `normal` is a bone-frame direction: `lateral | medial | anterior | posterio
   in a row, the knee on the bench in a Copenhagen plank) — previously such a mid key made the movement stop and
   go. The curve is a cubic Hermite spline whose tangents are the 3-point (Catmull–Rom) slopes, limited like a
   monotone spline: a DOF that turns at the pass key stops there (0 slope) and no DOF ever overshoots its key
-  values, so limits and contacts between keys are no worse than at the keys. Rules: `hold` is ignored on a pass
+  values, so joint limits are never crossed between keys (contacts are NOT guaranteed — a hand or foot can still
+  sweep through the floor between two good keys, so check the whole cycle). Rules: `hold` is ignored on a pass
   key (warning); in `'pingpong'` clips the first / last key cannot pass; `label` works as usual; in `'loop'` clips
-  the first and last keys may pass (the curve wraps around). Clips without pass keys are bit-identical to before.
+  the first and last keys may pass (the curve wraps around). Clips without pass keys are bit-identical to before
+  (`shots/eng-verify-motion/probe/cmp-engine.mjs` compares every clip against the pre-pass `clip.ts` from git).
+- **A pass key only passes if its pose lies between its neighbours.** Every DOF that turns at the key (or is equal
+  to a neighbour) gets slope 0 there; if almost all do, the "pass" key is a full stop again. The compiler warns:
+  `[tribody] clip ex-… key 13 (t 0.565): pass key is (almost) a stop — …` (angular speed through the key < 20 % of
+  the straight neighbour-to-neighbour speed). Fix it by moving the key's pose part of the way toward the next key
+  (e.g. the 90-90 hands-lift key: shoulders 15 % on their way instead of unchanged).
 
   ```ts
   { t: 0, label: 'ゆっくりしゃがむ（3秒）' },
   { t: 0.15, pose: WALL_MID, pass: true },   // solved: back still on the wall — no stop here
   { t: 0.3, pose: WALL_BOTTOM, hold: 2 },
   ```
+
+  Recipe used for the shipped clips: blend the two neighbouring keys at 25 / 50 / 75 %, keep the "progress" DOFs
+  (e.g. knee flexion) as the blend, solve the others for the contacts (per-clip solvers in `shots/eng-motion/probe/`,
+  e.g. `quad-solve.ts`, `row-solve.ts`, `cp-solve.ts`, `hd-solve.ts`, on top of `lib.ts`), insert the results as pass
+  keys (the same poses in reverse order on the way back), then re-check the whole cycle with
+  `node shots/eng-verify-motion/probe/run.mjs sweep.ts <id…|changed|all>`: visible skin (loft + hands / feet / head)
+  against the floor and every prop, joint limits, overshoot, speed at each pass key relative to its run, and every
+  body-part ↔ prop contact (min / max gap over the cycle).
 - `label` (Japanese, short, 動作の指示): shown from that key until the next labelled key, e.g. 「ゆっくり持ち上げる」
   「1秒キープ」「ゆっくり戻す（3秒）」. Also sent to `onPhase`.
 - `loop: 'loop'` — if the last key's `t` < 1 the engine eases back to the first key over the remaining
@@ -837,8 +852,8 @@ Flat `normal` is a bone-frame direction: `lateral | medial | anterior | posterio
 | `mat` | `at?` (default: under the pelvis), `size? [len, width]`, `rotY?` | lies on the floor |
 | `roller` | `at` (roller centre), `axis? 'x'|'z'`, `length?`, `radius?`, `color?` | foam roller |
 | `ball` | `at`, `radius?`, `color?` | follows every frame, e.g. `{ mix: ['femur_R:medial_epicondyle', 'femur_L:medial_epicondyle'], t: 0.5 }` between the knees |
-| `towel` | `at`, `axis? 'x'|'y'|'z'|[x,y,z]`, `length?` (0.2), `radius?` (0.03), `color?` | rolled towel (cream roll, spiral on the ends). On a **body point** it follows that bone every frame, position *and* orientation (`axis` in the bone's rest frame), e.g. between the elbow and the waist: `{ kind: 'towel', at: { bone: 'lumbar', rest: [0.157, 1.13, -0.012] }, axis: 'z', radius: 0.028, length: 0.17 }`; on a **world point** it lies still (`axis` in world), e.g. under the toes |
-| `pillow` | `at` (centre of the TOP), `size? [x, h, z]`, `rotY?`, `color?` | soft rounded cushion, placed once; the puffed middle is 1.35 × `h` tall, so `at.y` = 1.35 × h puts it on the floor |
+| `towel` | `at`, `axis? 'x'|'y'|'z'|[x,y,z]`, `length?` (0.2), `radius?` (0.03), `color?`; or `size? [x, h, z]`, `rotY?` | rolled towel (dusty lavender roll, spiral on the ends — a hue no anatomy colour uses, so it reads on bones, skin, furniture and the mat in both themes). On a **body point** it follows that bone every frame, position *and* orientation (`axis` in the bone's rest frame), e.g. squeezed between the upper arm and the waist: `{ kind: 'towel', at: { bone: 'lumbar', rest: [0.1625, 1.135, -0.012] }, axis: 'z', radius: 0.034, length: 0.17 }` (solve lat / y / radius so it touches BOTH the trunk and the arm); on a **world point** it lies still (`axis` in world), e.g. under the toes. With `size` it is a **folded** flat towel placed once (`at` = centre of its top, total height `h`), e.g. under the head |
+| `pillow` | `at` (centre of the TOP), `size? [x, h, z]`, `rotY?`, `color?` | soft cushion, placed once: flat bottom, the top puffs up toward the middle, which is 1.35 × `h` tall (edges `h`), so `at.y` = 1.35 × h puts it on the floor. For a resting head put the top 3–5 mm above the head's lowest point (it sinks in a little) |
 | `dumbbell` | `hand? 'R'|'L'`, `size?` | held in the palm, follows the hand |
 | `slant` | `at` (bottom centre), `angle?`, `size?`, `rotY?` | slant board rising toward +z |
 | `chair`, `bench` | `at` (centre of the seat's top), `rotY?` | e.g. `{ at: { mix: ['pelvis:ischial_tuberosity_R', 'pelvis:ischial_tuberosity_L'], t: 0.5 }, off: [0, -0.035, -0.03] }` |
@@ -856,7 +871,17 @@ Flat `normal` is a bone-frame direction: `lateral | medial | anterior | posterio
   narrow screens).
 - `focus: RegionId` frames that region (landmark set in `camera.ts → REGION_POINTS`); without focus the
   whole body (+ furniture) is framed over the whole clip. `frame: AttachRef[]` adds body points that must stay
-  in view (e.g. `['hand:palm', 'scapula:acromion']` for band ER).
+  in view (e.g. `['hand:palm', 'scapula:acromion']` for band ER). With `frame` and no `focus`, **only** the
+  frame points are framed.
+- "Over the whole clip" = sampled at **every key time and hold end, plus 16 uniform times**, so an extreme
+  pose anywhere in the clip stays in view — you no longer need extra `frame` points just for in-between poses.
+- Your clip's framing is what the app shows: the exercise page's `focus` prop does **not** override a clip
+  (it only frames the 「準備中」 fallback when no clip exists). Same for muscle rigs (`rig.focus` wins).
+- Muscle demos frame the muscle (all three poses) plus the segment it moves: from each strand's insertion to the
+  next joint (elbow / wrist / fingertips / knee / ankle / toe tips), over the whole loop and clear of the phase
+  pill / player bar. A rig's exact camera (`{ position, target }`) is kept when all of that fits; otherwise the view
+  is fitted to it along the authored direction (like `{ dir }`), so e.g. a gluteus-medius close-up still shows the
+  thigh abducting in a 300 px card.
 - Framing keeps clear of the phase pill (top) and the player bar (bottom). Users can orbit / pinch;
   「視点リセット」 returns to your framing.
 
@@ -868,11 +893,41 @@ Flat `normal` is a bone-frame direction: `lateral | medial | anterior | posterio
 - `highlights` — used when the Exercise data (`primary` / `secondary` in src/data) is empty. When the data
   exists the viewer highlights `Exercise.primary` (primary) and `Exercise.secondary` (secondary); if **none** of
   those muscles is rigged yet, it falls back to the clip's `highlights`, so always set them.
+- `extraHighlights` — parts highlighted **in addition** to the exercise's own targets (data or fallback), merged
+  on top in exercise mode. Use it for what the data lists can't contain, e.g. a nerve on a nerve glide:
+  `extraHighlights: { 'sciatic-nerve': 'involved' }`. Any `Highlight3DRole` (`'primary' | 'secondary' |
+  'involved' | 'injured' | 'selected'`) and any rigged muscle / structure id. Nerves stay visible through
+  muscles (see-through copy) and their label dot is nerve-yellow unless the role is `injured` / `involved`.
+
+### Labels (automatic)
+
+One floating name per highlighted part (max 10), placed by `labels.ts` in the **free space around the figure**:
+the skin silhouette and the highlighted anatomy are rasterised to a coarse screen grid every frame, and each
+label picks the spot (left / right of its dot, the card margins, above / below) with the least body / anatomy
+overlap and the shortest, uncrossed leader line. The phase pill, legend, player bar and reset button are
+measured from the DOM and are never covered; a dot under them moves to a visible point of its part (see below).
+
+- **Tiers**: `injured` / `selected` / `primary` = full pill (11.5 px, bold); `involved` / `secondary` = smaller,
+  lighter pill (11 px). Major labels are placed first.
+- **No jitter**: staying put or moving along with the dot is free, any other spot must be clearly better
+  (hysteresis), a label prefers its typical spot over the clip (only while the camera is at its home framing — after
+  the user orbits, that screen-space prior no longer applies), and positions glide (≈85 ms smoothing).
+- **「+N」 chip**: when the view opens, a pre-pass lays out ~12 sampled times of the clip; minor labels that would
+  have to cover the highlighted anatomy (or the body while there is free space) in > 15 % of them collapse into a
+  small 「+N」 chip next to the labels. Tapping it shows all names (「−」 hides them again).
+- **Side**: with `sides: 'both'` each label goes on the side whose dot is in view and nearer the camera at
+  `t = 0` (if neither dot is in view: the side with more of the part in view); with `'L'` (no mirror) on the left side.
+- **Partly visible parts**: when a label's dot (belly centre / `labelAt`) is off-view or under the phase pill / player
+  bar, the dot moves to the visible point of the part (its strand / cord control points, sampled in between) nearest
+  to it, so a close-up still names the tendon or muscle that runs out of the frame (the tibialis posterior tendon in
+  the short-foot close-up, the quadriceps in a patellar-tendon close-up). A part with nothing in view has no label.
+- Writing a clip: nothing to do. Long Japanese names are shortened by `labelName()` (parenthetical notes dropped).
 
 ### Clip checklist of good practice
 
 1. Start from a base pose; set the common configuration in `clip.pose`.
-2. Keys: starting position (label = first instruction), end of the concentric part (hold), return.
+2. Keys: starting position (label = first instruction), end of the concentric part (hold), return. Solved mid
+   poses that only keep a contact go in as `pass: true` keys (no stop halfway).
 3. Pin what should not move (`anchor`), ground the body, add props.
 4. Choose a camera that shows the movement plane (side view for bridges / squats, front (slightly above) for clamshell,
    back-oblique for calves).
@@ -893,7 +948,7 @@ Dev server (your own port): `VITE_CACHE_DIR=node_modules/.vite-<PORT> npx vite -
 | `?j=shoulder_R.flex:170,elbow_R.flex:90` | joint overrides on top of `?pose` (pose / highlights mode) — great for testing DOFs |
 | `?t=0..1` | **freeze** at a normalised time (deterministic screenshots) |
 | `?cam=front|back|left|right|top|iso|isoBack|isoLeft` | override the camera |
-| `?focus=<region>` | override the framing region |
+| `?focus=<region>` | framing region for highlights / pose views (an exercise clip or muscle rig frames itself) |
 | `?card=1` (`&h=320`) | show inside a 320 px card like the app (use this for final checks) |
 | `?labels=0` `?controls=0` `?autoplay=0` | contract props |
 | `?skin=0.25` | skin opacity (0 = bones only) |
@@ -903,7 +958,9 @@ Dev server (your own port): `VITE_CACHE_DIR=node_modules/.vite-<PORT> npx vite -
 | `?coverage=1` | table of rigged / missing ids and the owning file |
 
 `window.__tribody = { ready, setTime(t), engine, engines, remounts, done }` is available for scripts
-(`engine.renders` counts rendered frames, `engine.isPlaying`, `engine.t`).
+(`engine.renders` counts rendered frames, `engine.isPlaying`, `engine.t`). `setTime(t)` is exact — at a key's
+`t` it shows that key's pose and label (only `t = 1` stays just before the wrap) — and labels snap to their new
+spots; otherwise give labels ~0.4 s to glide before a screenshot.
 
 Robustness pages (engine maintainers; run them after engine changes):
 

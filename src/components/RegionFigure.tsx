@@ -1,11 +1,11 @@
 // Wrapper around a region diagram (src/svg/regions): view tabs, best-view selection, graceful fallback.
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { MuscleId, PainSpotId, RegionId, StructureId } from '../data';
 import { PREFERRED_VIEW, getRegionDiagram, regionDiagrams } from '../svg/regions';
 import type { Highlights, RegionDiagram } from '../svg/types';
 import { regionName } from '../lib/labels';
 import { ErrorBoundary } from './ErrorBoundary';
-import { IconLayers } from './icons';
+import { IconLayers, IconSearch } from './icons';
 import { Segmented } from './ui';
 
 function safeDiagram(region: RegionId): RegionDiagram | undefined {
@@ -18,19 +18,38 @@ function safeDiagram(region: RegionId): RegionDiagram | undefined {
   return undefined;
 }
 
-/** View id that contains the most of `ids` (falls back to the first view). */
-export function bestView(d: RegionDiagram, ids: string[]): string {
+/**
+ * View id that shows `ids` best (falls back to the first view). Ids in `primary` (the injured tissue)
+ * count three times as much as the others; ties go to the view with more primary ids, then view order.
+ */
+export function bestView(d: RegionDiagram, ids: string[], primary: string[] = []): string {
   let best = d.views[0]?.id;
-  let bestN = -1;
+  let bestScore = -1;
+  let bestP = -1;
   for (const v of d.views) {
     const parts = (d.parts?.[v.id] ?? []) as string[];
-    const n = ids.filter((id) => parts.includes(id)).length;
-    if (n > bestN) {
+    const p = ids.filter((id) => primary.includes(id) && parts.includes(id)).length;
+    const n = ids.filter((id) => !primary.includes(id) && parts.includes(id)).length;
+    const score = 3 * p + n;
+    if (score > bestScore || (score === bestScore && p > bestP)) {
       best = v.id;
-      bestN = n;
+      bestScore = score;
+      bestP = p;
     }
   }
   return best;
+}
+
+/** Does this view draw any of the highlighted ids? */
+function viewHas(d: RegionDiagram, view: string, ids: string[]): boolean {
+  const parts = (d.parts?.[view] ?? []) as string[];
+  return ids.some((id) => parts.includes(id));
+}
+
+/** All ids drawn in any view of a region diagram. */
+export function drawnParts(region: RegionId): Set<string> {
+  const d = safeDiagram(region);
+  return new Set(Object.values(d?.parts ?? {}).flat() as string[]);
 }
 
 /** View id that has hotspots for `spot`. */
@@ -63,9 +82,11 @@ export function RegionFigure({
   onSpotSelect,
   onPartSelect,
   preferParts,
+  preferPrimary,
   initialView,
   caption,
   footer,
+  zoomable,
   diagram: diagramOverride,
 }: {
   region: RegionId;
@@ -80,7 +101,11 @@ export function RegionFigure({
   onPartSelect?: (id: MuscleId | StructureId) => void;
   /** Pick the view containing most of these part ids. */
   preferParts?: string[];
+  /** Of `preferParts`, the ones that matter most (injured tissue) — weighted when picking the view. */
+  preferPrimary?: string[];
   initialView?: string;
+  /** Offer a 「拡大」 button when the 'injured' parts are small in the current view. */
+  zoomable?: boolean;
   caption?: ReactNode;
   footer?: ReactNode;
 }) {
@@ -88,7 +113,7 @@ export function RegionFigure({
   const initial = useMemo(() => {
     if (!diagram) return '';
     if (initialView && diagram.views.some((v) => v.id === initialView)) return initialView;
-    if (preferParts?.length) return bestView(diagram, preferParts);
+    if (preferParts?.length) return bestView(diagram, preferParts, preferPrimary);
     return diagram.views[0].id;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [diagram]);
@@ -104,6 +129,67 @@ export function RegionFigure({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSpot, diagram]);
   const shown = current;
+
+  // ── which views actually show the highlighted parts ──
+  const hiIds = useMemo(() => Object.keys(highlights ?? {}), [highlights]);
+  const markViews = !!diagram && dimOthers && hiIds.length > 0 && diagram.views.some((v) => !viewHas(diagram, v.id, hiIds));
+  const emptyHere = !!diagram && dimOthers && hiIds.length > 0 && !viewHas(diagram, shown, hiIds);
+  const viewWithHi = diagram && emptyHere ? diagram.views.find((v) => viewHas(diagram, v.id, hiIds))?.id : undefined;
+
+  // ── zoom onto small injured parts ──
+  const figRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef<HTMLDivElement>(null);
+  const [focusBox, setFocusBox] = useState<{ x: number; y: number; w: number; h: number; cw: number; ch: number } | null>(null);
+  const [zoomed, setZoomed] = useState(false);
+  const injuredIds = useMemo(
+    () => Object.entries(highlights ?? {}).filter(([, r]) => r === 'injured').map(([id]) => id),
+    [highlights],
+  );
+  useEffect(() => setZoomed(false), [shown]);
+  useLayoutEffect(() => {
+    if (!zoomable || !injuredIds.length) return setFocusBox(null);
+    const measure = () => {
+      const wrap = zoomRef.current;
+      const canvas = canvasRef.current;
+      if (!wrap || !canvas) return;
+      const wr = wrap.getBoundingClientRect();
+      const scale = wr.width / Math.max(1, canvas.clientWidth) || 1;
+      let x0 = Infinity;
+      let y0 = Infinity;
+      let x1 = -Infinity;
+      let y1 = -Infinity;
+      for (const id of injuredIds) {
+        wrap.querySelectorAll(`[data-part="${CSS.escape(id)}"]`).forEach((el) => {
+          const r = el.getBoundingClientRect();
+          if (!r.width && !r.height) return;
+          x0 = Math.min(x0, (r.left - wr.left) / scale);
+          y0 = Math.min(y0, (r.top - wr.top) / scale);
+          x1 = Math.max(x1, (r.right - wr.left) / scale);
+          y1 = Math.max(y1, (r.bottom - wr.top) / scale);
+        });
+      }
+      const cw = canvas.clientWidth;
+      const ch = canvas.clientHeight;
+      if (!Number.isFinite(x0) || !cw || !ch) return setFocusBox(null);
+      setFocusBox({ x: x0, y: y0, w: x1 - x0, h: y1 - y0, cw, ch });
+    };
+    measure();
+    const t = setTimeout(measure, 300); // diagrams may settle (fonts / labels) after the first paint
+    return () => clearTimeout(t);
+  }, [zoomable, injuredIds, shown, region]);
+  // only worth it when the injured tissue covers a small part of the figure
+  const small = !!focusBox && focusBox.w * focusBox.h < 0.06 * focusBox.cw * focusBox.ch && Math.max(focusBox.w / focusBox.cw, focusBox.h / focusBox.ch) < 0.4;
+  let zoomStyle: CSSProperties | undefined;
+  if (zoomed && focusBox && small) {
+    // the injured tissue fills ~40% of the frame, keeping its surroundings (and labels) in view
+    const s = Math.max(1.5, Math.min(2, (0.4 * focusBox.cw) / Math.max(1, focusBox.w), (0.4 * focusBox.ch) / Math.max(1, focusBox.h)));
+    const cx = focusBox.x + focusBox.w / 2;
+    const cy = focusBox.y + focusBox.h / 2;
+    const tx = Math.min(0, Math.max(focusBox.cw - s * focusBox.cw, focusBox.cw / 2 - s * cx));
+    const ty = Math.min(0, Math.max(focusBox.ch - s * focusBox.ch, focusBox.ch / 2 - s * cy));
+    zoomStyle = { transform: `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${s.toFixed(3)})` };
+  }
 
   if (!diagram) {
     return (
@@ -122,32 +208,72 @@ export function RegionFigure({
 
   const C = diagram.Component;
   return (
-    <div className="figure">
+    <div className="figure" ref={figRef}>
       {diagram.views.length > 1 && (
         <div className="figure__tabs">
           <Segmented
             small
             label="図の向き"
             value={shown}
-            options={diagram.views.map((v) => ({ id: v.id, label: v.label }))}
+            options={diagram.views.map((v) => ({
+              id: v.id,
+              label:
+                markViews && viewHas(diagram, v.id, hiIds) ? (
+                  <>
+                    <span className="seg__mark" aria-hidden="true" />
+                    {v.label}
+                    <span className="sr-only">（強調した部分あり）</span>
+                  </>
+                ) : (
+                  v.label
+                ),
+            }))}
             onChange={setView}
           />
         </div>
       )}
-      <div className="figure__canvas">
-        <ErrorBoundary resetKey={`${region}:${shown}`}>
-          <C
-            view={shown}
-            highlights={highlights}
-            dimOthers={dimOthers}
-            showLabels={showLabels ?? true}
-            showSpots={showSpots}
-            selectedSpot={selectedSpot ?? null}
-            onSpotSelect={onSpotSelect}
-            onPartSelect={onPartSelect}
-          />
-        </ErrorBoundary>
+      <div className={`figure__canvas${zoomed && zoomStyle ? ' is-zoomed' : ''}`} ref={canvasRef}>
+        <div className="figure__zoom" ref={zoomRef} style={zoomStyle}>
+          <ErrorBoundary resetKey={`${region}:${shown}`}>
+            <C
+              view={shown}
+              highlights={highlights}
+              dimOthers={dimOthers}
+              showLabels={showLabels ?? true}
+              showSpots={showSpots}
+              selectedSpot={selectedSpot ?? null}
+              onSpotSelect={onSpotSelect}
+              onPartSelect={onPartSelect}
+            />
+          </ErrorBoundary>
+        </div>
+        {emptyHere && (
+          <div className="figure__empty" role="note">
+            <p>この向きの図には描かれていません</p>
+            {viewWithHi && (
+              <button
+                type="button"
+                className="btn btn--secondary btn--sm"
+                onClick={() => {
+                  setView(viewWithHi);
+                  // the button disappears with the note: keep keyboard focus on the (now selected) view tab
+                  setTimeout(() => figRef.current?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]')?.focus(), 0);
+                }}
+              >
+                見える向きに切り替える
+              </button>
+            )}
+          </div>
+        )}
       </div>
+      {zoomable && small && !emptyHere && (
+        <div className="figure__tools">
+          <button type="button" className="figure__zoom-btn" aria-pressed={zoomed} onClick={() => setZoomed((z) => !z)}>
+            <IconSearch />
+            {zoomed ? '全体を表示' : '傷んでいる部分を拡大'}
+          </button>
+        </div>
+      )}
       {caption && <p className="figure__caption">{caption}</p>}
       {footer}
     </div>

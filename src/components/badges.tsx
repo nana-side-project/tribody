@@ -54,8 +54,9 @@ export function TypeBadge({ type }: { type: ExerciseType }) {
 
 export function LevelBadge({ level }: { level: 1 | 2 | 3 }) {
   return (
-    <span className="badge badge--neutral" aria-label={`レベル${level}`}>
+    <span className="badge badge--neutral">
       <LevelBars level={level} />
+      <span className="sr-only">レベル</span>
       {LEVEL_JA[level] ?? `Lv.${level}`}
     </span>
   );

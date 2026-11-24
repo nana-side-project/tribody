@@ -156,7 +156,7 @@ function FootSole({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'flexor-digitorum-brevis', t: '短趾屈筋', at: [157, 322], x: 104, y: 320, a: 'end' },
     { id: 'calcaneus', t: '踵骨', at: [150, 372], x: 104, y: 370, a: 'end' },
     { id: 'heel-fat-pad', t: '踵の脂肪体', at: [162, 416], x: 104, y: 418, a: 'end' },
-    { id: 'flexor-hallucis-longus', t: '長母趾屈筋腱', at: [251, 112], x: 282, y: 100 },
+    { id: 'flexor-hallucis-longus', t: '長母趾屈筋腱', at: [251, 112], x: 278, y: 100 },
     { t: '種子骨', at: [256, 172], x: 282, y: 158 },
     { id: 'abductor-hallucis', t: '母趾外転筋', at: [240, 252], x: 282, y: 236 },
     { id: 'plantar-fascia', t: '足底腱膜', at: [196, 326], x: 282, y: 306 },

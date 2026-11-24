@@ -1,27 +1,60 @@
-import { useMemo } from 'react';
+import { useDeferredValue, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { REGIONS, exercises, type ExerciseType, type RegionId } from '../data';
+import { REGIONS, conditionsUsingExercise, exercises, getMuscle, type ExerciseType, type RegionId } from '../data';
 import { ExerciseCard } from '../components/cards';
 import { IconCheck, IconDumbbell, IconSearch } from '../components/icons';
 import { Page } from '../components/Layout';
 import { EmptyState, SearchInput } from '../components/ui';
-import { EXERCISE_TYPE_JA, muscleName, regionName } from '../lib/labels';
-import { matches } from '../lib/search';
+import {
+  EQUIPMENT_TAGS,
+  EXERCISE_TYPE_HINT_JA,
+  EXERCISE_TYPE_JA,
+  LEVEL_JA,
+  equipmentTags,
+  muscleName,
+  regionName,
+  type EquipmentTag,
+} from '../lib/labels';
+import { normalize, queryTerms, tierScore } from '../lib/search';
 import { useMenu } from '../lib/useMenu';
+import { useUrlSearchText } from '../lib/useUrlSearchText';
 
 const TYPES = Object.keys(EXERCISE_TYPE_JA) as ExerciseType[];
+/** Selected-value forms that fit the narrow select. */
+const TYPE_SHORT: Partial<Record<ExerciseType, string>> = { isometric: 'アイソメ', plyometric: 'プライオ', 'nerve-glide': '神経滑走' };
+
+/** Pre-normalised search fields per exercise, best tier first. */
+const INDEX = exercises.map((e) => {
+  const muscleFields = (ids: string[]) =>
+    ids.flatMap((m) => {
+      const mu = getMuscle(m);
+      return [muscleName(m), mu?.kana ?? '', mu?.nameEn ?? ''];
+    });
+  const conds = conditionsUsingExercise(e.id);
+  const tiers = [
+    [e.nameJa, e.nameEn],
+    muscleFields(e.primary),
+    e.regions.map(regionName),
+    conds.flatMap((c) => [c.nameJa, ...c.aka, c.nameEn]),
+    [...muscleFields(e.secondary), EXERCISE_TYPE_JA[e.type] ?? ''],
+  ].map((t) => t.filter(Boolean).map(normalize));
+  return { e, tiers, tags: equipmentTags(e) };
+});
+
 
 export default function ExercisesPage() {
   const [params, setParams] = useSearchParams();
   const menu = useMenu();
-  const q = params.get('q') ?? '';
+  const search = useUrlSearchText('q');
+  const q = useDeferredValue(search.text);
   const r = params.get('region');
   const region = REGIONS.some((x) => x.id === r) ? (r as RegionId) : null;
   const t = params.get('type');
   const type = TYPES.includes(t as ExerciseType) ? (t as ExerciseType) : null;
   const lv = Number(params.get('level'));
   const level = lv === 1 || lv === 2 || lv === 3 ? lv : null;
-  const equip = params.get('equip');
+  const eq = params.get('equip');
+  const equip = EQUIPMENT_TAGS.some((x) => x.id === eq) ? (eq as EquipmentTag) : null;
 
   const update = (k: string, v: string | null) =>
     setParams(
@@ -34,27 +67,30 @@ export default function ExercisesPage() {
       { replace: true },
     );
 
-  const equipmentOptions = useMemo(() => {
-    const s = new Map<string, number>();
-    for (const e of exercises) for (const x of e.equipment ?? []) s.set(x, (s.get(x) ?? 0) + 1);
-    return [...s.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k);
-  }, []);
+  const equipmentOptions = useMemo(
+    () =>
+      EQUIPMENT_TAGS.map((tag) => ({ ...tag, n: INDEX.filter((x) => x.tags.includes(tag.id)).length })).filter((x) => x.n > 0),
+    [],
+  );
   const typeOptions = useMemo(() => TYPES.filter((ty) => exercises.some((e) => e.type === ty)), []);
 
-  const filtered = useMemo(
-    () =>
-      exercises.filter(
-        (e) =>
-          (!region || e.regions.includes(region)) &&
-          (!type || e.type === type) &&
-          (!level || e.level === level) &&
-          (!equip || (e.equipment ?? []).includes(equip)) &&
-          matches(q, [e.nameJa, e.nameEn, ...e.primary.map(muscleName)]),
-      ),
-    [q, region, type, level, equip],
-  );
+  const filtered = useMemo(() => {
+    const terms = queryTerms(q);
+    const out = INDEX.filter(
+      (x) =>
+        (!region || x.e.regions.includes(region)) &&
+        (!type || x.e.type === type) &&
+        (!level || x.e.level === level) &&
+        (!equip || x.tags.includes(equip)),
+    )
+      .map((x, i) => ({ e: x.e, i, score: tierScore(terms, x.tiers) }))
+      .filter((x) => x.score > 0);
+    // best match first (name hits before muscle / region / condition hits); original order otherwise
+    if (terms.length) out.sort((a, b) => b.score - a.score || a.i - b.i);
+    return out.map((x) => x.e);
+  }, [q, region, type, level, equip]);
 
-  const anyFilter = !!(q || region || type || level || equip);
+  const anyFilter = !!(search.text || region || type || level || equip);
 
   return (
     <Page title="エクササイズ">
@@ -65,10 +101,16 @@ export default function ExercisesPage() {
       </header>
 
       <div style={{ marginTop: 16 }}>
-        <SearchInput value={q} onChange={(v) => update('q', v || null)} placeholder="エクササイズ名・筋肉名" label="エクササイズを検索" />
+        <SearchInput
+          value={search.text}
+          onChange={search.setText}
+          inputProps={search.inputProps}
+          placeholder="名前・筋肉・部位・障害名"
+          label="エクササイズを検索"
+        />
       </div>
 
-      <div className="chips chips--scroll" style={{ marginTop: 10 }} aria-label="部位で絞り込む">
+      <div className="chips chips--scroll" style={{ marginTop: 10 }} aria-label="部位で絞り込む" role="group">
         <button type="button" className={`chip${!region ? ' is-active' : ''}`} aria-pressed={!region} onClick={() => update('region', null)}>
           すべての部位
         </button>
@@ -85,46 +127,62 @@ export default function ExercisesPage() {
         ))}
       </div>
 
+      {/* the selected option shows a short form so it fits the narrow select; the list shows the long one */}
       <div className="filters" style={{ marginTop: 6 }}>
-        <label className="sr-only" htmlFor="f-type">
-          種類
-        </label>
-        <select id="f-type" className={`select select--sm${type ? ' select--on' : ''}`} value={type ?? ''} onChange={(e) => update('type', e.target.value || null)}>
-          <option value="">種類</option>
-          {typeOptions.map((ty) => (
-            <option key={ty} value={ty}>
-              {EXERCISE_TYPE_JA[ty]}
-            </option>
-          ))}
-        </select>
-        <label className="sr-only" htmlFor="f-level">
-          レベル
-        </label>
-        <select id="f-level" className={`select select--sm${level ? ' select--on' : ''}`} value={level ?? ''} onChange={(e) => update('level', e.target.value || null)}>
-          <option value="">レベル</option>
-          {([1, 2, 3] as const).map((l) => (
-            <option key={l} value={l}>
-              {`Lv.${l}`}
-            </option>
-          ))}
-        </select>
-        <label className="sr-only" htmlFor="f-equip">
-          器具
-        </label>
-        <select id="f-equip" className={`select select--sm${equip ? ' select--on' : ''}`} value={equip ?? ''} onChange={(e) => update('equip', e.target.value || null)}>
-          <option value="">器具</option>
-          {equipmentOptions.map((x) => (
-            <option key={x} value={x}>
-              {x}
-            </option>
-          ))}
-        </select>
+        <div className="filter">
+          <label className="filter__label" htmlFor="f-type">
+            種類
+          </label>
+          <select id="f-type" className={`select select--sm${type ? ' select--on' : ''}`} value={type ?? ''} onChange={(e) => update('type', e.target.value || null)}>
+            <option value="">すべて</option>
+            {typeOptions.map((ty) => (
+              <option key={ty} value={ty}>
+                {ty === type ? (TYPE_SHORT[ty] ?? EXERCISE_TYPE_JA[ty]) : (EXERCISE_TYPE_HINT_JA[ty] ?? EXERCISE_TYPE_JA[ty])}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="filter">
+          <label className="filter__label" htmlFor="f-level">
+            レベル
+          </label>
+          <select id="f-level" className={`select select--sm${level ? ' select--on' : ''}`} value={level ?? ''} onChange={(e) => update('level', e.target.value || null)}>
+            <option value="">すべて</option>
+            {([1, 2, 3] as const).map((l) => (
+              <option key={l} value={l}>
+                {l === level ? `Lv.${l}` : LEVEL_JA[l]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="filter">
+          <label className="filter__label" htmlFor="f-equip">
+            器具
+          </label>
+          <select id="f-equip" className={`select select--sm${equip ? ' select--on' : ''}`} value={equip ?? ''} onChange={(e) => update('equip', e.target.value || null)}>
+            <option value="">すべて</option>
+            {equipmentOptions.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.id === equip ? x.short : `${x.label}（${x.n}）`}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, minHeight: 36 }}>
-        <span className="small muted">{exercises.length ? `${filtered.length}件` : ''}</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, minHeight: 44 }}>
+        <span className="small muted" aria-live="polite">
+          {exercises.length ? `${filtered.length}件` : ''}
+        </span>
         {anyFilter && (
-          <button type="button" className="btn btn--ghost btn--sm" onClick={() => setParams(new URLSearchParams(), { replace: true })}>
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={() => {
+              search.reset();
+              setParams(new URLSearchParams(), { replace: true });
+            }}
+          >
             条件をクリア
           </button>
         )}
@@ -133,7 +191,7 @@ export default function ExercisesPage() {
       {exercises.length === 0 ? (
         <EmptyState icon={<IconDumbbell />} title="エクササイズは準備中です" text="エクササイズの解説と3Dアニメーションを作成しています。" />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<IconSearch />} title="条件に合うエクササイズがありません" text="条件を減らして探してみてください。" />
+        <EmptyState icon={<IconSearch />} title="条件に合うエクササイズがありません" text="条件を減らすか、別のことば（部位名・障害名・ひらがな）で探してみてください。" />
       ) : (
         <div className="stack stack--sm" style={{ marginTop: 4 }}>
           {filtered.map((e) => (

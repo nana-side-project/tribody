@@ -24,6 +24,10 @@ export interface LabelSpec {
   /** 0 = major (injured / selected / primary): full pill, never collapsed.
    *  1 = minor (involved / secondary): smaller & lighter, may be collapsed into 「+N」 when space is short. */
   tier: 0 | 1;
+  /** The part's own polylines (strand / cord control points; a single point for blobs). When the main anchor is
+   *  off-view or under the player UI, the dot moves to the visible point of these nearest to it, so a part that is
+   *  only partly in view (a tendon in a foot close-up, the quadriceps in a knee close-up) still gets its name. */
+  alt?: CompiledPoint[][];
 }
 
 /** A highlighted part for the overlap mask: polyline through control points (world) with a radius (m). */
@@ -87,6 +91,9 @@ interface Item extends LabelSpec {
   /** per-frame flags */
   inVis: boolean;
   committed: boolean;
+  /** fallback anchor: control points evaluated per frame (preallocated) and the sample used last frame */
+  altW: Vector3[];
+  altK: number;
 }
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -99,13 +106,19 @@ const DIST = [10, 22, 38, 58, 84, 118, 160];
 const VSTEP = [0, -1, 1, -2, 2, -3, 3, -4, 4, -6, 6, -8, 8];
 const ABOVE = [10, 22, 38, 58, 84];
 /** cost of moving a label to a different spot (hysteresis) */
-const SWITCH = 130;
+const SWITCH = 170;
 /** pull toward the label's typical spot over the clip (from the pre-pass) */
 const HOME_W = 0.3;
 // mirrors viewer.css (.tb3d-bar: left/right/bottom 8, 48 px tall; .tb3d-float 44 px at right/bottom 8;
 // .tb3d-phase / .tb3d-legend at top 10, ~26 px tall)
 const BAR_H = 48;
 const UI_EDGE = 8;
+
+/** fallback anchor: samples per polyline segment; keep the last sample unless another is this much nearer (px) */
+const ALT_SUB = 4;
+const ALT_STICK = 24;
+/** fallback dots stay this far inside the view / clear of the UI (px) */
+const ALT_MARGIN = 10;
 
 const _p = new Vector3();
 const _a = new Vector3();
@@ -330,29 +343,29 @@ function segCross(ax: number, ay: number, bx: number, by: number, cx: number, cy
   return d1 * d2 < 0 && d3 * d4 < 0;
 }
 
-/** Does segment (a→b) pass through rect r (shrunk by 2 px)? Cheap Liang–Barsky clip. */
+/** Does segment (a→b) pass through rect r (shrunk by 2 px)? Liang–Barsky clip (allocation-free). */
+let _t0 = 0;
+let _t1 = 1;
+function clipEdge(p: number, q: number) {
+  if (p === 0) return q >= 0;
+  const t = q / p;
+  if (p < 0) {
+    if (t > _t1) return false;
+    if (t > _t0) _t0 = t;
+  } else {
+    if (t < _t0) return false;
+    if (t < _t1) _t1 = t;
+  }
+  return true;
+}
 function segHitsRect(ax: number, ay: number, bx: number, by: number, x: number, y: number, w: number, h: number) {
-  let t0 = 0,
-    t1 = 1;
+  _t0 = 0;
+  _t1 = 1;
   const dx = bx - ax,
     dy = by - ay;
-  const p = [-dx, dx, -dy, dy];
-  const q = [ax - (x + 2), x + w - 2 - ax, ay - (y + 2), y + h - 2 - ay];
-  for (let i = 0; i < 4; i++) {
-    if (p[i] === 0) {
-      if (q[i] < 0) return false;
-    } else {
-      const t = q[i] / p[i];
-      if (p[i] < 0) {
-        if (t > t1) return false;
-        if (t > t0) t0 = t;
-      } else {
-        if (t < t0) return false;
-        if (t < t1) t1 = t;
-      }
-    }
-  }
-  return t0 < t1;
+  return (
+    clipEdge(-dx, ax - (x + 2)) && clipEdge(dx, x + w - 2 - ax) && clipEdge(-dy, ay - (y + 2)) && clipEdge(dy, y + h - 2 - ay) && _t0 < _t1
+  );
 }
 
 /** Leader end point on a pill (x, y, w, h) for an anchor (sx, sy) → _lx/_ly. */
@@ -401,6 +414,11 @@ export class LabelLayer {
   private zonesDirty = true;
   private mo: MutationObserver | null = null;
   private chipState = { x: 0, y: 0, dx: 0, dy: 0, w: 34, h: 22, placed: false, shown: false };
+  /** prefers-reduced-motion: labels jump to their new spots instead of gliding */
+  reducedMotion = false;
+  /** the camera is at the home framing the pre-pass used (false while the user has orbited / zoomed away): the
+   *  pre-pass "home" spots are screen positions for that camera only */
+  homeView = true;
 
   /** Hidden labels must not be laid out — and must not linger at their last / default (0,0) position. */
   get visible() {
@@ -471,6 +489,10 @@ export class LabelLayer {
         const el = document.createElement('div');
         const line = document.createElementNS(SVGNS, 'line');
         const dot = document.createElementNS(SVGNS, 'circle');
+        // hidden until a layout places them
+        el.style.display = 'none';
+        line.style.display = 'none';
+        dot.style.display = 'none';
         this.svg.appendChild(line);
         this.svg.appendChild(dot);
         this.root.insertBefore(el, this.chip);
@@ -506,9 +528,16 @@ export class LabelLayer {
           hasHome: false,
           inVis: false,
           committed: false,
+          altW: [],
+          altK: -1,
         };
         this.fill(it);
       }
+      it.alt = s.alt;
+      let nAlt = 0;
+      for (const pl of s.alt ?? []) nAlt += pl.length;
+      while (it.altW.length < nAlt) it.altW.push(new Vector3());
+      it.altK = -1;
       it.has = false;
       it.placed = false;
       it.collapsed = false;
@@ -520,6 +549,7 @@ export class LabelLayer {
     this.expanded = false;
     this.nCollapsed = 0;
     this.chipState.placed = false;
+    this.chipState.shown = false;
     this.chip.style.display = 'none';
     this.snapNext = true;
     this.measure();
@@ -629,7 +659,7 @@ export class LabelLayer {
   // ───────────────────────────── solver
 
   /** Screen positions of the anchors; fills this.vis (majors first, then minors; spec order within a tier). */
-  private project(camera: PerspectiveCamera, W: number, H: number, includeCollapsed: boolean) {
+  private project(camera: PerspectiveCamera, W: number, H: number, includeCollapsed: boolean, zones: Rect[], state: RigState) {
     const vis = this.vis;
     vis.length = 0;
     for (const it of this.items) {
@@ -637,13 +667,87 @@ export class LabelLayer {
       if (!it.has) continue;
       if (it.collapsed && !includeCollapsed) continue;
       _p.copy(it.world).project(camera);
-      const inside = _p.z < 1 && _p.x > -1.02 && _p.x < 1.02 && _p.y > -1.02 && _p.y < 1.02;
-      if (!inside) continue;
-      it.sx = ((_p.x + 1) / 2) * W;
-      it.sy = ((1 - _p.y) / 2) * H;
-      it.inVis = true;
+      const front = _p.z < 1;
+      const sx = ((_p.x + 1) / 2) * W;
+      const sy = ((1 - _p.y) / 2) * H;
+      // the dot must be visible: inside the view and not under the phase pill / player bar
+      if (front && sx >= 3 && sx <= W - 3 && sy >= 3 && sy <= H - 3 && !this.underUi(sx, sy, zones, 0)) {
+        it.sx = sx;
+        it.sy = sy;
+        it.altK = -1;
+        it.inVis = true;
+        continue;
+      }
+      // otherwise: the visible point of the part nearest to where the anchor would be
+      if (it.alt && this.altAnchor(it, camera, W, H, zones, state, front ? sx : W / 2, front ? sy : H / 2)) it.inVis = true;
     }
     for (let tier = 0; tier <= 1; tier++) for (const it of this.items) if (it.inVis && it.tier === tier) vis.push(it);
+  }
+
+  private underUi(x: number, y: number, zones: Rect[], m: number) {
+    for (const z of zones) if (x > z.x - m && x < z.x + z.w + m && y > z.y - m && y < z.y + z.h + m) return true;
+    return false;
+  }
+
+  /** Fallback anchor on the part's polylines (allocation-free). Sets it.sx / it.sy; false if nothing is visible. */
+  private altAnchor(it: Item, camera: PerspectiveCamera, W: number, H: number, zones: Rect[], state: RigState, gx: number, gy: number) {
+    const tx = Math.min(W, Math.max(0, gx));
+    const ty = Math.min(H, Math.max(0, gy));
+    const pts = it.altW;
+    let n = 0;
+    for (const pl of it.alt!) for (const cp of pl) evalPoint(cp, state, pts[n++]);
+    let best = -1,
+      bd = Infinity,
+      bx = 0,
+      by = 0,
+      keepD = Infinity,
+      kx = 0,
+      ky = 0;
+    let k = 0;
+    let base = 0;
+    const M = ALT_MARGIN;
+    for (const pl of it.alt!) {
+      const segs = Math.max(0, pl.length - 1);
+      const ns = segs * ALT_SUB + 1;
+      for (let s = 0; s < ns; s++, k++) {
+        const i = Math.min(segs, Math.floor(s / ALT_SUB));
+        const u = i < segs ? (s - i * ALT_SUB) / ALT_SUB : 0;
+        if (u > 0) _p.lerpVectors(pts[base + i], pts[base + i + 1], u);
+        else _p.copy(pts[base + i]);
+        _p.project(camera);
+        if (_p.z >= 1) continue;
+        const x = ((_p.x + 1) / 2) * W;
+        const y = ((1 - _p.y) / 2) * H;
+        if (x < M || x > W - M || y < M || y > H - M || this.underUi(x, y, zones, 4)) continue;
+        const d = Math.hypot(x - tx, y - ty);
+        if (d < bd) {
+          bd = d;
+          best = k;
+          bx = x;
+          by = y;
+        }
+        if (k === it.altK) {
+          keepD = d;
+          kx = x;
+          ky = y;
+        }
+      }
+      base += pl.length;
+    }
+    if (best < 0) {
+      it.altK = -1;
+      return false;
+    }
+    // stay on last frame's sample unless another one is clearly nearer (no hopping along the strand)
+    if (keepD < Infinity && keepD <= bd + ALT_STICK) {
+      it.sx = kx;
+      it.sy = ky;
+    } else {
+      it.altK = best;
+      it.sx = bx;
+      it.sy = by;
+    }
+    return true;
   }
 
   private blocked(x: number, y: number, w: number, h: number, zones: Rect[]) {
@@ -654,8 +758,9 @@ export class LabelLayer {
     return false;
   }
 
-  /** Cost of a candidate rect for label `it` (Infinity = forbidden). */
-  private cost(it: Item, x: number, y: number, W: number, H: number, zones: Rect[], coherent: boolean, strict: boolean) {
+  /** Cost of a candidate rect for label `it` (Infinity = forbidden). Every term is ≥ 0, so evaluation stops as soon
+   *  as the partial sum reaches `bound` (the best cost so far). */
+  private cost(it: Item, x: number, y: number, W: number, H: number, zones: Rect[], coherent: boolean, strict: boolean, bound = Infinity) {
     const w = it.w;
     const h = it.h;
     if (x < PAD || y < PAD || x + w > W - PAD || y + h > H - PAD) return Infinity;
@@ -670,26 +775,35 @@ export class LabelLayer {
     const ey = _ly;
     const L = Math.hypot(ex - it.sx, ey - it.sy);
     let c = 650 * m.fs + 1700 * m.fa + 0.9 * L + 0.3 * Math.abs(ey - it.sy);
-    // leaders crossing placed leaders / passing through placed labels
-    for (let i = 0; i < this.np; i++) {
-      if (segCross(it.sx, it.sy, ex, ey, this.lx0[i], this.ly0[i], this.lx1[i], this.ly1[i])) c += 70;
-      if (segHitsRect(it.sx, it.sy, ex, ey, this.px[i], this.py[i], this.pw[i], this.ph[i])) c += 260;
-      if (segHitsRect(this.lx0[i], this.ly0[i], this.lx1[i], this.ly1[i], x, y, w, h)) c += 260;
-    }
-    // covering another label's dot
-    for (const o of this.vis) if (o !== it && o.sx > x - 4 && o.sx < x + w + 4 && o.sy > y - 4 && o.sy < y + h + 4) c += 140;
     if (coherent && it.placed) {
       // hysteresis: staying put or moving along with the anchor is cheap; any other spot must be clearly better
       const d = Math.min(Math.hypot(x - it.tx, y - it.ty), Math.hypot(x - it.sx - it.ox, y - it.sy - it.oy));
       c += 0.35 * d + (d > 6 ? SWITCH : 0);
     }
-    if (it.hasHome) c += HOME_W * Math.hypot(x - it.hx, y - it.hy);
+    if (it.hasHome && this.homeView) c += HOME_W * Math.hypot(x - it.hx, y - it.hy);
+    if (c >= bound) return Infinity;
+    // leaders crossing placed leaders / passing through placed labels
+    for (let i = 0; i < this.np; i++) {
+      if (segCross(it.sx, it.sy, ex, ey, this.lx0[i], this.ly0[i], this.lx1[i], this.ly1[i])) c += 40;
+      if (segHitsRect(it.sx, it.sy, ex, ey, this.px[i], this.py[i], this.pw[i], this.ph[i])) c += 260;
+      if (segHitsRect(this.lx0[i], this.ly0[i], this.lx1[i], this.ly1[i], x, y, w, h)) c += 260;
+    }
+    // covering another label's dot
+    for (const o of this.vis) if (o !== it && o.sx > x - 4 && o.sx < x + w + 4 && o.sy > y - 4 && o.sy < y + h + 4) c += 70;
+    if (coherent && c < bound) {
+      // don't evict labels placed later in this frame from their previous spots (avoids cascades of moves)
+      for (const o of this.vis) {
+        if (o === it || o.committed || !o.placed) continue;
+        if (x < o.tx + o.w + GAP && x + w > o.tx - GAP && y < o.ty + o.h + GAP && y + h > o.ty - GAP) c += 150;
+        else if (segHitsRect(it.sx, it.sy, ex, ey, o.tx, o.ty, o.w, o.h)) c += 90;
+      }
+    }
     return c;
   }
 
   private best = { c: Infinity, x: 0, y: 0 };
   private tryAt(it: Item, x: number, y: number, W: number, H: number, zones: Rect[], coherent: boolean, strict: boolean) {
-    const c = this.cost(it, x, y, W, H, zones, coherent, strict);
+    const c = this.cost(it, x, y, W, H, zones, coherent, strict, this.best.c);
     if (c < this.best.c) {
       this.best.c = c;
       this.best.x = x;
@@ -797,7 +911,7 @@ export class LabelLayer {
 
   /** One sampled frame of the view (anchors already set via setAnchor, state = the posed rig). */
   planFrame(camera: PerspectiveCamera, W: number, H: number, zones: Rect[], state: RigState) {
-    this.project(camera, W, H, true);
+    this.project(camera, W, H, true, zones, state);
     if (!this.vis.length) return;
     const m = this.mask;
     m.begin(camera, W, H);
@@ -853,7 +967,7 @@ export class LabelLayer {
     this.svg.setAttribute('width', String(width));
     this.svg.setAttribute('height', String(height));
     const zones = this.measuredZones(width, height);
-    this.project(camera, width, height, this.expanded);
+    this.project(camera, width, height, this.expanded, zones, state);
     const m = this.mask;
     m.begin(camera, width, height);
     m.stampSkin(state);
@@ -869,7 +983,7 @@ export class LabelLayer {
     // smoothing & DOM
     const snap = this.snapNext;
     this.snapNext = false;
-    const a = snap ? 1 : 1 - Math.exp(-Math.max(0, dt) / 0.085);
+    const a = snap || this.reducedMotion ? 1 : 1 - Math.exp(-Math.max(0, dt) / 0.085);
     let moving = false;
     for (const it of this.items) {
       if (!it.inVis) {
@@ -921,53 +1035,65 @@ export class LabelLayer {
     return moving;
   }
 
-  /** Put the 「+N」 chip next to the placed labels, in free space. */
-  private placeChip(W: number, H: number, zones: Rect[]) {
+  /** Put the 「+N」 chip next to the placed labels, in free space (allocation-free: state in this.cb). */
+  private cb = { c: Infinity, x: 0, y: 0, strict: true, W: 0, H: 0 };
+  private chipAt(x: number, y: number, near: number, zones: Rect[]) {
     const cs = this.chipState;
+    const cb = this.cb;
     const w = cs.w;
     const h = cs.h;
-    let bc = Infinity,
-      bx = 0,
-      by = 0;
-    const m = this.mask;
-    const consider = (x: number, y: number, near: number) => {
-      if (x < PAD || y < PAD || x + w > W - PAD || y + h > H - PAD) return;
+    if (x < PAD || y < PAD || x + w > cb.W - PAD || y + h > cb.H - PAD) return;
+    if (cb.strict) {
       if (this.blocked(x, y, w, h, zones)) return;
-      m.frac(x, y, w, h);
-      let c = 650 * m.fs + 1700 * m.fa + near;
-      for (let i = 0; i < this.np; i++) if (segHitsRect(this.lx0[i], this.ly0[i], this.lx1[i], this.ly1[i], x, y, w, h)) c += 200;
-      if (cs.placed) c += 0.75 * Math.hypot(x - cs.x, y - cs.y);
-      if (c < bc) {
-        bc = c;
-        bx = x;
-        by = y;
-      }
-    };
+    } else for (const z of zones) if (x < z.x + z.w && x + w > z.x && y < z.y + z.h && y + h > z.y) return;
+    const m = this.mask;
+    m.frac(x, y, w, h);
+    let c = 650 * m.fs + 1700 * m.fa + near;
+    for (let i = 0; i < this.np; i++) if (segHitsRect(this.lx0[i], this.ly0[i], this.lx1[i], this.ly1[i], x, y, w, h)) c += 200;
+    if (cs.placed) c += 0.75 * Math.hypot(x - cs.x, y - cs.y);
+    if (c < cb.c) {
+      cb.c = c;
+      cb.x = x;
+      cb.y = y;
+    }
+  }
+
+  private placeChip(W: number, H: number, zones: Rect[]) {
+    const cs = this.chipState;
+    const cb = this.cb;
+    cb.c = Infinity;
+    cb.strict = true;
+    cb.W = W;
+    cb.H = H;
+    const w = cs.w;
+    const h = cs.h;
     const n = Math.min(this.np, this.px.length);
     for (let i = 0; i < n; i++) {
       const x = this.px[i],
         y = this.py[i],
         pw = this.pw[i],
         ph = this.ph[i];
-      for (const dy of [ph + 4, ph + 4 + h + 4]) {
-        consider(x, y + dy, dy * 0.3);
-        consider(x + pw - w, y + dy, dy * 0.3);
+      for (let k = 0; k < 2; k++) {
+        const dy = ph + 4 + k * (h + 4);
+        this.chipAt(x, y + dy, dy * 0.3, zones);
+        this.chipAt(x + pw - w, y + dy, dy * 0.3, zones);
       }
-      consider(x, y - h - 4, 6);
-      consider(x + pw - w, y - h - 4, 6);
-      consider(x + pw + 4, y + (ph - h) / 2, 4);
-      consider(x - w - 4, y + (ph - h) / 2, 4);
+      this.chipAt(x, y - h - 4, 6, zones);
+      this.chipAt(x + pw - w, y - h - 4, 6, zones);
+      this.chipAt(x + pw + 4, y + (ph - h) / 2, 4, zones);
+      this.chipAt(x - w - 4, y + (ph - h) / 2, 4, zones);
     }
-    if (bc === Infinity) {
-      // fall back to the margins
-      for (let y = PAD + 30; y < H - PAD - h; y += 12) {
-        consider(PAD, y, 40);
-        consider(W - PAD - w, y, 40);
+    // fall back to the margins (then: anywhere outside the UI, even over a label — the chip must stay reachable)
+    for (let pass = 0; pass < 2 && cb.c === Infinity; pass++) {
+      cb.strict = pass === 0;
+      for (let y = PAD; y < H - PAD - h; y += 8) {
+        this.chipAt(PAD, y, 40, zones);
+        this.chipAt(W - PAD - w, y, 40, zones);
       }
     }
-    if (bc === Infinity) return false;
-    cs.x = bx;
-    cs.y = by;
+    if (cb.c === Infinity) return false;
+    cs.x = cb.x;
+    cs.y = cb.y;
     cs.placed = true;
     return true;
   }

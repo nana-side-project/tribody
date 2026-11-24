@@ -26,11 +26,12 @@ export type Prop =
   /** Small soft ball (follows `at` every frame, e.g. between the knees). */
   | { kind: 'ball'; at: PropPoint; radius?: number; color?: string }
   /**
-   * Rolled towel (soft cream roll with a spiral on its ends). On a body point it follows that bone every frame
+   * Rolled towel (soft lavender roll with a spiral on its ends). On a body point it follows that bone every frame
    * (position AND orientation, `axis` in the bone's rest frame, e.g. between the elbow and the waist); on a world
    * point it lies still (`axis` in world, e.g. 'x' across the toes). `length` / `radius` in m.
+   * With `size` = [x, height, z] it is a FOLDED flat towel instead, placed once (`at` = centre of its top; rotY deg).
    */
-  | { kind: 'towel'; at: PropPoint; axis?: 'x' | 'y' | 'z' | Vec3; length?: number; radius?: number; color?: string }
+  | { kind: 'towel'; at: PropPoint; axis?: 'x' | 'y' | 'z' | Vec3; length?: number; radius?: number; size?: Vec3; rotY?: number; color?: string }
   /** Pillow / cushion: soft rounded box placed once. `at` = centre of the TOP face; size = [x, height, z]; rotY (deg). */
   | { kind: 'pillow'; at: PropPoint; size?: Vec3; rotY?: number; color?: string }
   /** Dumbbell held in a hand. */

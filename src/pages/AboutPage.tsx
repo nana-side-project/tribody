@@ -34,7 +34,7 @@ export default function AboutPage() {
             <li>
               <strong>どこが傷んでいるかを見る</strong>
               <br />
-              <span className="muted">障害のページで、実際に痛んでいる筋肉・腱・滑液包・骨を図と3Dで確認できます。</span>
+              <span className="muted">障害のページで、実際に傷んでいる筋肉・腱・滑液包・骨を図と3Dで確認できます。</span>
             </li>
             <li>
               <strong>3ステップで取り組む</strong>
@@ -68,8 +68,11 @@ export default function AboutPage() {
             緊急のとき
           </p>
           <p className="redflags__lead" style={{ fontSize: 13.5, color: 'var(--text)' }}>
-            胸の痛み・息苦しさ、突然の強い頭痛、意識がおかしい、激しいけが、急なしびれや麻痺、排尿・排便の異常、お尻まわりの感覚の低下などがある場合は、
-            ためらわずに救急（119）または医療機関に連絡してください。
+            {'胸の痛み・息苦しさ、突然の強い頭痛、意識がおかしい、激しいけが、急なしびれや麻痺、排尿・排便の異常、お尻まわりの感覚の低下などがある場合は、ためらわずに救急（'}
+            <a href="tel:119" className="link">
+              119
+            </a>
+            ）または医療機関に連絡してください。
           </p>
           <p className="redflags__note" style={{ borderTop: 0, paddingTop: 0, marginTop: 8 }}>
             <Link to="/guide/red-flags" className="link">

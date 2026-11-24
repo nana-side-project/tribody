@@ -85,7 +85,7 @@ export const conditions: Condition[] = [
     whyTriathlon: [
       {
         discipline: 'swim',
-        text: '1時間泳ぐと、片方の肩だけで1,000回以上腕を回します。キャッチ〜プルでは広背筋・大胸筋・肩甲下筋が腕を内にひねりながら引き、リカバリーでは腕を高く上げます。急な距離の増加やパドルの使い始め、疲れた後半に負担が集中します。クロスオーバーや親指からの入水、ドロップエルボー、片側呼吸、ウェットスーツによる動きの制限も負担を増やします。',
+        text: '1時間泳ぐと、片方の肩だけで1,000〜2,000回ほど腕を回します。キャッチ〜プルでは広背筋・大胸筋・肩甲下筋が腕を内にひねりながら引き、リカバリーでは腕を高く上げます。急な距離の増加やパドルの使い始め、疲れた後半に負担が集中します。クロスオーバーや親指からの入水、ドロップエルボー、片側呼吸、ウェットスーツによる動きの制限も負担を増やします。',
       },
       {
         discipline: 'bike',
@@ -145,7 +145,7 @@ export const conditions: Condition[] = [
       },
       {
         name: '首からくる痛み（頸椎の神経根症）',
-        hint: '首を動かすと肩〜腕に痛みが走る、腕や手のしびれを伴う場合。',
+        hint: '首を動かすと肩〜腕に痛みが走る、腕や手のしびれを伴う場合。腕を上げ続けると手がしびれる・冷たくなる場合は、胸郭出口症候群（きょうかくでぐちしょうこうぐん）のこともあります。',
       },
     ],
     redFlags: [
@@ -1068,7 +1068,7 @@ export const muscles: Muscle[] = [
     summary:
       '回旋筋腱板の一つで、腕を横に上げる動きを助け、上腕骨頭を受け皿に引き付けて安定させます。腱が肩峰の下を通るため、水泳肩で最も痛みやすい腱です。',
     triathlon: {
-      swim: 'リカバリーで腕を持ち上げ、入水〜キャッチまで上腕骨頭を安定させます。1回の練習で千回以上くり返し働く、負担の大きい筋肉です。',
+      swim: 'リカバリーで腕を持ち上げ、入水〜キャッチまで上腕骨頭を安定させます。1時間の練習で1,000〜2,000回くり返し働く、負担の大きい筋肉です。',
       bike: 'DHポジションで肘に体重を乗せているとき、肩の関節を安定させます。',
     },
     whenTight:
@@ -1231,7 +1231,7 @@ export const muscles: Muscle[] = [
       '胸の上に反対の手を当て、両手のひらを胸の前で押し合うと硬くなります。脇の前のひだをつまむと、筋肉の端に触れられます。',
     relatedConditions: ['swimmers-shoulder', 'scapular-dyskinesis'],
     strengthen: ['ex-push-up-plus'],
-    stretch: ['ex-doorway-pec-stretch', 'ex-open-book'],
+    stretch: ['ex-doorway-pec-stretch', 'ex-open-book', 'ex-thoracic-extension'],
   },
   {
     id: 'pectoralis-minor',
@@ -1294,7 +1294,7 @@ export const muscles: Muscle[] = [
       '脇の下の後ろのひだをつまみ、腕を体の横に強く引きつけると、厚い筋肉が硬くなるのがわかります。',
     relatedConditions: ['swimmers-shoulder'],
     strengthen: ['ex-band-row'],
-    stretch: ['ex-lat-stretch'],
+    stretch: ['ex-lat-stretch', 'ex-thoracic-extension'],
   },
   // ───────────────────────────────────────────── 肩甲骨を動かす筋肉
   {
@@ -1925,8 +1925,8 @@ export const exercises: Exercise[] = [
     nameEn: 'Foam roller thoracic extension',
     type: 'mobility',
     regions: ['shoulder', 'neck'],
-    primary: ['erector-spinae'],
-    secondary: ['rectus-abdominis', 'pectoralis-major'],
+    primary: ['rectus-abdominis', 'pectoralis-major'],
+    secondary: ['obliques', 'latissimus-dorsi'],
     equipment: ['フォームローラー（丸めたバスタオルで代用可）'],
     level: 1,
     dose: { sets: 2, reps: '各位置で5回', tempo: '息を吐きながら3秒で反らす', frequency: '毎日（練習前後）' },

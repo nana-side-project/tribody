@@ -110,12 +110,15 @@ const DISTAL_REF: Partial<Record<string, string>> = {
   forearm: 'forearm:radius_distal',
   hand: 'hand:fingertips',
   femur: 'femur:lateral_epicondyle',
-  patella: 'tibia:anterior_crest_mid',
+  patella: 'tibia:distal_ant',
   tibia: 'tibia:lateral_malleolus',
-  foot: 'foot:met_head_3',
+  foot: 'toes:toe_tips',
   toes: 'toes:toe_tips',
 };
-const DISTAL_FRACTION = 0.6;
+/** how far toward the distal joint: the whole way, so the segment the muscle moves (its insertion bone up to the next
+ *  joint: thigh to the knee, shin to the ankle, upper arm to the elbow…) stays in view through the loop — at 60 % a
+ *  300 px card cut the thigh of a gluteus medius / piriformis demo off under the player bar */
+const distalFraction = (_aspect: number) => 1;
 
 const isRigged = (id: string) =>
   isMuscleId(id) ? !!MUSCLE_RIGS[id]?.strands?.length : !!STRUCTURE_RIGS[id as StructureId]?.parts?.length;
@@ -278,6 +281,7 @@ export class Engine {
       this.needsRender = true;
       this.kick();
     });
+    this.labels.reducedMotion = this.reducedMotion;
 
     const controls = new OrbitControls(this.camera, canvas);
     controls.enableDamping = true;
@@ -513,15 +517,67 @@ export class Engine {
 
   /** Label items (one per part, on the highlighted side nearest the home camera) + the overlap mask's cords. */
   private setupLabels(scope: Partial<Record<PartId, Highlight3DRole>>, sides: Side[], st0: RigState) {
+    // highlighted anatomy as polylines per part & side: the overlap mask (labels avoid covering it) and each label's
+    // fallback anchor points (used when its main anchor is off-view or under the player UI)
+    const cords: MaskCord[] = [];
+    const polys = new Map<string, CompiledPoint[][]>();
+    for (const [id, role] of Object.entries(scope) as [PartId, Highlight3DRole][]) {
+      if (!role) continue;
+      for (const side of sides) {
+        const pl: CompiledPoint[][] = [];
+        if (isMuscleId(id)) {
+          for (const st of MUSCLE_RIGS[id]?.strands ?? []) {
+            const cps = st.path.map((r) => quietCompile(r, side));
+            if (!cps.every(Boolean)) continue;
+            cords.push({ cps: cps as CompiledPoint[], r: st.radius * 1.15 + (st.flat ? st.flat.width * 0.4 : 0) });
+            pl.push(cps as CompiledPoint[]);
+          }
+        } else {
+          for (const part of STRUCTURE_RIGS[id as StructureId]?.parts ?? []) {
+            if ('path' in part) {
+              const cps = part.path.map((r) => quietCompile(r, side));
+              if (!cps.every(Boolean)) continue;
+              cords.push({ cps: cps as CompiledPoint[], r: part.radius + (part.flat ? part.flat.width * 0.4 : 0) });
+              pl.push(cps as CompiledPoint[]);
+            } else if ('at' in part) {
+              const cp = quietCompile(part.at, side);
+              const r = part.type === 'spot' ? part.radius : Math.max(...part.radii);
+              if (!cp) continue;
+              cords.push({ cps: [cp], r });
+              pl.push([cp]);
+            }
+          }
+        }
+        if (pl.length) polys.set(`${id}:${side}`, pl);
+      }
+    }
+    this.labels.setCords(cords);
+
     const sideOf = new Map<string, Side>();
     if (sides.length > 1) {
       this.anatomy.update(st0, 0, false);
-      const dist = new Map<string, number>();
-      const cam = this.camera.position;
+      const score = new Map<string, number>();
+      const cam = this.camera;
+      cam.updateMatrixWorld();
+      const q = new Vector3();
+      const inView = () => q.z < 1 && Math.abs(q.x) < 0.95 && Math.abs(q.y) < 0.9;
       this.anatomy.labelAnchors(st0, (key, id, _role, p) => {
-        const d = p.distanceTo(cam);
-        if (!(d >= (dist.get(id) ?? Infinity))) {
-          dist.set(id, d);
+        // prefer the side whose anchor is in view, then one with part of the muscle in view, then the nearer one
+        q.copy(p).project(cam);
+        let d = p.distanceTo(cam.position);
+        if (!inView()) {
+          let seen = 0;
+          let all = 0;
+          for (const pl of polys.get(key) ?? [])
+            for (const cp of pl) {
+              all++;
+              evalPoint(cp, st0, q).project(cam);
+              if (inView()) seen++;
+            }
+          d += seen ? 500 * (1 - seen / all) + 100 : 1000;
+        }
+        if (!(d >= (score.get(id) ?? Infinity))) {
+          score.set(id, d);
           sideOf.set(id, key.slice(key.lastIndexOf(':') + 1) as Side);
         }
       });
@@ -530,41 +586,18 @@ export class Engine {
     const items: (LabelSpec & { order: number })[] = [];
     for (const [id, role] of Object.entries(scope) as [PartId, Highlight3DRole][]) {
       if (!role) continue;
+      const key = `${id}:${sideOf.get(id) ?? sides[0]}`;
       items.push({
-        key: `${id}:${sideOf.get(id) ?? sides[0]}`,
+        key,
         text: labelName(id),
         color: this.swatch(id, role),
         tier: MINOR_ROLES.has(role) ? 1 : 0,
+        alt: polys.get(key),
         order: ROLE_ORDER.indexOf(role),
       });
     }
     items.sort((a, b) => a.order - b.order);
     this.labels.setItems(items.slice(0, MAX_LABELS).map(({ order: _o, ...it }) => it));
-    // highlighted anatomy, so labels avoid covering it
-    const cords: MaskCord[] = [];
-    for (const [id, role] of Object.entries(scope) as [PartId, Highlight3DRole][]) {
-      if (!role) continue;
-      for (const side of sides) {
-        if (isMuscleId(id)) {
-          for (const st of MUSCLE_RIGS[id]?.strands ?? []) {
-            const cps = st.path.map((r) => quietCompile(r, side));
-            if (cps.every(Boolean)) cords.push({ cps: cps as CompiledPoint[], r: st.radius * 1.15 + (st.flat ? st.flat.width * 0.4 : 0) });
-          }
-        } else {
-          for (const part of STRUCTURE_RIGS[id as StructureId]?.parts ?? []) {
-            if ('path' in part) {
-              const cps = part.path.map((r) => quietCompile(r, side));
-              if (cps.every(Boolean)) cords.push({ cps: cps as CompiledPoint[], r: part.radius + (part.flat ? part.flat.width * 0.4 : 0) });
-            } else if ('at' in part) {
-              const cp = quietCompile(part.at, side);
-              const r = part.type === 'spot' ? part.radius : Math.max(...part.radii);
-              if (cp) cords.push({ cps: [cp], r });
-            }
-          }
-        }
-      }
-    }
-    this.labels.setCords(cords);
   }
 
   /** Pre-pass over the clip with the home camera: decides which minor labels collapse into 「+N」. */
@@ -572,7 +605,7 @@ export class Engine {
     const cc = this.clip;
     if (!cc || !this.spec.labels) return;
     const all = framingTimes(cc);
-    const step = Math.max(1, Math.ceil(all.length / 18));
+    const step = Math.max(1, Math.ceil(all.length / 12));
     const ts = all.filter((_, i) => i % step === 0);
     const longest = cc.labels.reduce((m, l) => Math.max(m, l.label.length), 0);
     const zones = LabelLayer.guessZones(this.width, this.height, {
@@ -641,6 +674,61 @@ export class Engine {
     return out;
   }
 
+  /** Muscle demo + exact camera: the muscle's points and its moving segment (insertion → next joint), sampled over the
+   *  clip, must project inside the free area (card minus phase pill / player bar insets). If they do with the authored
+   *  camera, it is kept as is; otherwise the view is fitted to those points along the authored direction (re-centred,
+   *  like a `{ dir }` camera). Returns null when the authored camera is fine. */
+  private fitExact(cc: CompiledClip, pos: Vector3, target: Vector3, aspect: number, focus: RegionId | undefined) {
+    const dir = new Vector3().subVectors(pos, target);
+    const d0 = dir.length();
+    if (d0 < 1e-6) return null;
+    dir.divideScalar(d0);
+    const right = new Vector3().crossVectors(this.camera.up, dir).normalize();
+    if (right.lengthSq() < 1e-6) return null;
+    const camUp = new Vector3().crossVectors(dir, right);
+    const tanV = Math.tan(((this.camera.fov * Math.PI) / 180) / 2);
+    const tanH = tanV * aspect;
+    const H = Math.max(1, this.height);
+    const bar = this.uiControls;
+    const iTop = bar && cc.animated ? 40 : 6;
+    const iBot = bar ? (cc.animated ? 62 : 8) : 6;
+    const up = tanV * Math.max(0.2, 1 - (2 * iTop) / H);
+    const down = tanV * Math.max(0.2, 1 - (2 * iBot) / H);
+    const m = 1.04;
+    const st = new RigState();
+    const pts: Vector3[] = [];
+    const a = new Vector3();
+    const b = new Vector3();
+    for (const t of framingTimes(cc)) {
+      solveFK(evalClip(cc, t, newPoseVec()), st);
+      placeState(cc, st);
+      this.anatomy.update(st, 0, false);
+      this.anatomy.collectPoints(pts);
+      for (const c of this.ctxPts) pts.push(evalPoint(c.ins, st, a).clone().lerp(evalPoint(c.dist, st, b), distalFraction(aspect)));
+    }
+    this.needsPose = true;
+    const q = new Vector3();
+    let fits = true;
+    for (const p of pts) {
+      q.subVectors(p, target);
+      const x = Math.abs(q.dot(right)) * m;
+      const y = q.dot(camUp) * m;
+      const z = q.dot(dir);
+      if (d0 < z + x / tanH || d0 < z + (y > 0 ? y / up : -y / down)) {
+        fits = false;
+        break;
+      }
+    }
+    if (fits) return null;
+    return framePoints(pts, dir, this.camera, aspect, {
+      margin: aspect < 0.8 ? 1.16 : 1.1,
+      minSize: focus ? regionMinSize(focus) * 0.85 : 0.42,
+      heightPx: this.height,
+      insetTop: iTop,
+      insetBottom: iBot,
+    });
+  }
+
   private computeFraming(cc: CompiledClip, extraCam: CameraSpec | undefined, focus: RegionId | undefined) {
     const spec = this.spec;
     const aspect = this.width / Math.max(1, this.height);
@@ -655,6 +743,9 @@ export class Engine {
       }
       const refAspect = 1.15;
       if (aspect < refAspect) pos.sub(target).multiplyScalar(Math.min(2.2, Math.pow(refAspect / aspect, 0.85))).add(target);
+      // muscle demo: keep the authored view if the whole muscle and the segment it moves (up to the next joint) stay
+      // clear of the card edges and the player UI through the loop; otherwise fit them along the authored direction
+      if (this.mode === 'muscle' && this.anatomy.hasVisuals) return this.fitExact(cc, pos, target, aspect, focus) ?? { position: pos, target };
       return { position: pos, target };
     }
     let preset: CameraPresetName = (typeof camSpec === 'string' ? camSpec : undefined) ?? (focus ? REGION_CAMERA[focus] : 'iso');
@@ -679,7 +770,7 @@ export class Engine {
       if (this.mode === 'muscle' && this.anatomy.hasVisuals) {
         this.anatomy.update(st, 0, false);
         this.anatomy.collectPoints(pts);
-        for (const c of this.ctxPts) pts.push(evalPoint(c.ins, st, a).clone().lerp(evalPoint(c.dist, st, b), DISTAL_FRACTION));
+        for (const c of this.ctxPts) pts.push(evalPoint(c.ins, st, a).clone().lerp(evalPoint(c.dist, st, b), distalFraction(aspect)));
         minSize = focus ? regionMinSize(focus) * 0.85 : 0.42;
       } else if (focus) {
         regionPoints(focus, st, cc.side, pts);
@@ -701,7 +792,7 @@ export class Engine {
     if (!focus && !cc.frame.length) pts.push(...this.props.framing);
     const bar = this.uiControls;
     return framePoints(pts, dir, this.camera, aspect, {
-      margin: focus || this.mode === 'muscle' ? 1.1 : 1.06,
+      margin: this.mode === 'muscle' && aspect < 0.8 ? 1.16 : focus || this.mode === 'muscle' ? 1.1 : 1.06,
       minSize,
       heightPx: this.height,
       insetTop: bar && cc.animated ? 40 : 6,
@@ -900,6 +991,7 @@ export class Engine {
     // labels
     if (this.labels.visible) {
       this.anatomy.labelAnchors(this.state, this.setLabelAnchor);
+      this.labels.homeView = !this.userMoved;
       // keep rendering while labels glide to new positions
       if (this.labels.layout(cam, this.width, this.height, this.frameDt, this.state)) this.needsRender = true;
     }

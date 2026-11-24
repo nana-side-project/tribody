@@ -237,16 +237,24 @@ function passTangents(keys: CompiledKey[], loop: 'loop' | 'pingpong', id: string
     const h0 = k.t - tp;
     const h1 = tq - k.t;
     const m = newPoseVec();
+    // angular speed through the key vs the straight p → q speed (degrees; root position left out)
+    let mag = 0;
+    let sec = 0;
     if (h0 > 1e-6 && h1 > 1e-6) {
       for (let j = 0; j < POSE_SIZE; j++) {
         const d0 = (k.vec[j] - p.vec[j]) / h0;
         const d1 = (q.vec[j] - k.vec[j]) / h1;
+        if (j >= 3) sec += ((q.vec[j] - p.vec[j]) / (h0 + h1)) ** 2;
         if (d0 * d1 <= 0) continue; // turning point (or flat on one side): this slot stops here
         const cr = (h1 * d0 + h0 * d1) / (h0 + h1);
         const lim = 3 * Math.min(Math.abs(d0), Math.abs(d1));
         m[j] = Math.sign(cr) * Math.min(Math.abs(cr), lim);
+        if (j >= 3) mag += m[j] * m[j];
       }
     }
+    // a pass key whose DOFs nearly all turn (or stay flat on one side) there is still a velocity stop
+    if (Math.sqrt(mag) < 0.2 * Math.sqrt(sec) || mag < 1e-12)
+      clipWarn(`clip ${id} key ${i} (t ${k.t}): pass key is (almost) a stop — most DOFs turn or are flat here; give it a pose between its neighbours`);
     k.m = m;
   }
 }

@@ -276,8 +276,9 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     props: [
       // edge of a door frame: its inner face is at x −0.285, level with the back of the hand
       { kind: 'box', at: [-0.325, 2.0, 0.33], size: [0.08, 2.0, 0.13] },
-      // rolled towel between the elbow and the trunk (lies front-to-back, follows the trunk)
-      { kind: 'towel', at: { bone: 'lumbar', rest: [0.157, 1.13, -0.012] }, axis: 'z', radius: 0.028, length: 0.17 },
+      // rolled towel squeezed between the upper arm just above the elbow and the trunk (lies front-to-back, follows the
+      // trunk; eng-verify-motion: solved so it presses 1.5–2 mm into both — it used to touch only the trunk, 11 mm from the arm)
+      { kind: 'towel', at: { bone: 'lumbar', rest: [0.1625, 1.135, -0.012] }, axis: 'z', radius: 0.034, length: 0.17 },
     ],
     // from behind-right: the posterior cuff, the 90° elbow at the side and the hand on the jamb
     camera: { dir: [-0.7, 0.55, -0.6] },
@@ -317,12 +318,13 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     loop: 'loop',
     props: [
       { kind: 'mat', rotY: 90 },
-      // pillow: its top touches the side of the head (y 0.183; the puffed top is 1.35× the 0.135 edge height), clear
-      // of the bottom shoulder and hand (palm z 0.23)
-      { kind: 'pillow', at: [0.75, 0.183, 0], size: [0.27, 0.135, 0.34] },
+      // pillow under the side of the head (lowest point y 0.183): puffed top 4 mm above it so the head sinks in a little
+      // (centre height = 1.35 × the 0.1385 edge height, flat bottom on the floor), clear of the bottom shoulder and hand
+      { kind: 'pillow', at: [0.75, 0.187, 0], size: [0.27, 0.1385, 0.34] },
       { kind: 'dumbbell', hand: 'R', size: 0.7 },
-      // rolled towel between the elbow and the waist (lies front-to-back along the trunk)
-      { kind: 'towel', at: { bone: 'lumbar', rest: [0.155, 1.13, -0.02] }, axis: 'z', radius: 0.026, length: 0.17 },
+      // rolled towel between the elbow and the waist (lies front-to-back along the trunk; eng-verify-motion: solved so it
+      // touches the trunk and the upper arm all through the rotation — the forearm used to sink 5 mm into it)
+      { kind: 'towel', at: { bone: 'lumbar', rest: [0.1525, 1.14, -0.02] }, axis: 'z', radius: 0.022, length: 0.17 },
     ],
     camera: { dir: [-0.4, 0.45, 1] },
     frame: ['hand:palm', 'humerus:head', 'forearm:olecranon', 'pelvis:iliac_crest_mid', 'thorax:sternum_body', 'head:vertex'],
@@ -575,8 +577,9 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       // post on the figure's left; band at navel height, horizontal to the hand
       { kind: 'box', at: [0.42, 1.25, 0.24], size: [0.05, 1.25, 0.05] },
       { kind: 'band', from: [0.395, 1.1, 0.24], to: 'hand:palm' },
-      // rolled towel between the elbow and the trunk (lies front-to-back, follows the trunk)
-      { kind: 'towel', at: { bone: 'lumbar', rest: [0.157, 1.13, -0.012] }, axis: 'z', radius: 0.028, length: 0.17 },
+      // rolled towel between the elbow and the trunk (lies front-to-back, follows the trunk; eng-verify-motion: solved so it
+      // touches the trunk and the upper arm all through the rotation — it was 1 cm off the arm, the forearm 4 mm into it)
+      { kind: 'towel', at: { bone: 'lumbar', rest: [0.16, 1.145, -0.012] }, axis: 'z', radius: 0.028, length: 0.17 },
     ],
     // from above-front: the forearm swinging out like a door while the elbow stays at the side
     camera: { dir: [-0.2, 1.1, 0.6] },
@@ -607,7 +610,7 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     props: [
       { kind: 'mat' },
       // thin folded towel under the head (top = the head's low point)
-      { kind: 'box', at: [0, 0.022, -0.69], size: [0.3, 0.022, 0.22], color: '#cfdde8' },
+      { kind: 'towel', at: [0, 0.022, -0.69], size: [0.3, 0.022, 0.22] },
     ],
     // near-profile from the right: the nod (chin toward the throat) happens in the image plane, with the deep neck
     // flexors in front of the cervical spine and the head staying on the towel
@@ -710,8 +713,8 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     ground: true,
     props: [
       { kind: 'mat', rotY: 90 },
-      // cushion under the head (top 0.14 m)
-      { kind: 'box', at: [0.75, 0.14, 0], size: [0.27, 0.14, 0.3], color: '#9aaebe' },
+      // cushion under the head (top 0.14 m = 1.35 × the 0.104 edge height)
+      { kind: 'pillow', at: [0.75, 0.14, 0], size: [0.27, 0.104, 0.3] },
     ],
     // from above the feet end: the arm traces its arc (forward → ceiling → toward the floor behind) and the two arms
     // visibly separate like the covers of a book, the stacked knees still in view (steeper than before so the

@@ -1,5 +1,5 @@
 // Small presentational primitives shared by pages.
-import { useId, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useId, useRef, type CSSProperties, type InputHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { GENERIC_PAIN_RULE } from '../lib/labels';
 import { IconChevron, IconClose, IconInfo, IconSearch, IconShield } from './icons';
@@ -44,6 +44,37 @@ export function Section({
   );
 }
 
+/**
+ * ARIA radio-group keyboard pattern (roving tabindex): only the checked radio is a tab stop,
+ * ←/→ (↑/↓) move and select, Home/End jump. Returns props for each radio button.
+ */
+export function useRadioGroup<T extends string>(ids: readonly T[], value: T, onChange: (v: T) => void) {
+  const refs = useRef(new Map<T, HTMLElement>());
+  const onKeyDown = (e: KeyboardEvent, i: number) => {
+    let n = -1;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') n = (i + 1) % ids.length;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') n = (i - 1 + ids.length) % ids.length;
+    else if (e.key === 'Home') n = 0;
+    else if (e.key === 'End') n = ids.length - 1;
+    if (n < 0) return;
+    e.preventDefault();
+    onChange(ids[n]);
+    refs.current.get(ids[n])?.focus();
+  };
+  const current = ids.includes(value) ? value : ids[0];
+  return (id: T, i: number) => ({
+    role: 'radio' as const,
+    'aria-checked': id === value,
+    tabIndex: id === current ? 0 : -1,
+    ref: (el: HTMLElement | null) => {
+      if (el) refs.current.set(id, el);
+      else refs.current.delete(id);
+    },
+    onKeyDown: (e: KeyboardEvent) => onKeyDown(e, i),
+    onClick: () => onChange(id),
+  });
+}
+
 export function Segmented<T extends string>({
   value,
   options,
@@ -57,17 +88,15 @@ export function Segmented<T extends string>({
   label: string;
   small?: boolean;
 }) {
+  const radio = useRadioGroup(
+    options.map((o) => o.id),
+    value,
+    onChange,
+  );
   return (
     <div className={`seg${small ? ' seg--sm' : ''}`} role="radiogroup" aria-label={label}>
-      {options.map((o) => (
-        <button
-          key={o.id}
-          type="button"
-          role="radio"
-          aria-checked={o.id === value}
-          className={`seg__btn${o.id === value ? ' is-active' : ''}`}
-          onClick={() => onChange(o.id)}
-        >
+      {options.map((o, i) => (
+        <button key={o.id} type="button" className={`seg__btn${o.id === value ? ' is-active' : ''}`} {...radio(o.id, i)}>
           {o.label}
         </button>
       ))}
@@ -178,30 +207,44 @@ export function SearchInput({
   onChange,
   placeholder,
   label,
+  inputProps,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
   label: string;
+  /** Extra input handlers (composition / blur), e.g. from useUrlSearchText. */
+  inputProps?: Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>;
 }) {
+  const ref = useRef<HTMLInputElement>(null);
   return (
     <div className="search" role="search">
       <IconSearch />
       <input
+        ref={ref}
         className="input"
         type="search"
         inputMode="search"
         enterKeyHint="search"
-        value={value}
         placeholder={placeholder}
         aria-label={label}
-        onChange={(e) => onChange(e.target.value)}
         autoComplete="off"
         autoCorrect="off"
         spellCheck={false}
+        {...inputProps}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
       />
       {value && (
-        <button type="button" className="icon-btn icon-btn--muted search__clear" aria-label="検索をクリア" onClick={() => onChange('')}>
+        <button
+          type="button"
+          className="icon-btn icon-btn--muted search__clear"
+          aria-label="検索をクリア"
+          onClick={() => {
+            onChange('');
+            ref.current?.focus();
+          }}
+        >
           <IconClose />
         </button>
       )}

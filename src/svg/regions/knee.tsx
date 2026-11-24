@@ -143,7 +143,7 @@ function KneeFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'fibula', t: '腓骨', at: [120, 300], x: 96, y: 296, a: 'end' },
     { id: 'tibialis-anterior', t: '前脛骨筋', at: [152, 360], x: 96, y: 352, a: 'end' },
     { id: 'fibularis-longus', t: '長腓骨筋', at: [116, 404], x: 96, y: 404, a: 'end' },
-    { id: 'rectus-femoris', t: '大腿直筋', at: [176, 30], x: 266, y: 28 },
+    { id: 'rectus-femoris', t: '大腿直筋', at: [176, 30], x: 266, y: 33 },
     { id: 'vastus-medialis', t: '内側広筋', at: [228, 120], x: 266, y: 100 },
     { id: 'sartorius', t: '縫工筋', at: [255, 140], x: 268, y: 140 },
     { id: 'quadriceps-tendon', t: '大腿四頭筋腱', at: [182, 144], x: 266, y: 176 },
@@ -339,10 +339,11 @@ function KneeLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'patella', t: '膝蓋骨', at: [242, 188], x: 256, y: 180 },
     { id: 'patellofemoral-cartilage', t: '膝蓋大腿関節\nの軟骨', at: [219, 208], x: 256, y: 212 },
     { id: 'patellar-tendon', t: '膝蓋腱', at: [236, 266], x: 256, y: 268 },
-    { id: 'gluteus-medius', t: '中殿筋', at: [292, 326], x: 314, y: 330 },
-    { id: 'gluteus-maximus', t: '大殿筋', at: [272, 348], x: 314, y: 352 },
-    { id: 'tensor-fasciae-latae', t: '大腿筋\n膜張筋', at: [297, 344], x: 314, y: 374 },
-    { id: 'iliotibial-band', t: '腸脛\n靱帯', at: [290, 396], x: 314, y: 408 },
+    // inset: TFL (front) is labelled above gluteus maximus (back) so neither leader crosses the other muscle
+    { id: 'gluteus-medius', t: '中殿筋', at: [290, 321], x: 314, y: 320 },
+    { id: 'tensor-fasciae-latae', t: '大腿筋\n膜張筋', at: [301, 336], x: 314, y: 350 },
+    { id: 'gluteus-maximus', t: '大殿筋', at: [274, 360], x: 314, y: 388 },
+    { id: 'iliotibial-band', t: '腸脛\n靱帯', at: [290, 398], x: 314, y: 410 },
   ];
   const spots: Spot[] = [
     { id: 'knee-outer', at: [172, 214] },
@@ -572,8 +573,8 @@ function KneeMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'sartorius', t: '縫工筋', at: [218, 74], x: 282, y: 72 },
     { id: 'gracilis', t: '薄筋', at: [242, 104], x: 282, y: 104 },
     { id: 'semimembranosus', t: '半膜様筋', at: [252, 170], x: 282, y: 140 },
-    { id: 'adductor-magnus', t: '大内転筋の腱', at: [218, 150], x: 282, y: 174 },
-    { id: 'mcl', t: '内側側副靱帯', at: [189, 238], x: 282, y: 224 },
+    { id: 'adductor-magnus', t: '大内転筋の腱', at: [218, 150], x: 278, y: 174 },
+    { id: 'mcl', t: '内側側副靱帯', at: [189, 238], x: 278, y: 224 },
     { id: 'meniscus', t: '半月板', at: [222, 252], x: 282, y: 262 },
     { id: 'gastrocnemius', t: '腓腹筋', at: [252, 340], x: 282, y: 334 },
     { id: 'soleus', t: 'ヒラメ筋', at: [203, 410], x: 282, y: 400 },
@@ -778,7 +779,7 @@ function KneeBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'gracilis', t: '薄筋', at: [115, 104], x: 92, y: 92, a: 'end' },
     { id: 'semitendinosus', t: '半腱様筋', at: [146, 64], x: 92, y: 134, a: 'end' },
     { id: 'semimembranosus', t: '半膜様筋', at: [130, 186], x: 92, y: 180, a: 'end' },
-    { id: 'gastrocnemius', t: '腓腹筋・内側頭', at: [140, 330], x: 92, y: 320, a: 'end' },
+    { id: 'gastrocnemius', t: '腓腹筋・内側頭', at: [140, 330], x: 96, y: 320, a: 'end' },
     { id: 'soleus', t: 'ヒラメ筋', at: [118, 410], x: 92, y: 404, a: 'end' },
     { id: 'biceps-femoris', t: '大腿二頭筋', at: [222, 80], x: 264, y: 64 },
     { t: '脛骨神経', at: [182, 166], x: 264, y: 146 },
@@ -795,7 +796,7 @@ function KneeBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       title="右膝を後ろから見た図（左が内側、右が外側）"
       cap={['← 内側', '右膝・後ろから']}
       labels={labels}
-      spots={[]}
+      spots={[{ id: 'knee-outer', at: [244, 222] }]}
       fade={{ top: 34, bottom: 40 }}
     >
       <Ctxt k={k}>
@@ -889,7 +890,7 @@ const diagram: RegionDiagram = {
     front: ['knee-front', 'knee-below', 'knee-outer', 'knee-inner'],
     lateral: ['knee-outer', 'knee-front', 'knee-below'],
     medial: ['knee-inner', 'knee-front', 'knee-below'],
-    back: [],
+    back: ['knee-outer'],
   },
   Component: KneeDiagram,
 };

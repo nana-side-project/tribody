@@ -30,7 +30,9 @@
   /* derived (UI only) */
   --involved: #e0a23b; /* matches the 2D/3D 'involved' highlight */
   --on-accent: #ffffff;
-  --text-3: #8a827a;
+  --text-3: #6e6761; /* ≥ 4.5:1 on bg / surface / surface-2 */
+  --accent-ink: #a2433d; /* accent as text on bg and tints (≥ 4.5:1); --accent stays for fills */
+  --mix-ink: 55%; /* share of a colour in tinted text (badges, chips): color-mix(c var(--mix-ink), var(--text)) */
   --card-border: rgb(30 27 24 / 0.05);
   --shadow-sm: 0 1px 2px rgb(30 27 24 / 0.05);
   --shadow: 0 1px 2px rgb(30 27 24 / 0.04), 0 8px 24px -12px rgb(30 27 24 / 0.16);
@@ -85,7 +87,9 @@
 
     --involved: #f0b450;
     --on-accent: #1a1210;
-    --text-3: #8d857e;
+    --text-3: #9a928b;
+    --accent-ink: #e07d75;
+    --mix-ink: 80%;
     --card-border: rgb(255 255 255 / 0.06);
     --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
     --shadow: 0 1px 2px rgb(0 0 0 / 0.25), 0 8px 24px -12px rgb(0 0 0 / 0.5);
@@ -126,7 +130,9 @@
 
   --involved: #f0b450;
   --on-accent: #1a1210;
-  --text-3: #8d857e;
+  --text-3: #9a928b;
+  --accent-ink: #e07d75;
+  --mix-ink: 80%;
   --card-border: rgb(255 255 255 / 0.06);
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
   --shadow: 0 1px 2px rgb(0 0 0 / 0.25), 0 8px 24px -12px rgb(0 0 0 / 0.5);

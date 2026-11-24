@@ -406,8 +406,8 @@ export const KIT_CSS = `
 .tbu .nucleus { fill: color-mix(in srgb, var(--bursa) 55%, var(--rd-cart)); stroke: color-mix(in srgb, var(--bursa) 50%, #102a44); stroke-width: .6; }
 .tbu .nerve { fill: var(--nerve); stroke: color-mix(in srgb, var(--nerve) 55%, #4a3600); stroke-width: .6; }
 .tbu .inset-bg { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
-.tbu .cap-t { font-size: 10.5px; fill: var(--text-2); opacity: .8; font-weight: 600; letter-spacing: .02em; }
-.tbu .note-t { font-size: 10.5px; fill: var(--text-2); font-weight: 600; }
+.tbu .cap-t { font-size: 12px; fill: var(--text-2); opacity: .8; font-weight: 600; letter-spacing: .02em; }
+.tbu .note-t { font-size: 12px; fill: var(--text-2); font-weight: 600; }
 
 .tbu .drop { fill: #1a0503; opacity: .2; stroke: none; }
 .tbu .tone-deep .mus { fill: color-mix(in srgb, var(--muscle) 82%, #3a0805); }
@@ -452,7 +452,7 @@ export const KIT_CSS = `
 /* labels */
 .tbu-lab { cursor: default; }
 .tbu-lab[role="button"] { cursor: pointer; }
-.tbu-lab text { font-size: 12.5px; font-weight: 500; fill: var(--text-2); paint-order: stroke; stroke: var(--surface);
+.tbu-lab text { font-size: 13px; font-weight: 500; fill: var(--text-2); paint-order: stroke; stroke: var(--surface);
   stroke-width: 3.2px; stroke-linejoin: round; }
 .tbu-lab .ld { fill: none; stroke: var(--text-2); stroke-width: .75; opacity: .65; }
 .tbu-lab .ldot { fill: var(--text-2); opacity: .85; }
@@ -629,8 +629,8 @@ export interface Spot {
   at: readonly number[];
 }
 
-const FS = 12.5; // label font size (user units ≈ 11.5 CSS px at 390 px viewport)
-const LH = 14.5;
+const FS = 13; // label font size in user units (≈ 11 CSS px on a 360 px phone, 12 px at 390)
+const LH = 15;
 
 function Label({ k, l }: { k: Ctx; l: Lab }) {
   const lines = l.t.split('\n');
@@ -1047,8 +1047,8 @@ const LABELS_BACK: Lab[] = [
   { id: 'deltoid', t: '三角筋', at: [246, 160], x: 272, y: 150 },
   { id: 'infraspinatus', t: '棘下筋', at: [146, 146], x: 272, y: 190 },
   { id: 'triceps-brachii', t: '上腕三頭筋', at: [242, 300], x: 272, y: 300 },
-  { id: 'latissimus-dorsi', t: '広背筋', at: [120, 330], x: 40, y: 334, a: 'end' },
-  { id: 'thoracic-spine', t: '胸椎', at: [MX, 254], x: 40, y: 258, a: 'end' },
+  { id: 'latissimus-dorsi', t: '広背筋', at: [120, 330], x: 44, y: 334, a: 'end' },
+  { id: 'thoracic-spine', t: '胸椎', at: [MX, 254], x: 44, y: 258, a: 'end' },
 ];
 const LABELS_BACK_DEEP: Lab[] = [
   { id: 'levator-scapulae', t: '肩甲挙筋', at: [114, 36], x: 150, y: 34 },
@@ -1059,10 +1059,10 @@ const LABELS_BACK_DEEP: Lab[] = [
   { id: 'teres-minor', t: '小円筋', at: [206, 168], x: 272, y: 192 },
   { t: '大円筋', at: [190, 196], x: 272, y: 216 },
   { id: 'triceps-brachii', t: '上腕三頭筋', at: [242, 300], x: 272, y: 300 },
-  { id: 'scapula', t: '肩甲骨', at: [140, 116], x: 40, y: 120, a: 'end' },
-  { id: 'rhomboids', t: '菱形筋', at: [100, 150], x: 40, y: 170, a: 'end' },
-  { id: 'thoracic-spine', t: '胸椎', at: [MX, 254], x: 40, y: 258, a: 'end' },
-  { id: 'trapezius', t: '僧帽筋\n(点線)', at: [100, 236], x: 40, y: 206, a: 'end' },
+  { id: 'scapula', t: '肩甲骨', at: [140, 116], x: 44, y: 120, a: 'end' },
+  { id: 'rhomboids', t: '菱形筋', at: [100, 150], x: 44, y: 170, a: 'end' },
+  { id: 'thoracic-spine', t: '胸椎', at: [MX, 254], x: 44, y: 258, a: 'end' },
+  { id: 'trapezius', t: '僧帽筋\n(点線)', at: [100, 236], x: 44, y: 206, a: 'end' },
 ];
 const SPOTS_BACK: Spot[] = [
   { id: 'shoulder-top', at: [206, 86] },
@@ -1335,7 +1335,7 @@ const LABELS_FRONT: Lab[] = [
   { id: 'acromion', t: '肩峰', at: [124, 62], x: 92, y: 44, a: 'end' },
   { id: 'trapezius', t: '僧帽筋', at: [192, 44], x: 172, y: 30, a: 'end' },
   { id: 'deltoid', t: '三角筋', at: [90, 150], x: 64, y: 150, a: 'end' },
-  { id: 'biceps-brachii', t: '上腕二頭筋', at: [90, 262], x: 65, y: 246, a: 'end' },
+  { id: 'biceps-brachii', t: '上腕二頭筋', at: [90, 262], x: 69, y: 246, a: 'end' },
   { t: '鎖骨', at: [250, 78], x: 306, y: 60 },
   { id: 'pectoralis-major', t: '大胸筋', at: [236, 150], x: 306, y: 150 },
   { id: 'serratus-anterior', t: '前鋸筋', at: [192, 252], x: 306, y: 256 },
@@ -1346,12 +1346,15 @@ const LABELS_DEEP: Lab[] = [
   { id: 'subacromial-bursa', t: '肩峰下\n滑液包', at: [102, 96], x: 70, y: 82, a: 'end' },
   { id: 'humeral-head', t: '上腕骨頭', at: [106, 116], x: 70, y: 132, a: 'end' },
   { id: 'biceps-long-head-tendon', t: '上腕二頭筋\n長頭腱', at: [110, 160], x: 70, y: 170, a: 'end' },
-  { id: 'biceps-brachii', t: '上腕二頭筋', at: [90, 262], x: 65, y: 246, a: 'end' },
+  { id: 'biceps-brachii', t: '上腕二頭筋', at: [90, 262], x: 69, y: 246, a: 'end' },
+  { id: 'trapezius', t: '僧帽筋', at: [192, 44], x: 172, y: 30, a: 'end' },
   { id: 'supraspinatus', t: '棘上筋', at: [196, 88], x: 214, y: 40 },
   { t: '鎖骨', at: [262, 79], x: 306, y: 60 },
   { id: 'pectoralis-minor', t: '小胸筋', at: [192, 134], x: 306, y: 122 },
   { id: 'subscapularis', t: '肩甲下筋', at: [214, 196], x: 306, y: 182 },
   { id: 'scapula', t: '肩甲骨', at: [216, 228], x: 306, y: 212 },
+  { id: 'serratus-anterior', t: '前鋸筋', at: [192, 254], x: 306, y: 262 },
+  { id: 'latissimus-dorsi', t: '広背筋', at: [168, 336], x: 192, y: 344 },
   { id: 'glenoid-labrum', t: '関節唇', at: [INSET.cx - 19, INSET.cy + 22], x: 246, y: 392, a: 'end' },
 ];
 const SPOTS_FRONT: Spot[] = [

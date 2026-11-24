@@ -39,12 +39,21 @@ export default function RegionPage() {
 function RegionView({ id }: { id: RegionId }) {
   const region = getRegion(id);
   const name = regionName(id);
-  const [params] = useSearchParams();
+  // the spot filter lives in the URL (?spot=), so it survives opening a condition and coming back
+  const [params, setParams] = useSearchParams();
   const spots = PAIN_SPOTS.filter((s) => s.region === id);
-  const [spot, setSpot] = useState<PainSpotId | null>(() => {
-    const p = params.get('spot');
-    return spots.some((s) => s.id === p) ? (p as PainSpotId) : null;
-  });
+  const p = params.get('spot');
+  const spot = spots.some((s) => s.id === p) ? (p as PainSpotId) : null;
+  const setSpot = (next: PainSpotId | null) =>
+    setParams(
+      (cur) => {
+        const n = new URLSearchParams(cur);
+        if (next) n.set('spot', next);
+        else n.delete('spot');
+        return n;
+      },
+      { replace: true },
+    );
   const [showAllStructures, setShowAllStructures] = useState(false);
   const chipsRef = useRef<HTMLDivElement>(null);
   // keep the selected spot chip visible in the horizontally scrolling row (without moving the page)
@@ -64,7 +73,7 @@ function RegionView({ id }: { id: RegionId }) {
     return linked.length ? linked : all;
   }, [id, spot]);
 
-  const toggleSpot = (s: PainSpotId) => setSpot((cur) => (cur === s ? null : s));
+  const toggleSpot = (s: PainSpotId) => setSpot(spot === s ? null : s);
 
   return (
     <Page title={name} back="/">
@@ -179,7 +188,7 @@ function RegionView({ id }: { id: RegionId }) {
               <button
                 type="button"
                 className="row"
-                style={{ justifyContent: 'center', color: 'var(--accent)', fontWeight: 700, fontSize: 14, borderTop: '1px solid var(--border)' }}
+                style={{ justifyContent: 'center', color: 'var(--accent-ink)', fontWeight: 700, fontSize: 14, borderTop: '1px solid var(--border)' }}
                 aria-expanded={showAllStructures}
                 onClick={() => setShowAllStructures((v) => !v)}
               >

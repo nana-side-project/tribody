@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { PAIN_SPOTS, REGIONS, getExercise, type PainSpotId } from '../data';
+import { PAIN_SPOTS, REGIONS, getCondition, getExercise, type ExerciseId, type PainSpotId } from '../data';
 import { SafeBodyMap } from '../components/SafeBodyMap';
 import {
   IconCheck,
@@ -14,13 +14,24 @@ import {
 } from '../components/icons';
 import { Page } from '../components/Layout';
 import { Sparkline } from '../components/Sparkline';
-import { EmptyState, Section, Segmented } from '../components/ui';
+import { EmptyState, Section, Segmented, useRadioGroup } from '../components/ui';
 import { addDays, formatDateJa, relativeDayJa, todayISO, weekdayJa } from '../lib/date';
-import { CONTEXT_JA, CONTEXT_ORDER, SIDE_JA, doseShort, exerciseName, regionName, spotLabel, spotViews } from '../lib/labels';
+import {
+  CONTEXT_JA,
+  CONTEXT_ORDER,
+  PHASE_JA,
+  SIDE_JA,
+  conditionName,
+  doseShort,
+  exerciseName,
+  regionName,
+  spotLabel,
+  spotViews,
+} from '../lib/labels';
 import { scrollBehavior } from '../lib/useMedia';
 import { isPersistent } from '../lib/storage';
-import { toast } from '../lib/toast';
-import { useMenu } from '../lib/useMenu';
+import { toast, toastSaved } from '../lib/toast';
+import { useMenu, type MenuItem } from '../lib/useMenu';
 import { scoreColorVar, scoreLabel, usePainLog, type PainContext, type PainEntry, type PainSide } from '../lib/usePainLog';
 
 type Tab = 'menu' | 'log';
@@ -73,12 +84,71 @@ export default function MenuPage() {
 
 /* ───────────────────────── メニュー ───────────────────────── */
 
+const sourceKey = (it: MenuItem) => (it.from?.condition ? `${it.from.condition}:${it.from.phase ?? ''}` : '');
+
+/** 「膝蓋大腿疼痛症候群・①」 — where a menu item was added from. */
+function sourceLabel(it: MenuItem): string {
+  const c = it.from?.condition;
+  if (!c) return '';
+  const ph = it.from?.phase;
+  return `${conditionName(c)}${ph ? `・${PHASE_JA[ph].split(' ')[0]}` : ''}`;
+}
+
+function exerciseLink(it: MenuItem): string {
+  const c = it.from?.condition ? getCondition(it.from.condition) : undefined;
+  const ph = c?.phases?.find((p) => p.id === it.from?.phase);
+  return `/exercise/${it.id}${c && ph?.exercises.includes(it.id) ? `?from=${c.id}&phase=${ph.id}` : ''}`;
+}
+
 function MenuTab() {
   const menu = useMenu();
   const [edit, setEdit] = useState(false);
   const total = menu.items.length;
   const done = menu.doneTodayCount;
   const pct = total ? Math.round((done / total) * 100) : 0;
+  const listRef = useRef<HTMLDivElement>(null);
+  const editBtnRef = useRef<HTMLButtonElement>(null);
+  // keyboard focus to restore after a reorder / delete re-renders the list
+  const [focusTarget, setFocusTarget] = useState<string | null>(null);
+  useEffect(() => {
+    if (!focusTarget) return;
+    const el =
+      focusTarget === 'edit' ? editBtnRef.current : listRef.current?.querySelector<HTMLElement>(`[data-tool="${focusTarget}"]:not([disabled])`);
+    el?.focus();
+    setFocusTarget(null);
+  }, [focusTarget, menu.items]);
+
+  const move = (id: ExerciseId, i: number, dir: -1 | 1) => {
+    menu.move(id, dir);
+    const j = i + dir;
+    // the pressed arrow gets disabled at the ends → keep focus on the item's other arrow
+    const ends = j === 0 || j === total - 1;
+    setFocusTarget(`${id}:${ends ? (dir < 0 ? 'down' : 'up') : dir < 0 ? 'up' : 'down'}`);
+  };
+  const removeAt = (it: MenuItem, i: number) => {
+    menu.remove(it.id);
+    const next = menu.items[i + 1] ?? menu.items[i - 1];
+    setFocusTarget(next ? `${next.id}:del` : 'edit');
+    toast(`「${exerciseName(it.id)}」を削除しました`, 5000, { label: '元に戻す', onClick: () => menu.restore([{ item: it, index: i }]) });
+  };
+
+  // recovery-plan steps the menu was built from (for 「まとめて外す」 in edit mode)
+  const sources = useMemo(() => {
+    const m = new Map<string, { label: string; items: { item: MenuItem; index: number }[] }>();
+    menu.items.forEach((it, index) => {
+      const k = sourceKey(it);
+      if (!k) return;
+      const g = m.get(k) ?? { label: sourceLabel(it), items: [] };
+      g.items.push({ item: it, index });
+      m.set(k, g);
+    });
+    return [...m.entries()].map(([key, v]) => ({ key, ...v }));
+  }, [menu.items]);
+  const removeSource = (src: (typeof sources)[number]) => {
+    menu.removeMany(src.items.map((x) => x.item.id));
+    setFocusTarget('edit');
+    toast(`${src.label}の${src.items.length}種目を外しました`, 5000, { label: '元に戻す', onClick: () => menu.restore(src.items) });
+  };
 
   if (!total) {
     return (
@@ -109,7 +179,13 @@ function MenuTab() {
               今日 <span className="muted" style={{ fontSize: 14, fontWeight: 600 }}>{formatDateJa(menu.today)}</span>
             </h2>
           </div>
-          <button type="button" className={`btn btn--sm ${edit ? 'btn--primary' : 'btn--secondary'}`} onClick={() => setEdit((v) => !v)} aria-pressed={edit}>
+          <button
+            type="button"
+            ref={editBtnRef}
+            className={`btn btn--sm ${edit ? 'btn--primary' : 'btn--secondary'}`}
+            onClick={() => setEdit((v) => !v)}
+            aria-pressed={edit}
+          >
             {edit ? <IconCheck /> : <IconEdit />}
             {edit ? '完了' : '並べ替え・削除'}
           </button>
@@ -127,10 +203,11 @@ function MenuTab() {
               <span style={{ width: `${pct}%` }} />
             </div>
           </div>
-          <div style={{ borderTop: '1px solid var(--border)' }}>
+          <div style={{ borderTop: '1px solid var(--border)' }} ref={listRef}>
             {menu.items.map((it, i) => {
               const ex = getExercise(it.id);
               const isDone = menu.isDone(it.id);
+              const src = sourceLabel(it);
               return (
                 <div key={it.id} className={`menu-item${isDone ? ' is-done' : ''}`}>
                   {!edit && (
@@ -138,7 +215,7 @@ function MenuTab() {
                       type="button"
                       role="checkbox"
                       aria-checked={isDone}
-                      aria-label={`${exerciseName(it.id)} を${isDone ? '未完了に戻す' : '完了にする'}`}
+                      aria-label={`${exerciseName(it.id)}（今日の分）`}
                       className="checkbox"
                       onClick={() => menu.toggleDone(it.id)}
                     >
@@ -147,22 +224,32 @@ function MenuTab() {
                       </span>
                     </button>
                   )}
-                  <Link to={`/exercise/${it.id}`} className="menu-item__main" style={edit ? { paddingLeft: 10 } : undefined}>
+                  <Link to={exerciseLink(it)} className="menu-item__main" style={edit ? { paddingLeft: 10 } : undefined}>
                     <p className="row__title">{exerciseName(it.id)}</p>
                     <p className="row__sub">{ex ? doseShort(ex.dose) : '準備中'}</p>
+                    {src && <p className="menu-item__src">{src}</p>}
                   </Link>
                   {edit && (
                     <div className="menu-item__tools">
-                      <button type="button" className="icon-btn icon-btn--sm icon-btn--muted" aria-label="上へ" disabled={i === 0} style={i === 0 ? { opacity: 0.3 } : undefined} onClick={() => menu.move(it.id, -1)}>
+                      <button
+                        type="button"
+                        className="icon-btn icon-btn--sm icon-btn--muted"
+                        aria-label={`${exerciseName(it.id)}を上へ`}
+                        data-tool={`${it.id}:up`}
+                        disabled={i === 0}
+                        style={i === 0 ? { opacity: 0.3 } : undefined}
+                        onClick={() => move(it.id, i, -1)}
+                      >
                         <IconUp />
                       </button>
                       <button
                         type="button"
                         className="icon-btn icon-btn--sm icon-btn--muted"
-                        aria-label="下へ"
+                        aria-label={`${exerciseName(it.id)}を下へ`}
+                        data-tool={`${it.id}:down`}
                         disabled={i === total - 1}
                         style={i === total - 1 ? { opacity: 0.3 } : undefined}
-                        onClick={() => menu.move(it.id, 1)}
+                        onClick={() => move(it.id, i, 1)}
                       >
                         <IconDown />
                       </button>
@@ -170,11 +257,9 @@ function MenuTab() {
                         type="button"
                         className="icon-btn icon-btn--sm"
                         style={{ color: 'var(--danger)' }}
-                        aria-label={`${exerciseName(it.id)} をメニューから削除`}
-                        onClick={() => {
-                          menu.remove(it.id);
-                          toast('メニューから削除しました');
-                        }}
+                        aria-label={`${exerciseName(it.id)}をメニューから削除`}
+                        data-tool={`${it.id}:del`}
+                        onClick={() => removeAt(it, i)}
                       >
                         <IconTrash />
                       </button>
@@ -184,6 +269,24 @@ function MenuTab() {
               );
             })}
           </div>
+          {edit && sources.length > 0 && (
+            <div className="menu-sources">
+              <p className="tiny" style={{ fontWeight: 700 }}>
+                回復プランのステップごとに外す
+              </p>
+              {sources.map((src) => (
+                <div key={src.key} className="menu-sources__row">
+                  <span className="grow small">
+                    {src.label}
+                    <span className="muted">（{src.items.length}種目）</span>
+                  </span>
+                  <button type="button" className="btn btn--outline btn--sm" onClick={() => removeSource(src)}>
+                    まとめて外す
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
           <Link to="/exercises" className="btn btn--ghost btn--sm">
@@ -197,7 +300,7 @@ function MenuTab() {
           <div style={{ display: 'flex', gap: 24 }}>
             <div>
               <p className="tiny" style={{ fontWeight: 700 }}>
-                実施した種目
+                実施回数（チェックした数）
               </p>
               <p className="stat">
                 <span className="stat__num">{menu.weekTotal}</span>
@@ -214,16 +317,20 @@ function MenuTab() {
               </p>
             </div>
           </div>
-          <div className="week" aria-label="今週の日ごとの実施数">
+          <div className="week" role="list" aria-label="今週の日ごとの実施数">
             {menu.week.map((d) => {
               const p = total ? Math.min(100, Math.round((d.count / total) * 100)) : 0;
               const isToday = d.date === menu.today;
               const future = d.date > menu.today;
               return (
-                <div key={d.date} className={`week__day${isToday ? ' is-today' : ''}`} style={future ? { opacity: 0.45 } : undefined}>
-                  <span>{weekdayJa(d.date)}</span>
-                  <span className="week__ring" style={{ '--p': p } as CSSProperties} aria-label={`${formatDateJa(d.date)} ${d.count}種目`}>
+                <div key={d.date} role="listitem" className={`week__day${isToday ? ' is-today' : ''}${future ? ' is-future' : ''}`}>
+                  <span aria-hidden="true">{weekdayJa(d.date)}</span>
+                  <span className="week__ring" style={{ '--p': p } as CSSProperties} aria-hidden="true">
                     {d.count || ''}
+                  </span>
+                  <span className="sr-only">
+                    {formatDateJa(d.date)}
+                    {isToday ? '（今日）' : ''}：{future ? 'これから' : `${d.count}種目`}
                   </span>
                 </div>
               );
@@ -241,19 +348,49 @@ function MenuTab() {
 /* ───────────────────────── 痛みログ ───────────────────────── */
 
 const SPOT_IDS = new Set<string>(PAIN_SPOTS.map((s) => s.id));
+type MapView = 'front' | 'back' | 'sole';
+const firstView = (spot: string | undefined): MapView | undefined => {
+  const v = spot ? spotViews(spot)[0] : undefined;
+  return v === 'front' || v === 'back' || v === 'sole' ? v : undefined;
+};
 
 function PainLogTab({ initialSpot, initialSide }: { initialSpot: string | null; initialSide: string | null }) {
   const log = usePainLog();
   const formRef = useRef<HTMLDivElement>(null);
   const [spot, setSpot] = useState<PainSpotId | ''>(initialSpot && SPOT_IDS.has(initialSpot) ? (initialSpot as PainSpotId) : '');
   const [side, setSide] = useState<PainSide>(initialSide === 'left' || initialSide === 'right' ? initialSide : 'both');
-  const [mapView, setMapView] = useState<'front' | 'back' | 'sole'>(() => {
-    const first = (spot || log.entries[0]?.spot) as string | undefined;
-    const v = first ? spotViews(first)[0] : undefined;
-    return v === 'back' || v === 'sole' ? v : 'front';
-  });
   const intensity = useMemo(() => log.recentIntensity(14), [log]);
-  const activeSpots = Object.keys(intensity) as PainSpotId[];
+  const activeSpots = (Object.keys(intensity) as PainSpotId[]).filter((k) => (intensity[k] ?? 0) > 0);
+  // how many logged spots (with pain > 0) each view shows
+  const viewCounts = useMemo(() => {
+    const c = { front: 0, back: 0, sole: 0 };
+    for (const id of activeSpots) for (const v of spotViews(id)) if (v in c) c[v as MapView]++;
+    return c;
+  }, [activeSpots.join()]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [mapView, setMapView] = useState<MapView>(() => {
+    const first = (spot || log.entries.find((e) => e.score > 0)?.spot) as string | undefined;
+    return firstView(first) ?? 'front';
+  });
+  // follow the spot chosen in the form (if the current view doesn't show it)
+  useEffect(() => {
+    if (!spot) return;
+    const views = spotViews(spot);
+    const v = firstView(spot);
+    if (v && !views.includes(mapView)) setMapView(v);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spot]);
+  const viewLabel = (id: MapView, label: string) =>
+    viewCounts[id] ? (
+      <>
+        {label}
+        <span className="seg__count" aria-hidden="true">
+          {viewCounts[id]}
+        </span>
+        <span className="sr-only">（記録 {viewCounts[id]}か所）</span>
+      </>
+    ) : (
+      label
+    );
 
   return (
     <>
@@ -273,11 +410,16 @@ function PainLogTab({ initialSpot, initialSide }: { initialSpot: string | null; 
             value={mapView}
             onChange={setMapView}
             options={[
-              { id: 'front', label: '前' },
-              { id: 'back', label: '後ろ' },
-              { id: 'sole', label: '足裏' },
+              { id: 'front', label: viewLabel('front', '前') },
+              { id: 'back', label: viewLabel('back', '後ろ') },
+              { id: 'sole', label: viewLabel('sole', '足裏') },
             ]}
           />
+          {activeSpots.length > 0 && !viewCounts[mapView] && (
+            <p className="tiny" style={{ marginTop: 8, textAlign: 'center' }}>
+              この向きには最近の記録がありません。数字のついた向きに切り替えてください。
+            </p>
+          )}
           <div className="bodymap-frame">
             <SafeBodyMap
               view={mapView}
@@ -336,6 +478,7 @@ function EntryForm({
   const [note, setNote] = useState('');
   const [date, setDate] = useState(todayISO());
   const [error, setError] = useState('');
+  const contextRadio = useRadioGroup(CONTEXT_ORDER, context, setContext);
 
   const save = () => {
     if (!spot) {
@@ -346,7 +489,7 @@ function EntryForm({
     log.add({ date: d, spot, side, score, context, note: note.trim() });
     setNote('');
     setError('');
-    toast('記録しました');
+    toastSaved('記録しました');
   };
 
   return (
@@ -434,15 +577,8 @@ function EntryForm({
       <div className="field">
         <span className="field__label">いつ痛んだ？</span>
         <div className="chips" role="radiogroup" aria-label="いつ痛んだ">
-          {CONTEXT_ORDER.map((c) => (
-            <button
-              key={c}
-              type="button"
-              role="radio"
-              aria-checked={context === c}
-              className={`chip${context === c ? ' is-active' : ''}`}
-              onClick={() => setContext(c)}
-            >
+          {CONTEXT_ORDER.map((c, i) => (
+            <button key={c} type="button" className={`chip${context === c ? ' is-active' : ''}`} {...contextRadio(c, i)}>
               {CONTEXT_JA[c]}
             </button>
           ))}
@@ -497,9 +633,10 @@ function EntryList({ entries, onDelete }: { entries: PainEntry[]; onDelete: (id:
           <div className="card card--flush">
             {list.map((e) => (
               <div key={e.id} className="entry">
-                <span className="entry__score" style={{ '--c': scoreColorVar(e.score) } as CSSProperties} aria-label={`痛み ${e.score}/10`}>
+                <span className="entry__score" style={{ '--c': scoreColorVar(e.score) } as CSSProperties} aria-hidden="true">
                   {e.score}
                 </span>
+                <span className="sr-only">痛み {e.score}/10、</span>
                 <div className="entry__main">
                   <p className="entry__title">{spotLabel(e.spot)}</p>
                   <div className="entry__meta">
@@ -525,7 +662,12 @@ function EntryList({ entries, onDelete }: { entries: PainEntry[]; onDelete: (id:
                     削除
                   </button>
                 ) : (
-                  <button type="button" className="icon-btn icon-btn--sm icon-btn--muted" aria-label="この記録を削除" onClick={() => setConfirm(e.id)}>
+                  <button
+                    type="button"
+                    className="icon-btn icon-btn--sm icon-btn--muted"
+                    aria-label={`${spotLabel(e.spot)}の記録を削除`}
+                    onClick={() => setConfirm(e.id)}
+                  >
                     <IconTrash />
                   </button>
                 )}
@@ -559,7 +701,7 @@ function Trends({ entries }: { entries: PainEntry[] }) {
 
   if (!series.length) return null;
   return (
-    <Section kicker="Trend" title="場所ごとの推移" desc="過去4週間・その日の最大値。点線（3）以下が運動してよい痛みの目安です。">
+    <Section kicker="Trend" title="場所ごとの推移" desc="過去4週間・その日の最大値。点線（3）以下が運動してよい痛みの目安です（腱のリハビリ中は5まで許容されることがあります。障害ページの「痛みのルール」を確認してください）。">
       <div className="card card--flush">
         {series.map((s) => {
           const first = s.points[0];

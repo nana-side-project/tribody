@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useMemo } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   getCondition,
   type Condition,
+  type ConditionId,
   type PhaseId,
   type RegionId,
 } from '../data';
@@ -22,12 +23,13 @@ import {
   IconTarget,
 } from '../components/icons';
 import { Page } from '../components/Layout';
-import { RegionFigure } from '../components/RegionFigure';
+import { RegionFigure, drawnParts } from '../components/RegionFigure';
 import { Bullets, Disclaimer, EmptyState, PainRuleCallout, Section, Tabs } from '../components/ui';
 import { Viewer3DToggle } from '../components/Viewer3D';
 import {
   DISCIPLINE_JA,
   DISCIPLINE_ORDER,
+  PHASE_JA,
   conditionName,
   isKnownCondition,
   isKnownMuscle,
@@ -38,7 +40,7 @@ import {
 } from '../lib/labels';
 import { menuActions } from '../lib/useMenu';
 import { scrollBehavior } from '../lib/useMedia';
-import { toast } from '../lib/toast';
+import { toastSaved } from '../lib/toast';
 import NotFoundPage from './NotFoundPage';
 
 export default function ConditionPage() {
@@ -73,12 +75,36 @@ function ConditionWip({ id }: { id: string }) {
   );
 }
 
-const PHASE_TAB: Record<PhaseId, string> = { calm: '① 落ち着ける', build: '② 強くする', return: '③ 競技へ戻る' };
+const PHASE_TAB: Record<PhaseId, string> = PHASE_JA;
+
+/** 「① 痛みを鎮める」: if the tab is too narrow, break only after the number (never 「鎮め / る」). */
+function tabLabel(label: string) {
+  const i = label.indexOf(' ');
+  if (i < 0) return label;
+  return (
+    <>
+      {label.slice(0, i)} <span className="nowrap">{label.slice(i + 1)}</span>
+    </>
+  );
+}
+
+/**
+ * Default figure view per condition when the automatic choice (most involved parts) is not the best
+ * teaching view — e.g. the Achilles tendon is only a sliver in the ankle's medial view.
+ */
+const CONDITION_VIEW: Partial<Record<ConditionId, { region: RegionId; view: string }>> = {
+  'achilles-midportion': { region: 'ankle', view: 'back' },
+  'achilles-insertional': { region: 'ankle', view: 'lateral' },
+  'metatarsal-stress-fracture': { region: 'foot', view: 'top' },
+  'low-back-pain': { region: 'lowback', view: 'back' },
+  'patellofemoral-pain': { region: 'knee', view: 'front' },
+  'cyclist-neck-pain': { region: 'neck', view: 'side' },
+};
 
 const TOC: { id: string; label: string }[] = [
-  { id: 'anatomy', label: 'どこが傷む？' },
-  { id: 'what', label: '何が起きている' },
-  { id: 'why', label: 'トライアスロンとの関係' },
+  { id: 'anatomy', label: 'どこが傷んでいる？' },
+  { id: 'what', label: '何が起きている？' },
+  { id: 'why', label: 'なぜトライアスロンで？' },
   { id: 'symptoms', label: '症状' },
   { id: 'redflags', label: '受診の目安' },
   { id: 'plan', label: '回復プラン' },
@@ -133,18 +159,33 @@ function ConditionView({ c }: { c: Condition }) {
     for (const i of involved) h[i.ref] = isPrimaryRole(i.role) ? 'injured' : 'involved';
     return h;
   }, [involved]);
-  const figRegion = useMemo(() => pickRegion(c, refs), [c]); // eslint-disable-line react-hooks/exhaustive-deps
+  const override = CONDITION_VIEW[c.id];
+  const figRegion = useMemo(() => override?.region ?? pickRegion(c, refs), [c]); // eslint-disable-line react-hooks/exhaustive-deps
+  const figView = override && override.region === figRegion ? override.view : undefined;
+  const drawn = useMemo(() => drawnParts(figRegion), [figRegion]);
   const primary = involved.filter((i) => isPrimaryRole(i.role));
   const secondary = involved.filter((i) => !isPrimaryRole(i.role));
+  const primaryRefs = primary.map((i) => i.ref as string);
 
+  // The selected step lives in the URL (?phase=), so it survives opening an exercise and coming back.
+  const [params, setParams] = useSearchParams();
   const phases = c.phases ?? [];
-  const [phase, setPhase] = useState<PhaseId>(phases[0]?.id ?? 'calm');
-  const cur = phases.find((p) => p.id === phase) ?? phases[0];
+  const cur = phases.find((p) => p.id === params.get('phase')) ?? phases[0];
+  const setPhase = (id: PhaseId) =>
+    setParams(
+      (p) => {
+        const n = new URLSearchParams(p);
+        if (id === phases[0]?.id) n.delete('phase');
+        else n.set('phase', id);
+        return n;
+      },
+      { replace: true },
+    );
 
   const addPhase = () => {
     if (!cur) return;
     const n = menuActions.addMany(cur.exercises, { condition: c.id, phase: cur.id });
-    toast(n ? `${n}種目をマイメニューに追加しました` : 'すでにすべてマイメニューにあります');
+    toastSaved(n ? `${n}種目をマイメニューに追加しました` : 'すでにすべてマイメニューにあります', n > 0);
   };
 
   return (
@@ -187,12 +228,20 @@ function ConditionView({ c }: { c: Condition }) {
         ))}
       </nav>
 
-      <Section id="anatomy" kicker="Anatomy" title="どこが傷んでいる？" desc="赤く光っているのが痛みの中心になっている組織、黄色の縁取りが関係する筋肉・組織です。">
-        <RegionFigure region={figRegion} highlights={highlights2d} dimOthers preferParts={refs} />
+      <Section id="anatomy" kicker="Anatomy" title="どこが傷んでいる？" desc="赤く光っているのが痛みの中心になっている組織、オレンジ色で示したのが関係する筋肉・組織です。">
+        <RegionFigure
+          region={figRegion}
+          highlights={highlights2d}
+          dimOthers
+          preferParts={refs}
+          preferPrimary={primaryRefs}
+          initialView={figView}
+          zoomable
+        />
         <div className="legend" style={{ marginTop: 10, paddingLeft: 4 }}>
           <span className="legend__item">
             <span className="dot dot--injured dot--ring" />
-            痛んでいる・刺激/圧迫されている
+            傷んでいる・刺激/圧迫されている
           </span>
           <span className="legend__item">
             <span className="dot dot--involved" />
@@ -213,6 +262,9 @@ function ConditionView({ c }: { c: Condition }) {
                       <RoleBadge role={i.role} />
                     </p>
                     <p className="involve__note">{i.note}</p>
+                    {!drawn.has(i.ref) && (
+                      <p className="involve__hint">{isMuscle ? '上の図の範囲外です（筋肉のページ・3Dで確認できます）' : '上の図の範囲外です（3Dで確認できます）'}</p>
+                    )}
                   </div>
                   {isMuscle && <IconChevron className="chev" />}
                 </>
@@ -239,7 +291,7 @@ function ConditionView({ c }: { c: Condition }) {
               <span className="legend" style={{ margin: 0 }}>
                 <span className="legend__item">
                   <span className="dot dot--injured" />
-                  痛んでいる
+                  傷んでいる
                 </span>
                 <span className="legend__item">
                   <span className="dot dot--involved" />
@@ -384,7 +436,7 @@ function ConditionView({ c }: { c: Condition }) {
               label="回復のステップ"
               value={cur.id}
               onChange={setPhase}
-              options={phases.map((p) => ({ id: p.id, label: PHASE_TAB[p.id] ?? p.title }))}
+              options={phases.map((p) => ({ id: p.id, label: tabLabel(PHASE_TAB[p.id] ?? p.title) }))}
             />
             <div id="phase-panel" role="tabpanel" aria-labelledby={`phase-tab-${cur.id}`} className="phase">
               <h3>{cur.title}</h3>
@@ -403,7 +455,7 @@ function ConditionView({ c }: { c: Condition }) {
                   <p className="phase__label">エクササイズ（この順番で）</p>
                   <div className="stack stack--sm">
                     {cur.exercises.map((e) => (
-                      <ExerciseCard key={e} id={e} />
+                      <ExerciseCard key={e} id={e} search={`?from=${c.id}&phase=${cur.id}`} />
                     ))}
                   </div>
                   <button type="button" className="btn btn--primary btn--block" style={{ marginTop: 14 }} onClick={addPhase}>
@@ -495,7 +547,8 @@ function ConditionView({ c }: { c: Condition }) {
       </div>
       <p className="footer-note">
         <IconFlag style={{ width: 14, height: 14, display: 'inline', verticalAlign: '-2px', marginRight: 4 }} />
-        この情報は一般的な教育目的です。診断ではありません。<Link to="/about">免責事項</Link>
+        この情報は一般的な教育目的です。診断ではありません。
+        <Link to="/about">免責事項</Link>
       </p>
     </Page>
   );

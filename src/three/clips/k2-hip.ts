@@ -319,6 +319,8 @@ const CP_UP_75 = {
 // N_MID: both knees up toward the ceiling (hips 135°, knees 107°, soles flat on the same spots).
 // N_LEAN: from N_P the pelvis tilts forward 35° with the spine straight, the chest turns to the front shin, the hips
 // are re-solved so the knees/feet stay within 2 cm; the hands rest on the front shin.
+// eng-motion: the switch / lean via-poses are `pass` keys (one smooth windshield-wiper instead of stop-and-go), plus
+// N_QUARTER (buttocks kept on the mat mid-switch) and N_HANDS_LIFT (hands leave the floor before the wrists turn).
 type Joints = NonNullable<Pose['joints']>;
 function mirrorLR(p: { root?: Pose['root']; joints: Joints }): { root?: Pose['root']; joints: Joints } {
   const j: Record<string, Record<string, number>> = {};
@@ -446,17 +448,24 @@ const N_HANDS_UP = {
     wrist_L: { flex: 0 },
   } as Joints,
 };
-// hands just lifted off the floor (elbows bent 60°, wrists kept extended): a `pass` key on the way from "hands
+// hands just lifted off the floor (elbows bent 50°, wrists kept extended): a `pass` key on the way from "hands
 // behind" to N_HANDS_UP and back (eng-motion) — straightening the wrists while the hands were still down swept the
 // left fingers through the floor and the grounding lifted the whole body ~6 cm for a moment.
+// eng-verify-motion: the shoulders / forearms are already 15 % (rotation 25 %) of the way to N_HANDS_UP here, so the
+// arms keep moving through the key (with only elbow / wrist changing, every DOF turned at the key and the "pass" key
+// was a full stop); searched so the body never lifts (0 mm) — speed at the key 0.64 of the phase mean.
 const N_HANDS_LIFT = {
   root: N_P.root,
   joints: {
     ...N_P.joints,
-    elbow_R: { flex: 60 },
-    wrist_R: { flex: -80 },
-    elbow_L: { flex: 60 },
-    wrist_L: { flex: -80 },
+    shoulder_R: { flex: 5.92, abd: 6.21, rot: 78.75 },
+    elbow_R: { flex: 50 },
+    forearm_R: { sup: -161.14 },
+    wrist_R: { flex: -85 },
+    shoulder_L: { flex: -15.67, abd: -6.71, rot: 54 },
+    elbow_L: { flex: 50 },
+    forearm_L: { sup: -57.19 },
+    wrist_L: { flex: -85 },
   } as Joints,
 };
 const N_LEAN = {
@@ -591,8 +600,9 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     loop: 'loop',
     props: [
       { kind: 'mat', rotY: 90 },
-      // head cushion: top = the head's lowest point with the neck in line (0.129 m)
-      { kind: 'box', at: [0.75, 0.127, -0.01], size: [0.26, 0.125, 0.22] },
+      // head cushion: the head's lowest point with the neck in line is at 0.1358 m; the puffed top sits 4 mm above it so
+      // the head sinks in a little (centre height = 1.35 × edge height, flat bottom on the floor)
+      { kind: 'pillow', at: [0.75, 0.1398, -0.01], size: [0.26, 0.1036, 0.26] },
     ],
     // from the front (the side the knees point to), a little above: the top knee visibly lifts off the bottom one
     camera: { dir: [-0.22, 0.6, 1] },
@@ -634,7 +644,9 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     loop: 'loop',
     props: [
       { kind: 'mat', rotY: 90 },
-      { kind: 'box', at: [0.75, 0.135, -0.01], size: [0.26, 0.133, 0.22] },
+      // head cushion: the head's lowest point is at 0.1413 m; the puffed top sits 4 mm above it so the head sinks in a
+      // little (centre height = 1.35 × edge height, flat bottom on the floor)
+      { kind: 'pillow', at: [0.75, 0.1453, -0.01], size: [0.26, 0.1076, 0.26] },
     ],
     camera: { dir: [-0.12, 0.42, 1] },
     focus: 'hip',
