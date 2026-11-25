@@ -45,43 +45,14 @@ npm run build:single   # dist-single/index.html に 1 ファイル版を出力�
 
 ## 公開（GitHub Pages など）
 
-`base: './'` と HashRouter を使っているので、`dist/` をそのまま任意の静的ホスティングに置けば動きます（サブパスでも可）。
+公開版: https://nana-side-project.github.io/tribody/
 
-GitHub Pages の例（リポジトリの Settings → Pages → Source を「GitHub Actions」にして、次のファイルを追加）:
+`main` に push すると [.github/workflows/deploy.yml](.github/workflows/deploy.yml) が、テスト（コンテンツの整合性チェックを含む）→ 型チェック → ビルドの順に実行し、通れば GitHub Pages に公開します。
+最初の 1 回だけ、リポジトリの Settings → Pages → Build and deployment → Source を「GitHub Actions」にしてください（無料プランでは Public リポジトリのみ）。
 
-```yaml
-# .github/workflows/pages.yml
-name: Deploy to GitHub Pages
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-      - id: deployment
-        uses: actions/deploy-pages@v4
-```
-
+`base: './'` と HashRouter を使っているので、`dist/` をそのまま任意の静的ホスティングに置いても動きます（サブパスでも可）。
 https で公開すると、オフラインでも使えるようにキャッシュされ、スマホの「ホーム画面に追加」でアプリのように使えます。
+痛みの記録やマイメニューは、その端末のブラウザの中にだけ保存されます（サーバーには送られません）。
 
 ## 構成
 
