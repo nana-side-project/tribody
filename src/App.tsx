@@ -75,8 +75,27 @@ export function preloadInitialRoute(): Promise<unknown> {
   return (pageFor(seg) ?? NotFoundPage).preload();
 }
 
+/**
+ * The region diagrams (the 2D figures of the condition, region and muscle pages): the largest dependency of those
+ * pages. The idle prefetch fetches and evaluates them in a step of their own, so the condition page's step that follows
+ * only evaluates the page itself — every idle step evaluates one chunk and then yields to input.
+ */
+const RegionDiagrams = { preload: () => import('./svg/regions') };
 /** Idle-time prefetch order: where people usually go next from home and the tabs. */
-const IDLE_ORDER = [ConditionPage, RegionPage, ExercisePage, MusclePage, ExercisesPage, MusclesPage, MenuPage, GuidesPage, GuidePage, AboutPage, NotFoundPage];
+const IDLE_ORDER = [
+  RegionDiagrams,
+  ConditionPage,
+  RegionPage,
+  ExercisePage,
+  MusclePage,
+  ExercisesPage,
+  MusclesPage,
+  MenuPage,
+  GuidesPage,
+  GuidePage,
+  AboutPage,
+  NotFoundPage,
+];
 /**
  * Idle prefetch waits for this long without input. Evaluating a page chunk blocks the main thread (the condition page
  * pulls in every region diagram: ~0.4–0.5 s on a mid-range phone), so it must not run when a tap is likely: never

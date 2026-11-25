@@ -151,7 +151,7 @@ export const conditions: Condition[] = [
         progressWhen: [
           '夜間痛が減り、睡眠中に痛みで目が覚めなくなった',
           '歩く・階段など日常の動作の痛みが2/10以下',
-          '外転アイソメトリック45秒×5回とブリッジ15回×3セットが、翌朝の悪化なくできる',
+          '外転アイソメトリック30秒×5回とブリッジ15回×3セットが、翌朝の悪化なくできる',
         ],
       },
       {
@@ -171,6 +171,13 @@ export const conditions: Condition[] = [
           'ex-step-down',
           'ex-sidelying-abduction',
         ],
+        doses: {
+          'ex-squat': { frequency: '週3回（1日おき）' },
+          'ex-single-leg-bridge': { frequency: '週3回（1日おき）' },
+          'ex-band-walk': { frequency: '週3回（1日おき）' },
+          'ex-step-down': { frequency: '週3回（1日おき）' },
+          'ex-sidelying-abduction': { frequency: '週3回（1日おき）' },
+        },
         progressWhen: [
           '片脚立ち30秒が、痛みなく骨盤を水平に保ってできる',
           '片脚ブリッジとステップダウンを痛み3/10以下で10回×3セットできる',
@@ -188,6 +195,11 @@ export const conditions: Condition[] = [
           '脚を組まない・横向き寝の工夫など、日常の姿勢の習慣も続けます。',
         ],
         exercises: ['ex-side-plank', 'ex-single-leg-rdl', 'ex-split-squat'],
+        doses: {
+          'ex-side-plank': { frequency: '週2回（再発予防）' },
+          'ex-single-leg-rdl': { frequency: '週2回（再発予防）' },
+          'ex-split-squat': { frequency: '週2回（再発予防）' },
+        },
         progressWhen: [
           'いつもの練習量・坂道・ブリックランが痛み2/10以下でこなせる',
           '夜間痛や、横向きで寝たときの痛みがない',
@@ -433,6 +445,9 @@ export const conditions: Condition[] = [
           'ex-dead-bug',
           'ex-quad-stretch',
         ],
+        doses: {
+          'ex-dead-bug': { frequency: '週2〜3回' },
+        },
         progressWhen: [
           'ニードライブを太もも水平以上で5秒保持×10回、痛み2/10以下でできる',
           '45〜60分のジョグと、エアロポジションを含む60分のライドが痛まない',
@@ -450,6 +465,11 @@ export const conditions: Condition[] = [
           '補強は週2回、再発予防として続けます。',
         ],
         exercises: ['ex-standing-knee-drive', 'ex-single-leg-rdl', 'ex-copenhagen-plank'],
+        doses: {
+          'ex-standing-knee-drive': { frequency: '週2回（再発予防）' },
+          'ex-single-leg-rdl': { frequency: '週2回（再発予防）' },
+          'ex-copenhagen-plank': { frequency: '週2回（再発予防）' },
+        },
         progressWhen: [
           'スピード練習・坂道・ブリックランが痛み2/10以下で、翌日に残らない',
           '長時間のエアロポジションの後も付け根が詰まらない',
@@ -669,9 +689,9 @@ export const conditions: Condition[] = [
         title: '② 組織を強くする',
         goal: 'お尻と股関節まわりの筋力を高め、神経がスムーズに動ける状態を保ちます。',
         guidance: [
-          '神経グライドは、スライダーで症状が出なくなってから、テンショナーに進みます。',
+          '坐骨神経グライドは、スライダーで症状が出なくなってから、テンショナーに進みます。',
           'お尻の筋トレは週2〜3回、神経の症状が出ない範囲で行います。',
-          '梨状筋のストレッチは、しびれが出ない範囲で軽く20〜30秒にします。症状が強まるなら不要です。',
+          '梨状筋のストレッチ（フィギュア4ストレッチ）は、しびれが出ない範囲で軽く30秒までにします。症状が強まるなら不要です。',
           'ランは平地から、バイクは時間を段階的に延ばします。',
         ],
         exercises: [
@@ -698,6 +718,11 @@ export const conditions: Condition[] = [
           '補強は週2回、再発予防として続けます。',
         ],
         exercises: ['ex-split-squat', 'ex-single-leg-rdl', 'ex-side-plank'],
+        doses: {
+          'ex-split-squat': { frequency: '週2回（再発予防）' },
+          'ex-single-leg-rdl': { frequency: '週2回（再発予防）' },
+          'ex-side-plank': { frequency: '週2回（再発予防）' },
+        },
         progressWhen: [
           'いつものロングライド・ラン・ブリックランで症状が出ない',
           '長時間座っても症状が出ない',
@@ -837,8 +862,8 @@ export const conditions: Condition[] = [
       {
         ref: 'sciatic-nerve',
         kind: 'structure',
-        role: 'overloaded',
-        note: '腱のすぐそばを通ります。まれに刺激されて太ももの裏にしびれが出ることがあり、その場合は神経の症状として扱います（しびれは我慢しない）。',
+        role: 'nearby',
+        note: '腱のすぐそばを通る太い神経です。傷んでいるわけではありませんが、まれに刺激されて太ももの裏にしびれが出ることがあります。その場合は神経の症状として扱い、我慢しません。',
       },
     ],
     whyTriathlon: [
@@ -917,9 +942,12 @@ export const conditions: Condition[] = [
           '座る時間を減らし、柔らかめのクッションで坐骨への圧を分散します。運転中もこまめに休憩します。',
           'ランは平地・ゆっくりのペースで痛み3/10以下に。坂道・スピード・トラック練習は中止します。',
           'バイクはサドルの高さと後退量を確認し、エアロポジションの時間を減らします。痛まなければ続けて構いません。',
-          'ブリッジ保持は痛みを落ち着かせる目的で、この時期は毎日行ってかまいません（痛み3/10以下）。',
+          'ブリッジ保持は痛みを落ち着かせる目的で、この時期は毎日行ってかまいません（痛み3/10以下）。30秒から始め、楽なら45秒まで延ばします。',
         ],
         exercises: ['ex-hamstring-bridge-iso', 'ex-glute-bridge'],
+        doses: {
+          'ex-hamstring-bridge-iso': { frequency: '毎日' },
+        },
         progressWhen: [
           '座っているときの痛みが2/10以下',
           'ハムストリング・ブリッジ保持を45秒×5回、痛み3/10以下でできる',
@@ -932,9 +960,9 @@ export const conditions: Condition[] = [
         goal: '股関節の曲げを少しずつ深くしながら、ハムストリングスとお尻に重い負荷をかけて腱を強くします。',
         guidance: [
           '浅い角度から深い角度へ、腱が耐えられる範囲を少しずつ広げます。',
-          '重さは「8〜12回でややきつい」程度。週3回、1日おきに行います。',
+          '片脚ブリッジとデッドリフトの重さは「8〜12回でややきつい」程度にします。ブリッジ保持も含め、週3回・1日おきに行います。',
           'ブリッジ保持は、かかとを台に乗せる・片脚にするなどで負荷を上げてから、動きのある運動に進みます。',
-          '片脚のデッドリフトは浅い前傾から始め、坐骨の痛みが3/10以下の範囲で深くします。',
+          '片脚のデッドリフト（ルーマニアンデッドリフト）は浅い前傾から始め、坐骨の痛みが3/10以下の範囲で深くします。',
           'ランは平地で距離を戻します。坂道とスピードはまだ控えます。',
         ],
         exercises: [
@@ -943,6 +971,11 @@ export const conditions: Condition[] = [
           'ex-single-leg-rdl',
           'ex-bird-dog',
         ],
+        doses: {
+          'ex-hamstring-bridge-iso': { frequency: '週3回（1日おき）' },
+          'ex-single-leg-bridge': { frequency: '週3回（1日おき）' },
+          'ex-single-leg-rdl': { frequency: '週3回（1日おき）' },
+        },
         progressWhen: [
           '片脚デッドリフトを10回×3セット、痛み3/10以下でできる',
           '30〜45分の平地ランが痛まず、翌朝に悪化しない',
@@ -961,6 +994,10 @@ export const conditions: Condition[] = [
           '筋トレは週2回、再発予防として続けます。',
         ],
         exercises: ['ex-single-leg-rdl', 'ex-split-squat', 'ex-hamstring-stretch'],
+        doses: {
+          'ex-single-leg-rdl': { frequency: '週2回（再発予防）' },
+          'ex-split-squat': { frequency: '週2回（再発予防）' },
+        },
         progressWhen: [
           '坂道とスピード練習が痛み2/10以下で、翌日に悪化しない',
           'エアロポジションを含む長いライドとブリックランで痛まない',
@@ -1067,8 +1104,8 @@ export const conditions: Condition[] = [
       {
         ref: 'pubic-symphysis',
         kind: 'structure',
-        role: 'irritated',
-        note: '内転筋の付け根のすぐそば。引っ張りが繰り返されると、恥骨のまわりも敏感になることがあります。',
+        role: 'nearby',
+        note: '内転筋の付け根のすぐそばにある、左右の恥骨の継ぎ目です。ここが傷んでいるわけではありませんが、引っ張りが繰り返されると、まわりも敏感になることがあります。',
       },
       {
         ref: 'gracilis',
@@ -1184,6 +1221,7 @@ export const conditions: Condition[] = [
         guidance: [
           'コペンハーゲンプランクは、膝で支える短いバージョンの少ない回数から始めます。',
           '筋トレは週2〜3回。内ももだけでなく、お尻の横の筋肉も一緒に鍛えます。',
+          '内転筋スクイーズは、筋トレの日のウォームアップに続けます。',
           '翌日の付け根の痛みとスクイーズテストの数字で、負荷が適切か確かめます。',
           'ランは平地で距離を戻します。',
         ],
@@ -1194,6 +1232,9 @@ export const conditions: Condition[] = [
           'ex-band-walk',
           'ex-split-squat',
         ],
+        doses: {
+          'ex-adductor-squeeze': { frequency: '週2〜3回（筋トレの日のウォームアップに）' },
+        },
         progressWhen: [
           'コペンハーゲンプランク（短いバージョン）を片側10回、痛みなくできる',
           'スクイーズテストで痛みがなく、左右差もない',
@@ -1210,6 +1251,9 @@ export const conditions: Condition[] = [
           'コペンハーゲンプランクは、予防として週1回以上続けます（オフシーズンなど強化期は週2〜3回）。',
         ],
         exercises: ['ex-copenhagen-plank', 'ex-single-leg-rdl', 'ex-single-leg-balance'],
+        doses: {
+          'ex-copenhagen-plank': { frequency: '週1回以上（強化期は週2〜3回）' },
+        },
         progressWhen: [
           'スピード練習・坂道・トレイルで痛まない',
           'スクイーズテストで痛みがない',
@@ -2225,7 +2269,7 @@ export const exercises: Exercise[] = [
       sets: 5,
       holdSec: 30,
       rest: '30秒',
-      frequency: '毎日〜週5回（痛みが強い時期はここから）',
+      frequency: '毎日〜週5回',
     },
     summary:
       '仰向けで両膝の間にボールを挟み、内ももの筋肉（内転筋群）に静かに力を入れます。痛みが強い時期でも行いやすく、鼠径部痛のリハビリの最初の一歩になります。',

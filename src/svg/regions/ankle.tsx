@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import type { RegionDiagram, RegionDiagramProps } from '../types';
 import { Ctxt, Frame, M, Nerve, Part, Ten, att, ell, line, muscle, sp, tubePart, useCtx, type Ctx, type Lab, type Num, type OIMap, type P, type Spot } from './hip';
 import { LfStyle, lfp } from './calf';
+import { once } from './lazy';
 
 const W = 360;
 const H = 440;
@@ -85,12 +86,14 @@ function achZone(k: Ctx, c: readonly P[], w: Num, mid: [number, number], ins: [n
   if (k.les.has('achilles-insertion')) return <path className="ten" d={tubePart(c, w, ins[0], ins[1], 0.6)} />;
   return undefined;
 }
+/** the Achilles tendon is drawn with its lesion zone (Frame `zoned`) */
+const achZoned = (k: Ctx) => (k.les.has('achilles-mid') || k.les.has('achilles-insertion')) && 'achilles-tendon';
 const ACH_MID_T = 'アキレス腱の\n中央部';
 const ACH_INS_T = 'アキレス腱の\n付着部';
 
 /* ───────────── lateral view: right ankle from the outside (toes to the viewer's right) ───────────── */
 
-const LB = {
+const LB = once(() => ({
   body: sp([
     [60, -30], [68, 40], [80, 120], [90, 190], [96, 250], [98, 290], [100, 320], [100, 350], [104, 374], [116, 390], [134, 396, 1], [200, 396], [280, 395],
     [390, 394], [390, 330], [340, 314], [300, 300], [266, 284], [240, 272], [224, 258], [216, 230], [214, 150], [214, 60], [216, -30],
@@ -120,8 +123,8 @@ const LB = {
     [254, 352], [260, 340], [276, 334], [300, 340], [328, 352], [352, 362], [376, 368], [376, 384], [352, 380], [326, 370], [298, 360], [274, 356], [262, 360],
   ]),
   mt4: sp([[272, 318], [292, 316], [320, 330], [352, 344], [376, 350], [376, 362], [350, 356], [318, 344], [290, 334], [274, 332]]),
-};
-const LM = {
+}));
+const LM = once(() => ({
   sol: muscle({
     r: [
       [[150, -36], [146, 40], [143, 120], [140, 190]],
@@ -188,7 +191,7 @@ const LM = {
     t1: 0.72,
     n: 4,
   }),
-};
+}));
 const ACH_L: P[] = [[84, -30], [88, 40], [93, 120], [97, 190], [100, 250], [103, 290], [106, 318], [107.5, 344]];
 const ACH_LW = [9, 9, 9, 9, 9.5, 10, 12, 14];
 const PB_TEN_L: P[] = [[147, 252], [145, 278], [146, 300], [151, 320], [162, 334], [180, 340], [204, 344], [228, 348], [248, 350], [258, 347]];
@@ -212,12 +215,12 @@ function AnkleLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     ...((k.les.has('achilles-mid')
       ? [
           { id: 'flexor-hallucis-longus', t: '長母趾屈筋', at: [122, 226], x: 80, y: 170, a: 'end' },
-          { id: 'achilles-tendon', t: ACH_MID_T, at: [101, 264], x: 85, y: 222, a: 'end' },
+          { id: 'achilles-tendon', t: ACH_MID_T, at: [101, 264], x: 85, y: 222, a: 'end', zone: true },
         ]
       : k.les.has('achilles-insertion')
         ? [
             { id: 'flexor-hallucis-longus', t: '長母趾屈筋', at: [124, 228], x: 80, y: 228, a: 'end' },
-            { id: 'achilles-tendon', t: ACH_INS_T, at: [106, 334], x: 85, y: 334, a: 'end' },
+            { id: 'achilles-tendon', t: ACH_INS_T, at: [106, 334], x: 85, y: 334, a: 'end', zone: true },
           ]
         : [
             { id: 'achilles-tendon', t: 'アキレス腱', at: [96, 180], x: 80, y: 170, a: 'end' },
@@ -252,6 +255,7 @@ function AnkleLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       labels={labels}
       spots={spots}
       oi={OI_LAT}
+      zoned={[achZoned(k)]}
       fade={{ top: 30 }}
       defs={
         <>
@@ -262,38 +266,38 @@ function AnkleLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     >
       <Faded id={fade}>
         <Ctxt k={k}>
-          <path className="body" d={LB.body} />
-          <path className="bone-g" d={LB.mt4} />
-          <path className="bone" d={LB.mt5} />
-          <path className="bone" d={LB.cune} />
-          <path className="bone" d={LB.cuboid} />
+          <path className="body" d={LB().body} />
+          <path className="bone-g" d={LB().mt4} />
+          <path className="bone" d={LB().mt5} />
+          <path className="bone" d={LB().cune} />
+          <path className="bone" d={LB().cuboid} />
         </Ctxt>
         <Part k={k} id="navicular">
-          <path className="bone" d={LB.navic} />
+          <path className="bone" d={LB().navic} />
         </Part>
         <Part k={k} id="tibia">
-          <path className="bone" d={LB.tibia} />
+          <path className="bone" d={LB().tibia} />
         </Part>
         <Part k={k} id="talus">
-          <path className="bone" d={LB.talus} />
+          <path className="bone" d={LB().talus} />
           <path className="bone-ln" d={line([[160, 284], [182, 280], [204, 284]])} />
         </Part>
         <Part k={k} id="calcaneus">
-          <path className="bone" d={LB.calc} />
-          <path className="bone-ln" d={LB.calcLn} />
+          <path className="bone" d={LB().calc} />
+          <path className="bone-ln" d={LB().calcLn} />
           <path className="bone" d={ell(178, 346, 7, 3.6, -8)} />
         </Part>
         <Part k={k} id="fibula">
-          <path className="bone" d={LB.fibula} />
+          <path className="bone" d={LB().fibula} />
         </Part>
         <Part k={k} id="lateral-malleolus">
-          <Prom pts={LB.malL} />
+          <Prom pts={LB().malL} />
           <path className="bone-sh" d={sp([[142, 250], [150, 262], [154, 292], [152, 318], [148, 328], [141, 316], [138, 296], [139, 270]])} />
           <path className="bone-ln" d={line([[158, 250], [166, 286], [160, 318]])} />
         </Part>
         <Ctxt k={k}>
           <path className="fat" d={sp([[110, 246], [118, 258], [128, 280], [134, 300], [126, 306], [116, 300], [110, 286], [107, 264]])} />
-          <M g={LM.edl} ctx />
+          <M g={LM().edl} ctx />
         </Ctxt>
         <Part k={k} id="atfl">
           <Ten c={[[173, 298], [188, 300], [204, 303]]} w={[12, 11, 11]} cls="lig" lines={3} />
@@ -302,16 +306,16 @@ function AnkleLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
           <Ten c={[[157, 329], [151, 346], [144, 363]]} w={8} cls="lig" lines={2} />
         </Part>
         <Part k={k} id="flexor-hallucis-longus">
-          <M g={LM.fhl} />
+          <M g={LM().fhl} />
         </Part>
         <Part k={k} id="retrocalcaneal-bursa">
           <path className="bursa" d={ell(113, 305, 4.6, 10.5, -12)} />
         </Part>
         <Part k={k} id="fibularis-brevis">
-          <M g={LM.pb} />
+          <M g={LM().pb} />
         </Part>
         <Part k={k} id="fibularis-longus">
-          <M g={LM.pl} />
+          <M g={LM().pl} />
         </Part>
         <FibTendons
           k={k}
@@ -319,7 +323,7 @@ function AnkleLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
           pl={<Ten c={PL_TEN_L} w={[6, 7, 7, 7, 7, 7, 7, 6.5, 4]} lines={1} />}
         />
         <Part k={k} id="soleus">
-          <M g={LM.sol} />
+          <M g={LM().sol} />
         </Part>
         <Part k={k} id="achilles-tendon" zone={achZone(k, ACH_L, ACH_LW, [0.57, 0.775], [0.835, 1])}>
           <Ten c={ACH_L} w={ACH_LW} lines={2} />
@@ -331,7 +335,7 @@ function AnkleLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
 
 /* ───────────── medial view: right ankle from the inside (toes to the viewer's left) ───────────── */
 
-const MB = {
+const MB = once(() => ({
   body: sp([
     [296, -30], [288, 60], [276, 160], [266, 230], [262, 280], [262, 320], [262, 352], [256, 378], [244, 392], [226, 397, 1], [190, 397], [160, 393], [130, 388],
     [100, 386], [60, 389], [20, 392], [-30, 394], [-30, 312], [20, 304], [60, 294], [100, 280], [126, 266], [142, 248], [146, 200], [146, 100], [146, -30],
@@ -353,8 +357,8 @@ const MB = {
     [250, 372], [258, 358], [258, 332],
   ]),
   sust: line([[202, 326], [184, 336], [160, 334]]),
-};
-const MM = {
+}));
+const MM = once(() => ({
   sol: muscle({
     r: [
       [[214, -36], [216, 40], [219, 120], [222, 200]],
@@ -443,18 +447,18 @@ const MM = {
     t1: [0.62, 0.6, 0.62],
     n: 10,
   }),
-};
+}));
 const ACH_M: P[] = [[276, -30], [272, 40], [267, 120], [263, 190], [260, 250], [257, 290], [254, 318], [252.5, 344]];
 const TPT_M: P[] = [[208, 160], [209, 220], [211, 256], [208, 280], [200, 300], [188, 316], [170, 324], [148, 326], [128, 325], [116, 324]];
 
 /** 起始 / 停止 markers (muscle page): see OI_LAT. */
-const OI_MED: OIMap = {
+const OI_MED = once((): OIMap => ({
   soleus: { i: [[252.5, 341]] },
   gastrocnemius: { i: [[252.5, 341]] },
   'tibialis-posterior': { i: [[119, 323]] },
-  'tibialis-anterior': { i: att(MM.ta, 'i') },
-  'abductor-hallucis': { o: att(MM.abh, 'o') },
-};
+  'tibialis-anterior': { i: att(MM().ta, 'i') },
+  'abductor-hallucis': { o: att(MM().abh, 'o') },
+}));
 
 function AnkleMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const fade = `${k.uid}-hf`;
@@ -472,12 +476,12 @@ function AnkleMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     ...((k.les.has('achilles-mid')
       ? [
           { id: 'flexor-hallucis-longus', t: '長母趾屈筋', at: [240, 222], x: 280, y: 192 },
-          { id: 'achilles-tendon', t: ACH_MID_T, at: [259, 266], x: 274, y: 236 },
+          { id: 'achilles-tendon', t: ACH_MID_T, at: [259, 266], x: 274, y: 236, zone: true },
         ]
       : k.les.has('achilles-insertion')
         ? [
             { id: 'flexor-hallucis-longus', t: '長母趾屈筋', at: [240, 222], x: 278, y: 236 },
-            { id: 'achilles-tendon', t: ACH_INS_T, at: [255, 334], x: 278, y: 330 },
+            { id: 'achilles-tendon', t: ACH_INS_T, at: [255, 334], x: 278, y: 330, zone: true },
           ]
         : [
             { id: 'achilles-tendon', t: 'アキレス腱', at: [262, 196], x: 280, y: 192 },
@@ -503,7 +507,8 @@ function AnkleMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       cap={['← つま先', '右足首・内側から']}
       labels={labels}
       spots={spots}
-      oi={OI_MED}
+      oi={OI_MED()}
+      zoned={[achZoned(k)]}
       fade={{ top: 22 }}
       defs={
         <>
@@ -514,23 +519,23 @@ function AnkleMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     >
       <Faded id={fade}>
         <Ctxt k={k}>
-          <path className="body" d={MB.body} />
-          <path className="bone" d={MB.mt1} />
-          <path className="bone" d={MB.cune} />
+          <path className="body" d={MB().body} />
+          <path className="bone" d={MB().mt1} />
+          <path className="bone" d={MB().cune} />
         </Ctxt>
         <Part k={k} id="navicular">
-          <path className="bone" d={MB.navic} />
+          <path className="bone" d={MB().navic} />
         </Part>
         <Part k={k} id="calcaneus">
-          <path className="bone" d={MB.calc} />
-          <path className="bone-ln" d={MB.sust} />
+          <path className="bone" d={MB().calc} />
+          <path className="bone-ln" d={MB().sust} />
         </Part>
         <Part k={k} id="talus">
-          <path className="bone" d={MB.talus} />
+          <path className="bone" d={MB().talus} />
           <path className="bone-ln" d={line([[200, 284], [178, 281], [158, 286]])} />
         </Part>
         <Part k={k} id="tibia">
-          <path className="bone" d={MB.tibia} />
+          <path className="bone" d={MB().tibia} />
           <path className="bone-sh" d={sp([[160, -40], [168, -40], [166, 100], [162, 190], [156, 240], [150, 262], [147, 268], [150, 240], [156, 180], [159, 80]])} />
           <path className="bone-sh" d={sp([[200, -40], [210, -40], [210, 100], [212, 200], [214, 236], [206, 232], [204, 180], [202, 100]])} />
         </Part>
@@ -538,7 +543,7 @@ function AnkleMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
           <path className="bone-sh" d={sp([[156, 290], [166, 306], [176, 318], [187, 322], [200, 314], [208, 300], [204, 290], [196, 304], [184, 314], [173, 312], [166, 300]])} />
         </Ctxt>
         <Part k={k} id="medial-malleolus">
-          <Prom pts={MB.malM} cut={4} />
+          <Prom pts={MB().malM} cut={4} />
           <path className="bone-sh" d={sp([[204, 246], [214, 252], [217, 266], [212, 276], [204, 280], [200, 292], [194, 306], [188, 310], [194, 290], [198, 270]])} />
           <path className="bone-ln" d={line([[160, 262], [176, 268], [186, 296]])} />
         </Part>
@@ -547,38 +552,38 @@ function AnkleMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
           <path className="cap" d={sp([[170, 306], [190, 306], [200, 318], [192, 332], [172, 334], [150, 330], [136, 322], [154, 312]])} />
           <path className="ten-fib" d={line([[176, 312], [150, 324]]) + line([[182, 314], [176, 330]]) + line([[188, 312], [194, 326]])} />
           <path className="fat" d={sp([[250, 246], [242, 258], [234, 280], [228, 300], [236, 306], [246, 300], [252, 286], [254, 264]])} />
-          <M g={MM.fdl} ctx />
+          <M g={MM().fdl} ctx />
           <Ten c={[[150, 170], [142, 240], [124, 268], [90, 284], [40, 298], [-30, 312]]} w={5} lines={1} />
         </Ctxt>
         <Part k={k} id="tibialis-posterior">
-          <M g={MM.tp} />
+          <M g={MM().tp} />
         </Part>
         <Part k={k} id="tibialis-posterior-tendon">
           <Ten c={TPT_M} w={[7, 7.5, 8, 8, 8, 8, 8, 8.5, 9, 10]} lines={2} />
         </Part>
         <Part k={k} id="flexor-hallucis-longus">
-          <M g={MM.fhl} />
+          <M g={MM().fhl} />
         </Part>
         <Ctxt k={k}>
           <Nerve c={[[230, 110], [229, 190], [227, 250], [221, 288], [209, 316], [197, 332], [186, 342]]} w={6} />
         </Ctxt>
         <Part k={k} id="abductor-hallucis">
-          <M g={MM.abh} />
+          <M g={MM().abh} />
         </Part>
         <Part k={k} id="tibialis-anterior">
-          <M g={MM.ta} />
+          <M g={MM().ta} />
         </Part>
         <Part k={k} id="retrocalcaneal-bursa">
           <path className="bursa" d={ell(247, 305, 4.6, 10.5, 12)} />
         </Part>
         <Part k={k} id="soleus">
-          <M g={MM.sol} />
+          <M g={MM().sol} />
         </Part>
         <Part k={k} id="achilles-tendon" zone={achZone(k, ACH_M, ACH_LW, [0.57, 0.775], [0.835, 1])}>
           <Ten c={ACH_M} w={ACH_LW} lines={2} />
         </Part>
         <Part k={k} id="gastrocnemius">
-          <M g={MM.gas} />
+          <M g={MM().gas} />
         </Part>
       </Faded>
     </Frame>
@@ -587,7 +592,7 @@ function AnkleMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
 
 /* ───────────── back view: right ankle from behind (medial side at the viewer's left) ───────────── */
 
-const KB = {
+const KB = once(() => ({
   body: sp([
     [120, -30], [122, 60], [126, 140], [130, 200], [130, 250], [128, 290], [132, 320], [142, 350], [150, 374], [160, 388], [180, 393], [200, 388], [210, 374],
     [218, 350], [230, 330], [236, 300], [234, 260], [230, 200], [234, 140], [238, 60], [240, -30],
@@ -607,8 +612,8 @@ const KB = {
     [152, 318], [166, 310], [182, 309], [198, 312], [208, 322], [211, 340], [210, 358], [204, 372], [192, 378], [180, 379], [168, 378], [157, 372], [151, 358],
     [150, 338],
   ]),
-};
-const KM = {
+}));
+const KM = once(() => ({
   sol: muscle({
     r: [
       [[124, -40], [180, -40], [228, -40]],
@@ -675,7 +680,7 @@ const KM = {
     t1: 0.22,
     n: 4,
   }),
-};
+}));
 const ACH_K: P[] = [[181, -30], [181, 60], [180, 140], [180, 210], [180, 262], [180, 300], [180, 330], [180, 358]];
 const ACH_KW = [34, 29, 24, 20.5, 19.5, 24, 34, 40];
 
@@ -698,9 +703,9 @@ function AnkleBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'flexor-hallucis-longus', t: '長母趾屈筋', at: [213, 200], x: 250, y: 176 },
     // focal Achilles lesion: the tendon's label names and points at the red stretch
     k.les.has('achilles-mid')
-      ? { id: 'achilles-tendon', t: ACH_MID_T, at: [188, 282], x: 250, y: 222 }
+      ? { id: 'achilles-tendon', t: ACH_MID_T, at: [188, 282], x: 250, y: 222, zone: true }
       : k.les.has('achilles-insertion')
-        ? { id: 'achilles-tendon', t: ACH_INS_T, at: [192, 346], x: 250, y: 352 }
+        ? { id: 'achilles-tendon', t: ACH_INS_T, at: [192, 346], x: 250, y: 352, zone: true }
         : { id: 'achilles-tendon', t: 'アキレス腱', at: [186, 226], x: 250, y: 226 },
     { id: 'peroneal-tendons', t: '腓骨筋腱', at: [221, 282], x: 250, y: 270 },
     { id: 'lateral-malleolus', t: '外果', at: [214, 314], x: 250, y: 320 },
@@ -722,23 +727,24 @@ function AnkleBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       labels={labels}
       spots={spots}
       oi={OI_BACKV}
+      zoned={[achZoned(k)]}
       fade={{ top: 30 }}
       defs={<LfStyle />}
     >
       <Ctxt k={k}>
-        <path className="body" d={KB.body} />
-        <path className="bone" d={KB.tibia} />
-        <path className="bone" d={KB.fibula} />
-        <path className="bone" d={KB.talus} />
+        <path className="body" d={KB().body} />
+        <path className="bone" d={KB().tibia} />
+        <path className="bone" d={KB().fibula} />
+        <path className="bone" d={KB().talus} />
       </Ctxt>
       <Part k={k} id="medial-malleolus">
-        <Prom pts={KB.malM} />
+        <Prom pts={KB().malM} />
       </Part>
       <Part k={k} id="lateral-malleolus">
-        <Prom pts={KB.malL} />
+        <Prom pts={KB().malL} />
       </Part>
       <Part k={k} id="calcaneus">
-        <path className="bone" d={KB.calc} />
+        <path className="bone" d={KB().calc} />
         <path className="bone-ln" d={line([[160, 350], [180, 346], [200, 350]])} />
       </Part>
       <Ctxt k={k}>
@@ -749,13 +755,13 @@ function AnkleBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <Ten c={[[150, 150], [146, 220], [142, 260], [140, 290], [139, 312], [134, 328]]} w={[7, 7, 7.5, 7.5, 7, 6]} lines={2} />
       </Part>
       <Part k={k} id="flexor-hallucis-longus">
-        <M g={KM.fhl} />
+        <M g={KM().fhl} />
       </Part>
       <Part k={k} id="fibularis-brevis">
-        <M g={KM.pb} />
+        <M g={KM().pb} />
       </Part>
       <Part k={k} id="fibularis-longus">
-        <M g={KM.pl} />
+        <M g={KM().pl} />
       </Part>
       <FibTendons
         k={k}
@@ -763,7 +769,7 @@ function AnkleBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         pl={<Ten c={[[223.5, 250], [223.5, 282], [225, 304], [228, 320], [232, 328]]} w={[5.5, 6, 6, 5.5, 4.5]} lines={1} />}
       />
       <Part k={k} id="soleus">
-        <M g={KM.sol} />
+        <M g={KM().sol} />
       </Part>
       <Part k={k} id="achilles-tendon" zone={achZone(k, ACH_K, ACH_KW, [0.54, 0.72], [0.84, 1])}>
         <Ten c={ACH_K} w={ACH_KW} lines={4} />
@@ -772,8 +778,8 @@ function AnkleBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <path className="bursa" d={ell(180, 318, 13, 6.5)} style={{ fillOpacity: 0.5, strokeDasharray: '2.5 2' }} />
       </Part>
       <Part k={k} id="gastrocnemius">
-        <M g={KM.gasL} />
-        <M g={KM.gasM} />
+        <M g={KM().gasL} />
+        <M g={KM().gasM} />
       </Part>
     </Frame>
   );

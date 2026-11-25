@@ -1550,6 +1550,9 @@ export const conditions: Condition[] = [
           'どの運動が一番よいかより、続けることが大切です。続けやすい種目を選びます。',
         ],
         exercises: ['ex-bird-dog', 'ex-side-plank', 'ex-single-leg-bridge', 'ex-hip-flexor-stretch'],
+        doses: {
+          'ex-bird-dog': { frequency: '週2〜3回' },
+        },
         progressWhen: [
           'サイドプランクを左右それぞれ30〜45秒、腰の痛みなく保てる',
           'バードドッグを左右10回×3セット、骨盤を揺らさずにできる',
@@ -1563,10 +1566,15 @@ export const conditions: Condition[] = [
         guidance: [
           'DHポジションの時間は1回につき10〜15分ずつ延ばし、痛みが出たら上体を起こして休みます。',
           'ブリックランは最初の5分をゆっくり走り、ピッチを高めにして股関節の前をなじませます。',
-          '体幹とお尻の補強は、レースシーズンも週1〜2回続けます。運動の継続は腰痛の再発予防に役立ちます。',
+          '体幹とお尻の補強は、レースシーズンも週2回続けます。運動の継続は腰痛の再発予防に役立ちます。',
           '痛みが続く・くり返す場合は、バイクフィットでハンドルの遠さ・高さとサドル高を見直します。',
         ],
         exercises: ['ex-single-leg-rdl', 'ex-split-squat', 'ex-side-plank'],
+        doses: {
+          'ex-single-leg-rdl': { frequency: '週2回（再発予防）' },
+          'ex-split-squat': { frequency: '週2回（再発予防）' },
+          'ex-side-plank': { frequency: '週2回（再発予防）' },
+        },
         progressWhen: [
           'DHポジションで60分以上、腰の痛みなく乗れる',
           'ブリック（バイク後のラン）を、翌朝の悪化なく行える',

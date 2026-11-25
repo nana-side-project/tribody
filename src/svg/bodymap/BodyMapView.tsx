@@ -93,6 +93,8 @@ export default function BodyMapView(props: BodyMapViewProps) {
     selectedSpot,
     onSelect,
     intensity,
+    intensitySides,
+    activeSides,
     className,
     showLabels = false,
     debugHits = false,
@@ -307,6 +309,14 @@ export default function BodyMapView(props: BodyMapViewProps) {
 
   const k = 1 / pxPerUnit;
   const active = useMemo(() => new Set(activeSpots ?? []), [activeSpots]);
+  /** Logged / active on this side: a per-side entry (`activeSides`) wins over `activeSpots` for its spot. */
+  const isActive = useCallback(
+    (s: Pick<PlacedSpot, 'id' | 'side'>) => {
+      const per = activeSides?.[s.id];
+      return per ? per.includes(s.side) : active.has(s.id);
+    },
+    [activeSides, active],
+  );
   const emphasisSide: Side | 'both' | null = selectedSpot
     ? selectedSide !== undefined && selectedSide !== null
       ? selectedSide
@@ -317,17 +327,28 @@ export default function BodyMapView(props: BodyMapViewProps) {
   const isSelected = (s: PlacedSpot) =>
     !!selectedSpot && s.id === selectedSpot && (emphasisSide === 'both' || emphasisSide === s.side);
 
-  const heatSpots = intensity
-    ? spots.filter((s) => {
-        const v = intensity[s.id];
-        return typeof v === 'number' && v > 0;
-      })
-    : [];
-  const heatIds = [...new Set(heatSpots.map((s) => s.id))];
+  /**
+   * Pain intensity drawn at one hotspot. A per-side entry (`intensitySides`) wins over `intensity` for its spot: only
+   * the sides it gives are tinted ('both' tints both; with both and a side given, the higher value).
+   */
+  const heatOf = (s: Pick<PlacedSpot, 'id' | 'side'>): number | undefined => {
+    const per = intensitySides?.[s.id];
+    if (!per) return intensity?.[s.id];
+    const vs = [per.both, s.side === 'left' ? per.left : per.right].filter((v): v is number => typeof v === 'number');
+    return vs.length ? Math.max(...vs) : undefined;
+  };
+  const hasHeat = (s: PlacedSpot) => {
+    const v = heatOf(s);
+    return typeof v === 'number' && v > 0;
+  };
+  const heatSpots = intensity || intensitySides ? spots.filter(hasHeat) : [];
+  /** one gradient per spot, or per spot side where the sides can differ (per-side entries) */
+  const heatGrad = (s: Pick<PlacedSpot, 'id' | 'side'>) => (intensitySides?.[s.id] ? `${s.id}-${s.side}` : s.id);
+  const heatGrads = [...new Map(heatSpots.map((s) => [heatGrad(s), heatOf(s) ?? 0] as const))];
 
   const markerTransform = (s: PlacedSpot) => `translate(${s.x.toFixed(1)} ${s.y.toFixed(1)}) scale(${k.toFixed(4)})`;
-  const heatFill = (id: PainSpotId) => {
-    const v = intensity?.[id];
+  const heatFill = (s: Pick<PlacedSpot, 'id' | 'side'>) => {
+    const v = heatOf(s);
     return typeof v === 'number' && v > 0 ? { fill: heatColor(v) } : undefined;
   };
 
@@ -367,9 +388,9 @@ export default function BodyMapView(props: BodyMapViewProps) {
               <path key={i} d={d} />
             ))}
           </clipPath>
-          {heatIds.map((id) => {
-            const c = heatColor(intensity?.[id] ?? 0);
-            const t = Math.min(1, (intensity?.[id] ?? 0) / 10);
+          {heatGrads.map(([id, v]) => {
+            const c = heatColor(v);
+            const t = Math.min(1, v / 10);
             const o = 0.42 + 0.4 * t;
             return (
               <radialGradient key={id} id={`${uid}-heat-${id}`}>
@@ -409,8 +430,8 @@ export default function BodyMapView(props: BodyMapViewProps) {
         {heatSpots.length > 0 && (
           <g className="tb-heat" clipPath={`url(#${uid}-clip)`} aria-hidden="true">
             {heatSpots.map((s) => {
-              const t = Math.min(1, (intensity?.[s.id] ?? 0) / 10);
-              return <circle key={s.key} cx={s.x} cy={s.y} r={24 + 20 * t} fill={`url(#${uid}-heat-${s.id})`} />;
+              const t = Math.min(1, (heatOf(s) ?? 0) / 10);
+              return <circle key={s.key} cx={s.x} cy={s.y} r={24 + 20 * t} fill={`url(#${uid}-heat-${heatGrad(s)})`} />;
             })}
           </g>
         )}
@@ -421,9 +442,8 @@ export default function BodyMapView(props: BodyMapViewProps) {
         <g className="tb-spots">
           {spots.map((s) => {
             const sel = isSelected(s);
-            const act = active.has(s.id);
-            const v = intensity?.[s.id];
-            const heat = typeof v === 'number' && v > 0;
+            const act = isActive(s);
+            const heat = hasHeat(s);
             const cand =
               !!chooser?.items.some((c) => c.key === s.key) || !!lens?.layout.items.some((c) => c.spot.key === s.key);
             const hov = hoverKey === s.key;
@@ -447,7 +467,7 @@ export default function BodyMapView(props: BodyMapViewProps) {
                 <circle className="tb-spot-hit" r={HIT_PX} />
                 <circle className="tb-spot-halo" r={MARK.halo} />
                 <circle className="tb-spot-focus" r={MARK.halo + 2.5} />
-                <circle className="tb-spot-dot" r={dotR} style={heatFill(s.id)} />
+                <circle className="tb-spot-dot" r={dotR} style={heatFill(s)} />
               </g>
             );
           })}
@@ -457,7 +477,7 @@ export default function BodyMapView(props: BodyMapViewProps) {
             <g key={s.key} className="tb-spot is-selected" transform={markerTransform(s)}>
               <circle className="tb-spot-pulse" r={MARK.pulse} />
               <circle className="tb-spot-pulse is-delayed" r={MARK.pulse} />
-              <circle className="tb-spot-dot" r={MARK.dotSelected} style={heatFill(s.id)} />
+              <circle className="tb-spot-dot" r={MARK.dotSelected} style={heatFill(s)} />
             </g>
           ))}
         </g>
@@ -486,7 +506,7 @@ export default function BodyMapView(props: BodyMapViewProps) {
           top={lens.top}
           originX={lens.originX}
           originY={lens.originY}
-          activeIds={active}
+          isActive={isActive}
           onPick={pick}
           onClose={() => closePopups(true)}
           onLeave={() => closePopups()}

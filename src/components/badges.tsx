@@ -38,9 +38,13 @@ export function LikelihoodBadge({ l }: { l: keyof typeof LIKELIHOOD_JA }) {
   return <span className={`badge ${cls}`}>{LIKELIHOOD_JA[l]}</span>;
 }
 
-/** `label` replaces the role word where the red does not mean damage (「つりやすい」 / 「痛みやすい」). */
+/**
+ * `label` replaces the role word where the red does not mean damage (「つりやすい」 / 「痛みやすい」). 'nearby' (近くを通る:
+ * runs close by, not damaged) keeps the amber of the other contributing roles but is drawn as an outline badge.
+ */
 export function RoleBadge({ role, label }: { role: InvolvementRole; label?: string }) {
-  return <span className={`badge ${isPrimaryRole(role) ? 'badge--injured' : 'badge--involved'}`}>{label ?? ROLE_JA[role]}</span>;
+  const cls = isPrimaryRole(role) ? 'badge--injured' : role === 'nearby' ? 'badge--involved badge--nearby' : 'badge--involved';
+  return <span className={`badge ${cls}`}>{label ?? ROLE_JA[role]}</span>;
 }
 
 export function TypeBadge({ type }: { type: ExerciseType }) {

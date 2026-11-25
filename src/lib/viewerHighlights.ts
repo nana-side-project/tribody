@@ -7,22 +7,29 @@ import { isPrimaryRole } from './labels';
 
 type PartId = MuscleId | StructureId;
 
-/** 2D figure: the painful tissue itself (injured / irritated / compressed) red, the contributing parts amber. */
+/**
+ * How a role is drawn in both views: the painful tissue itself (injured / irritated / compressed) 'injured' (red), the
+ * contributing parts (overloaded / tight / weak) and the context tissue that only runs close by ('nearby', 近くを通る:
+ * e.g. a nerve beside the lesion, not damaged) 'involved' (amber).
+ */
+export const roleHighlight = (r: InvolvementRole): 'injured' | 'involved' => (isPrimaryRole(r) ? 'injured' : 'involved');
+
+/** 2D figure: the painful tissue itself red, the contributing parts and nearby tissue amber (roleHighlight). */
 export function conditionHighlights2d(c: Pick<Condition, 'involved'>): Highlights {
   const h: Highlights = {};
-  for (const i of c.involved ?? []) h[i.ref] = isPrimaryRole(i.role) ? 'injured' : 'involved';
+  for (const i of c.involved ?? []) h[i.ref] = roleHighlight(i.role);
   return h;
 }
 
 /**
  * 3D viewer: the tissue whose role is 'injured' itself first, then irritated / compressed ones (all 'injured' in 3D),
- * then the involved context ('involved'). The engine takes the first injured part for its camera and framing.
+ * then the contributing parts and last the nearby context (both 'involved'). The engine takes the first injured part
+ * for its camera and framing.
  */
 export function conditionHighlights3d(c: Pick<Condition, 'involved'>): Partial<Record<PartId, Highlight3DRole>> {
-  const rank = (r: InvolvementRole) => (r === 'injured' ? 0 : isPrimaryRole(r) ? 1 : 2);
+  const rank = (r: InvolvementRole) => (r === 'injured' ? 0 : isPrimaryRole(r) ? 1 : r === 'nearby' ? 3 : 2);
   const h: Partial<Record<PartId, Highlight3DRole>> = {};
-  for (const i of [...(c.involved ?? [])].sort((a, b) => rank(a.role) - rank(b.role)))
-    h[i.ref] = isPrimaryRole(i.role) ? 'injured' : 'involved';
+  for (const i of [...(c.involved ?? [])].sort((a, b) => rank(a.role) - rank(b.role))) h[i.ref] = roleHighlight(i.role);
   return h;
 }
 

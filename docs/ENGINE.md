@@ -883,7 +883,22 @@ is the first injured part the engine sees (its camera, its framing, and the view
 means 「関係」 on condition pages) and the one the user taps in the chip row under the viewer as `selected` (the other key muscles are then muted and their labels wait in 「+N」, the selected one shows through
 whatever hides it); when that
 muscle lies outside the region's crop (its data names other regions, or `BELLY_ELSEWHERE` in RegionPage.tsx, e.g.
-大腿筋膜張筋 on the knee page) the page passes that muscle's first region as `focus` instead.
+大腿筋膜張筋 on the knee page) the page passes that muscle's first region as `focus` instead. A content role `nearby`
+(近くを通る: context tissue next to the lesion, not damaged) is not a primary role, so it arrives as `involved` (amber)
+like the other contributing roles; nothing in `scenes.ts` changes a role (no scene uses `roles`, and a lesion zone only
+applies to a part the page marks `injured`).
+
+**Side and tapped spot** (`AnatomyViewerProps.side` / `spot`, from the body map via the condition page; both optional):
+
+- `side: 'left'` mirrors the whole highlights view, like a clip's `mirror`: the scene's posture (`hip_L` ↔ `hip_R`,
+  axial `lat` / `rot` negated), base-pose props, crop (`frame` refs compile on the left; an explicit `_L` ref means the
+  other side, so it turns into `_R`), camera (`{ dir }` / preset x negated, exact cameras' x negated), the highlighted
+  parts, lesion zones, spot markers, ghosts and labels — all on the left limb (`cc.side` `'L'`). The label layout and
+  framing run as usual, so the view is the mirror image of the right one (lighting stays camera-relative). A scene marked
+  `bilateral` (low back pain, cyclist's neck: drawn on both sides) ignores `side`. Region scenes and the generic
+  highlights view mirror too. `side` undefined / `'right'` = exactly the old view (34 condition / region scenes compared
+  pixel for pixel, reduced motion: identical); switching `side` on a live engine gives the same pixels as a fresh load.
+- `spot` picks the scene's variant for that pain spot (`spots`, below); a spot without a variant = the scene's own view.
 
 ```ts
 'itb-syndrome': {
@@ -912,7 +927,9 @@ muscle lies outside the region's crop (its data names other regions, or `BELLY_E
 | `minor` | context parts whose labels start collapsed in 「+N」 |
 | `primary` | the injured part or zone key that carries the view's ONE pulse + halo (default: the first zone, else the first injured part in the page's order). The other injured parts stay the same red, steady, without halo |
 | `sensitive` | non-damage condition (low back, cyclist's neck, cramps — the content's `anatomyNote` says nothing is damaged and the page's legend reads 「痛みやすい場所」): the red parts are steady, nothing pulses. Default: derived from the content (a condition with an `anatomyNote`), the same rule as the page |
-| `zones` | **lesion zones**: where in a part the problem sits. `{ on, range: [a, b], label }` draws an injured-red cuff over the arc-length fractions a…b of the part's strand (`strand`, default 0; `grow` radius × 1.45) — it follows the strand in every pose; `{ on, at, radius, label }` a spot at a point; neither on a structure with a `spot` part = that spot (the zone then replaces it). The zone carries the part's label (`label`) and the pulse; the rest of the part is drawn `partRole`: `'plain'` (its own colour, default), `'involved'` or `'injured'` (steady) |
+| `bilateral` | central / bilateral problem drawn on both sides (`low-back-pain`, `cyclist-neck-pain`): `side: 'left'` does not change the view. Every other scene is mirrored for the left side |
+| `spots` | per pain-spot variants: `{ [PainSpotId]: SceneVariant }` — when the user tapped that spot (`AnatomyViewerProps.spot`), these fields replace the scene's own (shallow merge, `sceneFor()`), e.g. a camera / crop that shows that part of the problem. Only spots the default camera does not show well have one (list below) |
+| `zones` | **lesion zones** (applied only when the page marks the part `injured`): where in a part the problem sits. `{ on, range: [a, b], label }` draws an injured-red cuff over the arc-length fractions a…b of the part's strand (`strand`, default 0; `grow` radius × 1.45) — it follows the strand in every pose; `{ on, at, radius, label }` a spot at a point; neither on a structure with a `spot` part = that spot (the zone then replaces it). The zone carries the part's label (`label`) and the pulse; the rest of the part is drawn `partRole`: `'plain'` (its own colour, default), `'involved'` or `'injured'` (steady) |
 
 Zones in use: `achilles-midportion` `{ on: 'achilles-tendon', range: [0.655, 0.845], label: 'アキレス腱の中央部' }`
 (2–6 cm above the insertion; the footprint ends at rest y 0.045; a close-up of the heel cord from behind, so the zone
@@ -928,6 +945,29 @@ in their own colour so the two red cuffs read as the lesion sites), `plantar-hee
 cream). One zone per part (the label is per part). Fractions of a
 cord: `node shots/eng-verify-motion/probe/run.mjs /home/user/forclaude/shots/fin-engine/probe/achilles.ts <structure-id>`
 prints the rest-pose y / z at each arc fraction.
+
+Per-spot variants (ct-3d checked all 45 condition × pain-spot pairs against each scene's default camera; the other 39
+are shown well by the default view and have no entry):
+
+| condition · spot | variant |
+|---|---|
+| `swimmers-shoulder` · `shoulder-back` 肩の後ろ | the same posture from behind-lateral (`dir [-0.75, 0.2, -0.9]`), crop on the back of the shoulder (acromion, humeral head, greater tubercle inf., infraspinous fossa, lateral border, infraglenoid tubercle, spine): the amber infraspinatus over the back of the blade, the posterior capsule at the back of the humeral head, the red supraspinatus / bursa above |
+| `cyclist-neck-pain` · `scapula-medial` 肩甲骨の内側 | the rider's upper back from behind and above (`dir [-0.4, 0.8, -0.6]`, C5 → T8 and both blades): the rhomboids between the blades under the two red trapezii (the side view hid them behind the shoulder) |
+| `achilles-midportion` · `calf-lower` ふくらはぎの下のほう | the crop reaches up to the middle of the shin (`tibia:medial_border_mid`, `interosseous_mid`, `minSize` 0.26): the lower calf muscles above the tendon in view, their labels on the bellies |
+| `metatarsal-stress-fracture` · `forefoot-ball` 足指の付け根 | the sole of the forefoot (`LONG_SIT`, toes up 20°, `dir [-0.15, 0.1, 1]`, like Morton's neuroma): the fracture spot at the 2nd metatarsal neck through the ball of the foot (the default is the top of the foot) |
+| `low-back-pain` · `buttock-deep` お尻の奥 | crop from T12 down to the sit bone / greater trochanter, a little more from the side (`dir [-0.8, 0.2, -1]`); the gluteus maximus is labelled (not in 「+N」) |
+
+Checked and kept on the default view (spot → why): swimmers-shoulder top / front (front-lateral close-up shows both),
+biceps front, scapular-dyskinesis medial / back / neck-base (the back view already reaches the skull base: a C3 crop only
+zoomed out), cyclist neck-base / neck-back (side view), gluteal hip-outer, hip-flexor hip-front / groin-inner (front view
+down to the symphysis), deep-gluteal buttock-deep / sit-bone and proximal-hamstring sit-bone / buttock-deep (posterior
+oblique incl. the ischial tuberosity), adductor groin-inner / hip-front, patellofemoral knee-front / knee-below (crop down
+to the tibial tuberosity), ITB knee-outer, patellar tendon knee-below / knee-front, pes anserine knee-inner, calf-strain
+upper / lower, MTSS and tibial stress fracture shin-inner, cramps calf upper / lower, achilles-midportion achilles-mid,
+insertional heel-back, sprain and peroneal ankle-outer, posterior tibial ankle-inner / arch (the medial view shows the
+arch side-on), plantar heel-bottom / arch, metatarsal forefoot-top, Morton's forefoot-ball, low back lowback-center.
+Try a variant before writing it: `?condition=<id>&spot=<spot>&scene=<json>` (the `&scene=` override merges into the
+scene, the spot's variant on top of it).
 
 The view's one pulse is drawn on one side: a pulsing part (or zone) that a scene draws on both sides (`both`) keeps its
 glow + halo only on the side its label is on (`AnatomyLayer.restrictPulse`, called from the label setup); the other side
@@ -1093,7 +1133,13 @@ show, at ~55 % opacity) — an injured tendon or bursa under a superficial muscl
 - **Keep the body's cut edge away from the phase pill** (top-left): in a close-up the figure leaves the card at the top;
   when it leaves under the pill the image looks clipped. Choose the side the limb runs off: the bent-knee calf raise is
   viewed from behind-left (thighs leave the card top-right), the plantar-fascia stretch from above the left shoulder
-  more from the side (the trunk leaves to the right).
+  more from the side (the trunk leaves to the right). The terminal knee extension (hips-down crop, the post 62 cm in
+  front) is `mirror: true` — the left leg works, the camera is on the left, the post on the left of the card and the
+  figure on the right — with the camera a little more side-on (`dir [-1, 0.2, 0.2]`, was 0.35) and one extra crop point
+  in front of the post at shin height (`{ bone: 'pelvis', rest: [0.085, 0.3, 1.4] }`): the box grows to the left, so the
+  trunk leaves the card top 7 px (360) / 23 px (390) / 40 px (430) right of the longest pill 「2秒キープ（太もも前を固める）」
+  at the same size as before (camera distance 3.43 vs 3.41; with the 0.35 camera the extra point cost 5 % and from
+  z 1.3 on made `lumbar:spinous_L3` visible → whole figure). Only the 2 m post (a pillar) still runs under the pill.
 
 ### Other fields
 
@@ -1180,6 +1226,7 @@ Dev server (your own port): `VITE_CACHE_DIR=node_modules/.vite-<PORT> npx vite -
 | `?exercise=<id>` | exercise clip |
 | `?hl=id:role,id:role` | highlights, e.g. `?hl=achilles-tendon:injured,gastrocnemius:involved`. Without a condition the generic view is used (with `&focus=<region>`: that region's scene) |
 | `?condition=<id>` | exactly what `/#/condition/<id>` shows in its 3D card (340 px): the condition's scene, its content highlights (roles injured / irritated / compressed → `injured`, the 'injured' tissue first; the rest `involved`, the page's own order — `conditionView()` mirrors `ConditionPage.tsx`), `focus` = its region; the card has the app's 1 px `.viewer-frame` border, so on a 390 px phone the viewer is 356 × 340 like the page's and a screenshot matches `/#/condition/<id>` pixel for pixel (checked on 10 views incl. two `&sel`, ≤ 0.1 % differing pixels). `&card=0` full page, `&h=` card height |
+| `&side=left\|right` `&spot=<pain spot>` | with `?condition` / `?region`: the side / spot the user tapped on the body map (`AnatomyViewerProps.side` / `spot`), e.g. `?condition=swimmers-shoulder&spot=shoulder-back&side=left` |
 | `?region=<id>[&sel=<muscle>]` | the region page's 3D card: key muscles `secondary`, `sel` = the tapped chip (`selected`), framed like the page (a selected muscle whose belly lies outside the crop frames its own first region — `regionView()` mirrors `RegionPage.tsx`) |
 | `&scene=<json>` | with `?condition` / `?region`: merge these fields into that teaching scene for this page load (a field set to `null` is removed) — try a camera, crop, ghost or override before editing `scenes.ts`, e.g. `?condition=patellofemoral-pain&scene={"ghost":{"patella":0.55},"minSize":0.1}` (URL-encode it in scripts) |
 | `?pose=<BASE_POSE>` | static base pose |

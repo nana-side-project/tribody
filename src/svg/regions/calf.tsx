@@ -7,6 +7,8 @@ import type { RegionDiagram, RegionDiagramProps } from '../types';
 import type { ReactNode } from 'react';
 import { Ctxt, Frame, HoleMask, Lesion, M, Nerve, Part, Ten, att, band, ell, line, muscle, sp, useCtx, type Ctx, type Lab, type OIMap, type P, type Sheet, type Spot } from './hip';
 import { FL_INSERT, FL_LAT, FlSoleInset, SOLE_INSET, soleInsetPt } from './footsole';
+import { once } from './lazy';
+import { MText } from './mirror';
 
 const W = 360;
 const H = 520;
@@ -23,7 +25,7 @@ export const LfStyle = () => <style>{LF_CSS}</style>;
 
 /* ═════════════ shared bones (posterior views: medial side at the viewer's left) ═════════════ */
 
-const BB = {
+const BB = once(() => ({
   body: sp([
     [128, -30], [123, 30], [118, 90], [115, 150], [117, 205], [121, 260], [129, 316], [138, 366], [144, 404], [147, 438], [150, 468], [155, 492],
     [166, 506], [180, 509], [194, 506], [203, 494], [208, 472], [214, 452], [226, 432], [229, 412], [232, 372], [239, 322], [246, 262], [252, 196],
@@ -47,20 +49,22 @@ const BB = {
   talus: sp([[160, 422], [180, 419], [198, 421], [204, 432], [196, 440], [180, 442], [163, 441], [156, 432]]),
   calc: sp([[160, 440], [174, 435], [190, 436], [201, 443], [205, 460], [205, 480], [201, 494], [192, 501], [180, 503], [168, 501], [159, 494], [155, 480], [156, 458]]),
   calcLn: line([[164, 472], [180, 468], [196, 472]]),
-};
+}));
 
 /* ── focal lesions (see lesionsOf in ./hip) ── */
 
 /** Tibial stress fracture seen from behind (posterior views): one point on the posteromedial border, distal third. */
-const TIB_CRACK_B = { spot: ell(158, 338, 6.5, 12, 8), crack: line([[151, 334], [156, 337], [158, 333], [163, 338], [166, 336]]) };
+const TIB_CRACK_B = once(() => ({ spot: ell(158, 338, 6.5, 12, 8), crack: line([[151, 334], [156, 337], [158, 333], [163, 338], [166, 336]]) }));
 /** …and from the front: at the medial border (the viewer's right), junction of the middle and distal thirds. */
-const TIB_CRACK_F = { spot: ell(192, 322, 8, 14, -4), crack: line([[201, 319], [196, 322], [193, 317], [188, 323], [184, 320]]) };
+const TIB_CRACK_F = once(() => ({ spot: ell(192, 322, 8, 14, -4), crack: line([[201, 319], [196, 322], [193, 317], [188, 323], [184, 320]]) }));
 const Crack = ({ c }: { c: { spot: string; crack: string } }) => (
   <>
     <path className="bone" d={c.spot} />
     <path className="crack" d={c.crack} />
   </>
 );
+/** Parts the calf views draw with their lesion zone (Frame `zoned`): their other labels take the lighter style. */
+const zonedCalf = (k: Ctx) => [k.les.has('tibia-stress') && 'tibia', k.les.has('calf-strain') && 'gastrocnemius', k.les.has('calf-strain') && 'soleus'] as const;
 /** Calf strain: the stretch of a muscle sheet s ∈ [s0, s1] (the torn part, not the whole muscle). */
 const strainZone = (k: Ctx, S: Sheet, s0: number, s1: Sheet['t1'] | number, u0 = 0, u1 = 1): ReactNode =>
   k.les.has('calf-strain') ? <path className="mus" d={band(S, u0, u1, s0, s1 ?? 1)} /> : undefined;
@@ -97,7 +101,7 @@ const GAS_M_B: Sheet = {
   n: 12,
 };
 
-const BM = {
+const BM = once(() => ({
   gasM: muscle(GAS_M_B),
   gasL: muscle({
     r: [
@@ -150,17 +154,17 @@ const BM = {
     t1: 0.76,
     n: 4,
   }),
-};
+}));
 
 const ACH_B: P[] = [[182, 300], [181, 340], [180, 384], [180, 424], [180, 452], [180, 474], [180, 492]];
 const ACH_BW = [30, 24, 18, 15.5, 17, 24, 29];
 /** gastrocnemius aponeurosis: the broad flat tendon under the two heads that narrows into the Achilles tendon */
-const GAS_APO = sp([
+const GAS_APO = once(() => sp([
   [146, 196], [164, 186], [182, 182], [204, 186], [218, 196], [214, 232], [204, 262], [194, 296], [188, 330], [185, 352], [181, 362, 1], [177, 352],
   [172, 330], [164, 298], [152, 262], [144, 228],
-]);
+]));
 const GAS_APO_LN =
-  line([[160, 214], [170, 270], [178, 340]]) + line([[182, 204], [181, 280], [181, 352]]) + line([[204, 212], [194, 270], [184, 340]]);
+  once(() => line([[160, 214], [170, 270], [178, 340]]) + line([[182, 204], [181, 280], [181, 352]]) + line([[204, 212], [194, 270], [184, 340]]));
 const TIB_NERVE_TOP: P[] = [[183, -40], [182, 0], [182, 30], [182, 56]];
 
 /** the heel bone where the Achilles tendon inserts (insertion of gastrocnemius and soleus) */
@@ -170,12 +174,12 @@ const CALC_INS: P = [180, 487];
  * fade: their dots sit where the heads come into view. Fibularis longus inserts under the foot: its dot is in the
  * sole inset that the view adds for it. Fibularis brevis (5th metatarsal) and FHL (big toe) insert out of view.
  */
-const OI_BACK: OIMap = {
-  gastrocnemius: { o: [att(BM.gasM, 'o', 0.5, 0.07)[0], att(BM.gasL, 'o', 0.5, 0.07)[0]], i: [CALC_INS] },
+const OI_BACK = once((): OIMap => ({
+  gastrocnemius: { o: [att(BM().gasM, 'o', 0.5, 0.07)[0], att(BM().gasL, 'o', 0.5, 0.07)[0]], i: [CALC_INS] },
   soleus: { o: [[156, 134], [231, 84]], i: [CALC_INS] },
-  'fibularis-longus': { o: att(BM.fl, 'o'), i: [soleInsetPt(FL_INSERT)] },
-  'fibularis-brevis': { o: att(BM.fb, 'o') },
-};
+  'fibularis-longus': { o: att(BM().fl, 'o'), i: [soleInsetPt(FL_INSERT)] },
+  'fibularis-brevis': { o: att(BM().fb, 'o') },
+}));
 
 function CalfBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const strain = k.les.has('calf-strain');
@@ -183,8 +187,8 @@ function CalfBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     // calf strain: the labels point at the torn stretches (lower end of the medial head, lower half of the soleus)
     ...((strain
       ? [
-          { id: 'gastrocnemius', t: '腓腹筋・内側頭\n（下の端）', at: [148, 248], x: 104, y: 226, a: 'end' },
-          { id: 'soleus', t: 'ヒラメ筋\n（下半分）', at: [137, 318], x: 104, y: 300, a: 'end' },
+          { id: 'gastrocnemius', t: '腓腹筋・内側頭\n（下の端）', at: [148, 248], x: 104, y: 226, a: 'end', zone: true },
+          { id: 'soleus', t: 'ヒラメ筋\n（下半分）', at: [137, 318], x: 104, y: 300, a: 'end', zone: true },
         ]
       : [
           { id: 'gastrocnemius', t: '腓腹筋・内側頭', at: [140, 120], x: 104, y: 112, a: 'end' },
@@ -196,7 +200,8 @@ function CalfBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'fibula', t: '腓骨（腓骨頭）', at: [242, 70], x: 266, y: 58 },
     { id: 'gastrocnemius', t: '腓腹筋・外側頭', at: [214, 130], x: 266, y: 118 },
     { id: 'fibularis-longus', t: '長腓骨筋', at: [246, 180], x: 266, y: 186 },
-    strain ? { id: 'soleus', t: 'ヒラメ筋', at: [227, 304], x: 266, y: 296 } : { id: 'soleus', t: 'ヒラメ筋', at: [231, 262], x: 266, y: 256 },
+    // (calf strain: the soleus is named once, at its torn lower half on the left)
+    ...(strain ? [] : [{ id: 'soleus', t: 'ヒラメ筋', at: [231, 262], x: 266, y: 256 } as Lab]),
     { id: 'fibularis-brevis', t: '短腓骨筋', at: [229, 336], x: 266, y: 330 },
     { id: 'flexor-hallucis-longus', t: '長母趾屈筋', at: [214, 386], x: 266, y: 384 },
     { id: 'fibula', t: '腓骨（外果）', at: [222, 436], x: 266, y: 440 },
@@ -225,36 +230,37 @@ function CalfBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       spots={spots}
       fade={{ top: 34 }}
       defs={<LfStyle />}
-      oi={OI_BACK}
+      oi={OI_BACK()}
+      zoned={zonedCalf(k)}
       overlay={
         flSolo && (
           <FlSoleInset k={k} from={[222, 458]}>
-            <text className="cap-t" x={104} y={SOLE_INSET.y + 14} textAnchor="end">
+            <MText mir={k.mir} className="cap-t" x={104} y={SOLE_INSET.y + 14} a="end">
               足の裏
-            </text>
-            <text className="cap-t" x={104} y={SOLE_INSET.y + 34} textAnchor="end">
+            </MText>
+            <MText mir={k.mir} className="cap-t" x={104} y={SOLE_INSET.y + 34} a="end">
               （下から）
-            </text>
+            </MText>
           </FlSoleInset>
         )
       }
     >
       <Ctxt k={k}>
-        <path className="body" d={BB.body} />
-        <path className="bone" d={BB.femur} />
-        <path className="bone-ln" d={BB.femLn} />
-        <path className="bone" d={BB.talus} />
+        <path className="body" d={BB().body} />
+        <path className="bone" d={BB().femur} />
+        <path className="bone-ln" d={BB().femLn} />
+        <path className="bone" d={BB().talus} />
       </Ctxt>
-      <Part k={k} id="tibia" zone={k.les.has('tibia-stress') && <Crack c={TIB_CRACK_B} />}>
-        <path className="bone" d={BB.tibia} />
-        <path className="bone-ln" d={BB.tibLn} />
+      <Part k={k} id="tibia" zone={k.les.has('tibia-stress') && <Crack c={TIB_CRACK_B()} />}>
+        <path className="bone" d={BB().tibia} />
+        <path className="bone-ln" d={BB().tibLn} />
       </Part>
       <Part k={k} id="fibula">
-        <path className="bone" d={BB.fibula} />
+        <path className="bone" d={BB().fibula} />
       </Part>
       <Part k={k} id="calcaneus">
-        <path className="bone" d={BB.calc} />
-        <path className="bone-ln" d={BB.calcLn} />
+        <path className="bone" d={BB().calc} />
+        <path className="bone-ln" d={BB().calcLn} />
       </Part>
       <Ctxt k={k}>
         {/* tibialis posterior & flexor digitorum longus tendons behind the medial malleolus */}
@@ -266,25 +272,25 @@ function CalfBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <Nerve c={TIB_NERVE_TOP} w={8} />
       </Ctxt>
       <Part k={k} id="flexor-hallucis-longus">
-        <M g={BM.fhl} />
+        <M g={BM().fhl} />
       </Part>
       <Part k={k} id="fibularis-brevis">
-        <M g={BM.fb} />
+        <M g={BM().fb} />
       </Part>
       <Part k={k} id="fibularis-longus">
-        <M g={BM.fl} />
+        <M g={BM().fl} />
       </Part>
       <Part k={k} id="soleus" zone={strainZone(k, SOLEUS_B, 0.5, SOLEUS_B.t1)}>
-        <M g={BM.sol} />
+        <M g={BM().sol} />
       </Part>
       <Part k={k} id="achilles-tendon">
         <Ten c={ACH_B} w={ACH_BW} lines={3} />
       </Part>
       <Part k={k} id="gastrocnemius" zone={strainZone(k, GAS_M_B, 0.62, 0.985)}>
-        <path className="ten" d={GAS_APO} />
-        <path className="ten-fib" d={GAS_APO_LN} />
-        <M g={BM.gasL} />
-        <M g={BM.gasM} />
+        <path className="ten" d={GAS_APO()} />
+        <path className="ten-fib" d={GAS_APO_LN()} />
+        <M g={BM().gasL} />
+        <M g={BM().gasM} />
       </Part>
     </Frame>
   );
@@ -292,7 +298,7 @@ function CalfBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
 
 /* ───────────── deep view (gastrocnemius removed, window in soleus) ───────────── */
 
-const DM = {
+const DM = once(() => ({
   gasMStump: muscle({ r: [[[150, 6], [168, 2]], [[134, 44], [174, 40]], [[130, 58], [175, 54]]], t0: 0.16, n: 7 }),
   gasLStump: muscle({ r: [[[194, 4], [212, 8]], [[186, 42], [222, 48]], [[186, 54], [225, 60]]], t0: 0.16, n: 6 }),
   popl: muscle({
@@ -349,22 +355,22 @@ const DM = {
     penD: 0.07,
     n: 12,
   }),
-};
-const SOL_WIN = sp([
+}));
+const SOL_WIN = once(() => sp([
   [152, 178], [170, 158], [194, 148], [214, 144], [226, 160], [228, 200], [225, 250], [218, 298], [205, 334], [186, 346], [167, 338], [155, 310],
   [149, 262], [148, 214],
-]);
+]));
 const TIB_NERVE: P[] = [[183, -40], [182, 40], [182, 100], [184, 150], [188, 210], [190, 262], [186, 316], [176, 364], [166, 402], [162, 430], [164, 452]];
 
 /** 起始 / 停止 markers (muscle page): tibialis posterior (navicular) and FHL (big toe) insert below this view. */
-const OI_DEEP: OIMap = {
-  'tibialis-posterior': { o: att(DM.tp, 'o') },
-  'flexor-hallucis-longus': { o: att(DM.fhl, 'o') },
+const OI_DEEP = once((): OIMap => ({
+  'tibialis-posterior': { o: att(DM().tp, 'o') },
+  'flexor-hallucis-longus': { o: att(DM().fhl, 'o') },
   soleus: { o: [[156, 134], [231, 84]], i: [CALC_INS] },
-  gastrocnemius: { o: [att(DM.gasMStump, 'o', 0.5, 0.2)[0], att(DM.gasLStump, 'o', 0.5, 0.2)[0]] },
-  'fibularis-longus': { o: att(BM.fl, 'o') },
-  'fibularis-brevis': { o: att(BM.fb, 'o') },
-};
+  gastrocnemius: { o: [att(DM().gasMStump, 'o', 0.5, 0.2)[0], att(DM().gasLStump, 'o', 0.5, 0.2)[0]] },
+  'fibularis-longus': { o: att(BM().fl, 'o') },
+  'fibularis-brevis': { o: att(BM().fb, 'o') },
+}));
 
 function CalfDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const hole = `${k.uid}-solwin`;
@@ -373,11 +379,14 @@ function CalfDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { t: '膝窩筋', at: [164, 90], x: 104, y: 96, a: 'end' },
     { t: '長趾屈筋', at: [160, 238], x: 104, y: 222, a: 'end' },
     { id: 'tibialis-posterior', t: '後脛骨筋', at: [192, 272], x: 104, y: 262, a: 'end' },
-    { id: 'soleus', t: 'ヒラメ筋', at: [136, 318], x: 104, y: 324, a: 'end' },
+    // calf strain: the soleus is named once, at its torn lower half
+    k.les.has('calf-strain')
+      ? { id: 'soleus', t: 'ヒラメ筋\n（下半分）', at: [136, 318], x: 104, y: 324, a: 'end', zone: true }
+      : { id: 'soleus', t: 'ヒラメ筋', at: [136, 318], x: 104, y: 324, a: 'end' },
     { id: 'tibia', t: '脛骨（内果）', at: [147, 430], x: 104, y: 420, a: 'end' },
     { id: 'achilles-tendon', t: 'アキレス腱', at: [178, 466], x: 104, y: 466, a: 'end' },
     { id: 'fibula', t: '腓骨（腓骨頭）', at: [242, 70], x: 266, y: 70 },
-    { id: 'soleus', t: 'ヒラメ筋', at: [232, 132], x: 266, y: 130 },
+    ...(k.les.has('calf-strain') ? [] : [{ id: 'soleus', t: 'ヒラメ筋', at: [232, 132], x: 266, y: 130 } as Lab]),
     { t: '脛骨神経', at: [188, 206], x: 266, y: 186 },
     { id: 'flexor-hallucis-longus', t: '長母趾屈筋', at: [216, 262], x: 266, y: 256 },
     { id: 'fibularis-brevis', t: '短腓骨筋', at: [229, 336], x: 266, y: 336 },
@@ -398,66 +407,67 @@ function CalfDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       labels={labels}
       spots={spots}
       fade={{ top: 34 }}
-      oi={OI_DEEP}
+      oi={OI_DEEP()}
+      zoned={zonedCalf(k)}
       defs={
         <>
           <LfStyle />
-          <HoleMask id={hole} d={SOL_WIN} w={W} h={H} />
+          <HoleMask id={hole} d={SOL_WIN()} w={W} h={H} />
         </>
       }
     >
       <Ctxt k={k}>
-        <path className="body" d={BB.body} />
-        <path className="bone" d={BB.femur} />
-        <path className="bone-ln" d={BB.femLn} />
-        <path className="bone" d={BB.talus} />
+        <path className="body" d={BB().body} />
+        <path className="bone" d={BB().femur} />
+        <path className="bone-ln" d={BB().femLn} />
+        <path className="bone" d={BB().talus} />
       </Ctxt>
-      <Part k={k} id="tibia" zone={k.les.has('tibia-stress') && <Crack c={TIB_CRACK_B} />}>
-        <path className="bone" d={BB.tibia} />
-        <path className="bone-ln" d={BB.tibLn} />
+      <Part k={k} id="tibia" zone={k.les.has('tibia-stress') && <Crack c={TIB_CRACK_B()} />}>
+        <path className="bone" d={BB().tibia} />
+        <path className="bone-ln" d={BB().tibLn} />
       </Part>
       <Part k={k} id="fibula">
-        <path className="bone" d={BB.fibula} />
+        <path className="bone" d={BB().fibula} />
       </Part>
       <Part k={k} id="calcaneus">
-        <path className="bone" d={BB.calc} />
-        <path className="bone-ln" d={BB.calcLn} />
+        <path className="bone" d={BB().calc} />
+        <path className="bone-ln" d={BB().calcLn} />
       </Part>
       <Part k={k} id="tibialis-posterior">
-        <M g={DM.tp} />
+        <M g={DM().tp} />
       </Part>
       <Ctxt k={k}>
-        <M g={DM.fdl} ctx />
-        <M g={DM.popl} ctx />
+        <M g={DM().fdl} ctx />
+        <M g={DM().popl} ctx />
         <Ten c={[[146, -40], [141, 0], [139, 30], [141, 56]]} w={[12, 11, 10, 8]} lines={2} />
         <Ten c={[[226, -40], [234, 0], [238, 34], [240, 60]]} w={[14, 12, 10, 8]} lines={2} />
       </Ctxt>
       <Part k={k} id="flexor-hallucis-longus">
-        <M g={DM.fhl} />
+        <M g={DM().fhl} />
       </Part>
       <Part k={k} id="fibularis-brevis">
-        <M g={BM.fb} />
+        <M g={BM().fb} />
       </Part>
       <Part k={k} id="fibularis-longus">
-        <M g={BM.fl} />
+        <M g={BM().fl} />
       </Part>
       <Ctxt k={k}>
         <Nerve c={TIB_NERVE} w={[8, 8, 7, 7, 7, 6, 6, 6, 5, 5, 5]} />
       </Ctxt>
       <Part k={k} id="soleus" zone={k.les.has('calf-strain') && <g mask={`url(#${hole})`}>{strainZone(k, SOLEUS_B, 0.5, SOLEUS_B.t1)}</g>}>
         <g mask={`url(#${hole})`}>
-          <M g={BM.sol} />
+          <M g={BM().sol} />
         </g>
-        <path className="rimc" d={SOL_WIN} />
-        <path className="rim" d={SOL_WIN} />
+        <path className="rimc" d={SOL_WIN()} />
+        <path className="rim" d={SOL_WIN()} />
       </Part>
       <Part k={k} id="achilles-tendon">
         <Ten c={ACH_B.slice(1)} w={[6, 16, 15.5, 17, 24, 29]} lines={3} />
       </Part>
       {/* calf strain: the torn lower end of the medial head is removed in this view; the stumps stay light red */}
       <Part k={k} id="gastrocnemius" zoned={k.les.has('calf-strain')}>
-        <M g={DM.gasMStump} />
-        <M g={DM.gasLStump} />
+        <M g={DM().gasMStump} />
+        <M g={DM().gasLStump} />
         <path className="cutf" d={ell(152.5, 56, 22.5, 4, -5)} />
         <path className="cutf" d={ell(205.5, 57, 19.5, 4, 8)} />
       </Part>
@@ -467,7 +477,7 @@ function CalfDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
 
 /* ───────────── front view: right shin from the front (lateral side at the viewer's left) ───────────── */
 
-const FB = {
+const FB = once(() => ({
   body: sp([
     [118, -30], [116, 30], [112, 90], [108, 160], [108, 230], [113, 300], [119, 360], [122, 400], [121, 430], [120, 462], [112, 500], [106, 540],
     [236, 540], [232, 500], [226, 466], [224, 430], [224, 400], [226, 370], [230, 320], [236, 270], [242, 210], [244, 150], [244, 90], [240, 30], [238, -30],
@@ -491,7 +501,7 @@ const FB = {
   ]),
   malL: sp([[125, 372], [133, 366], [139, 384], [145, 404], [147, 426], [143, 446], [136, 453], [128, 449], [123, 432], [122, 408], [123, 388]]),
   patella: sp([[160, -40], [182, -46], [200, -38], [204, -18], [196, 0], [182, 8, 1], [168, 0], [158, -18]]),
-};
+}));
 /** medial head of the gastrocnemius and the soleus, seen at the medial side of the shin (front view) */
 const GAS_F: Sheet = {
   r: [
@@ -517,7 +527,7 @@ const SOL_F: Sheet = {
   t1: 0.95,
   n: 7,
 };
-const FM = {
+const FM = once(() => ({
   ta: muscle({
     r: [
       [[146, 52], [170, 58]],
@@ -590,15 +600,15 @@ const FM = {
   }),
   gas: muscle(GAS_F),
   sol: muscle(SOL_F),
-};
+}));
 const MTB_F: P[] = [[200, 160], [200, 230], [200.5, 290], [202.5, 345], [206.5, 392]];
 
 /** 起始 / 停止 markers (muscle page): the insertions on the foot are below this view. */
-const OI_FRONT: OIMap = {
-  'tibialis-anterior': { o: att(FM.ta, 'o') },
-  'fibularis-longus': { o: att(FM.fl, 'o') },
-  'fibularis-brevis': { o: att(FM.fb, 'o') },
-};
+const OI_FRONT = once((): OIMap => ({
+  'tibialis-anterior': { o: att(FM().ta, 'o') },
+  'fibularis-longus': { o: att(FM().fl, 'o') },
+  'fibularis-brevis': { o: att(FM().fb, 'o') },
+}));
 
 function CalfFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const labels: Lab[] = [
@@ -610,10 +620,18 @@ function CalfFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'fibula', t: '腓骨（外果）', at: [134, 428], x: 100, y: 428, a: 'end' },
     { t: '膝蓋腱', at: [181, 40], x: 258, y: 34 },
     { id: 'tibia', t: '脛骨', at: [190, 130], x: 258, y: 100 },
-    { id: 'gastrocnemius', t: '腓腹筋', at: [226, 156], x: 258, y: 158 },
-    { id: 'soleus', t: 'ヒラメ筋', at: [216, 300], x: 258, y: 290 },
+    // calf strain: the labels point at the torn stretches (lower end of the medial head, lower half of the soleus)
+    ...((k.les.has('calf-strain')
+      ? [
+          { id: 'gastrocnemius', t: '腓腹筋・内側頭\n（下の端）', at: [219, 236], x: 258, y: 214, zone: true },
+          { id: 'soleus', t: 'ヒラメ筋\n（下半分）', at: [213, 338], x: 258, y: 296, zone: true },
+        ]
+      : [
+          { id: 'gastrocnemius', t: '腓腹筋', at: [226, 156], x: 258, y: 158 },
+          { id: 'soleus', t: 'ヒラメ筋', at: [216, 300], x: 258, y: 290 },
+        ]) as Lab[]),
     // stress fracture: the crack point (the rest of the bone light red)
-    ...(k.les.has('tibia-stress') ? [{ id: 'tibia', t: '脛骨のひび', at: [191, 331], x: 258, y: 326 } as Lab] : []),
+    ...(k.les.has('tibia-stress') ? [{ id: 'tibia', t: '脛骨のひび', at: [191, 331], x: 258, y: 326, zone: true } as Lab] : []),
     { id: 'medial-tibial-border', t: '脛骨内側縁', at: [202.5, 368], x: 258, y: 356 },
     { id: 'tibialis-anterior', t: '前脛骨筋腱', at: [184, 404], x: 258, y: 394 },
     { id: 'tibia', t: '脛骨（内果）', at: [213, 432], x: 258, y: 434 },
@@ -630,27 +648,28 @@ function CalfFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       labels={labels}
       spots={spots}
       fade={{ top: 34, bottom: 60 }}
-      oi={OI_FRONT}
+      oi={OI_FRONT()}
+      zoned={zonedCalf(k)}
       defs={<LfStyle />}
     >
       <Ctxt k={k}>
-        <path className="body" d={FB.body} />
-        <path className="bone" d={FB.femur} />
+        <path className="body" d={FB().body} />
+        <path className="bone" d={FB().femur} />
       </Ctxt>
       <Part k={k} id="fibula">
-        <path className="bone" d={FB.fibula} />
+        <path className="bone" d={FB().fibula} />
       </Part>
       <Part k={k} id="soleus" zone={strainZone(k, SOL_F, 0.5, 0.95)}>
-        <M g={FM.sol} />
+        <M g={FM().sol} />
       </Part>
       <Part k={k} id="gastrocnemius" zone={strainZone(k, GAS_F, 0.62, 0.985)}>
-        <M g={FM.gas} />
+        <M g={FM().gas} />
       </Part>
       <Part k={k} id="tibia" zoned={k.les.has('tibia-stress')}>
-        <path className="bone" d={FB.tibia} />
-        <path className="bone-sh" d={FB.tibSh} />
-        <path className="bone-ln" d={FB.tuber} />
-        <path className="bone-ln" d={FB.crest} />
+        <path className="bone" d={FB().tibia} />
+        <path className="bone-sh" d={FB().tibSh} />
+        <path className="bone-ln" d={FB().tuber} />
+        <path className="bone-ln" d={FB().crest} />
       </Part>
       <Part k={k} id="medial-tibial-border">
         <Ten c={MTB_F} w={[5, 8, 9, 9, 7]} cls="fascia-t" lines={1} />
@@ -658,30 +677,30 @@ function CalfFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       {/* the crack sits in the bone under the periosteum strip; drawn over it so the one point reads */}
       {k.les.has('tibia-stress') && (
         <Lesion k={k} id="tibia">
-          <Crack c={TIB_CRACK_F} />
+          <Crack c={TIB_CRACK_F()} />
         </Lesion>
       )}
       <Part k={k} id="fibularis-brevis">
-        <M g={FM.fb} />
+        <M g={FM().fb} />
       </Part>
       <Part k={k} id="fibularis-longus">
-        <M g={FM.fl} />
+        <M g={FM().fl} />
       </Part>
       <Part k={k} id="fibula">
-        <path className="bone" d={FB.malL} />
+        <path className="bone" d={FB().malL} />
         <path className="bone-ln" d={line([[128, 392], [136, 410], [138, 432]])} />
       </Part>
       <Ctxt k={k}>
-        <M g={FM.edl} ctx />
-        <M g={FM.ehl} ctx />
+        <M g={FM().edl} ctx />
+        <M g={FM().ehl} ctx />
       </Ctxt>
       <Part k={k} id="tibialis-anterior">
-        <M g={FM.ta} />
+        <M g={FM().ta} />
       </Part>
       <Ctxt k={k}>
         {/* patellar tendon & patella */}
         <Ten c={[[182, -6], [181, 30], [180, 64]]} w={[24, 20, 17]} lines={3} />
-        <path className="bone" d={FB.patella} />
+        <path className="bone" d={FB().patella} />
       </Ctxt>
     </Frame>
   );

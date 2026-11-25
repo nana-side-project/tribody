@@ -7,6 +7,7 @@
 // (to ≈ 345): ~1/4 of the foot on the medial side; metatarsals 6.6–8 cm; toes unchanged.
 import type { ReactNode } from 'react';
 import { Part, Ten, crAt, ell, line, numAt, sp, tube, tubePart, type Ctx, type P, type PartId, type XY } from './hip';
+import { once } from './lazy';
 
 type Pt = readonly [number, number];
 export const mx = (p: Pt): [number, number] => [360 - p[0], p[1]];
@@ -61,7 +62,7 @@ export const PHAL: { c: P[]; w: number }[] = [
   { c: [[136, 132], [135, 122]], w: 6.5 },
 ];
 /** the two sesamoid bones under the head of the 1st metatarsal (in the flexor hallucis brevis tendons) */
-export const SESAMOIDS = [ell(240, 172, 5, 7.5), ell(253, 170, 5, 7.5)];
+export const SESAMOIDS = once(() => [ell(240, 172, 5, 7.5), ell(253, 170, 5, 7.5)]);
 
 /**
  * Calcaneus seen from below: anterior process ending at the calcaneocuboid joint (laterally, y≈313), lateral border,
@@ -77,14 +78,14 @@ export const CALC: P[] = [
 ];
 /** medial process of the calcaneal tuberosity: origin of the plantar fascia, flexor digitorum brevis, abductor hallucis
  * (its anterior margin drawn as a relief line; centre ≈ 198, 401) */
-export const CALC_MED_PROC = line([[186, 407], [188, 398], [196, 393], [205, 394], [210, 400]]);
+export const CALC_MED_PROC = once(() => line([[186, 407], [188, 398], [196, 393], [205, 394], [210, 400]]));
 /** lateral process of the calcaneal tuberosity (abductor digiti minimi): smaller, at the lateral corner */
-export const CALC_LAT_PROC = line([[157, 409], [160, 402], [167, 399], [173, 403]]);
+export const CALC_LAT_PROC = once(() => line([[157, 409], [160, 402], [167, 399], [173, 403]]));
 /** head of the talus: only the part seen between the navicular (in front), the sustentaculum tali and the anterior
  * calcaneus (behind / laterally) — the spring-ligament area */
-export const TALUS_HEAD = sp([
+export const TALUS_HEAD = once(() => sp([
   [190, 321], [198, 322.5], [208, 322.5], [218, 324], [222, 329], [221, 336], [214, 342], [205, 345], [196, 339], [190, 329],
-]);
+]));
 /** navicular: concave behind (talar head), three facets in front (cuneiforms), tuberosity medially (tibialis posterior) */
 export const NAVIC: P[] = [
   [187, 305], [196, 302], [208, 301], [219, 301], [225, 305], [229, 311], [227, 319], [218, 323], [208, 321], [198, 321], [190, 319], [186, 312],
@@ -119,7 +120,7 @@ export function Midfoot({
   const f = (pts: readonly P[]) => (mirrored ? mirror(pts) : (pts as P[]));
   return (
     <>
-      {talus && <path className={cls} d={TALUS_HEAD} />}
+      {talus && <path className={cls} d={TALUS_HEAD()} />}
       {CUNE.map((c, i) => (
         <path key={i} className={cls} d={sp(f(c))} />
       ))}
@@ -137,8 +138,8 @@ export function Calcaneus({ cls = 'bone', ln = 'bone-ln' }: { cls?: string; ln?:
   return (
     <>
       <path className={cls} d={sp(CALC)} />
-      <path className={ln} d={CALC_MED_PROC} />
-      <path className={ln} d={CALC_LAT_PROC} />
+      <path className={ln} d={CALC_MED_PROC()} />
+      <path className={ln} d={CALC_LAT_PROC()} />
     </>
   );
 }
@@ -316,7 +317,7 @@ export function FlSoleInset({ k, from, children }: { k: Ctx; from: readonly [num
             <g opacity={0.75}>
               <Phalanges cls="bone-g" />
               <Metatarsals cls="bone-g" />
-              {SESAMOIDS.map((d, i) => (
+              {SESAMOIDS().map((d, i) => (
                 <path key={i} className="bone-g" d={d} />
               ))}
               <Midfoot cls="bone-g" />

@@ -9,10 +9,14 @@
 //     from the same description (pennate muscles get chevron fibres);
 //   • bones, bursae, cartilage and nerves are smooth Catmull-Rom outlines / tubes through landmarks.
 // CSS is scoped under `.thk` so it never collides with other region kits on the same page.
+// Module-level geometry is built lazily: every outline / muscle sheet is wrapped in once() (./lazy) and made the
+// first time a view that draws it renders. side='left' mirrors the drawing with readable texts (./mirror).
 import { useId, type KeyboardEvent, type ReactNode } from 'react';
-import { MUSCLES, PAIN_SPOTS, STRUCTURES, type MuscleId, type PainSpotId, type StructureId } from '../../data/registry';
+import { MUSCLES, PAIN_SPOTS, STRUCTURES, type ConditionId, type MuscleId, type PainSpotId, type StructureId } from '../../data/registry';
 import type { Highlights, RegionDiagram, RegionDiagramProps } from '../types';
 import { OILegend, OIMarks, OI_CSS, OI_LEG_H, oiDots, type OIMap } from './markers';
+import { once } from './lazy';
+import { MText, MirrorG, flipLR, mirrorLab } from './mirror';
 
 
 export type { OI, OIMap } from './markers';
@@ -451,6 +455,10 @@ export const KIT_CSS = `
 .thk-lab.is-injured text { fill: var(--injured); }
 .thk-lab.is-injured :is(.ld, .ldot) { stroke: var(--injured); fill: var(--injured); opacity: 1; }
 .thk-lab.is-injured .ld { fill: none; }
+/* the rest of an injured part whose lesion zone is drawn (Lab \`zone\`, Frame \`zoned\`): muted red, regular weight */
+.thk-lab.is-zrest text { fill: color-mix(in srgb, var(--injured) 62%, var(--text-2)); font-weight: 500; }
+.thk-lab.is-zrest :is(.ld, .ldot) { stroke: color-mix(in srgb, var(--injured) 62%, var(--text-2)); fill: color-mix(in srgb, var(--injured) 62%, var(--text-2)); opacity: .75; }
+.thk-lab.is-zrest .ld { fill: none; }
 .thk-lab.is-involved text { fill: color-mix(in srgb, var(--k-amber) 62%, var(--text)); }
 .thk-lab.is-involved :is(.ld, .ldot) { stroke: var(--k-amber); fill: var(--k-amber); opacity: 1; }
 .thk-lab.is-involved .ld { fill: none; }
@@ -489,8 +497,10 @@ export const partName = (id: PartId) => NAME.get(id) ?? id;
 /**
  * Focal lesions: where IN an injured part the damage sits, when that place is the message — the same zones as the 3D
  * condition scenes (src/three/scenes.ts `zones`). The part is then drawn light red and only the zone full red with the
- * glow (Part `zone`). The region figure only gets the highlight set, so the lesion is read from it; each rule matches
- * exactly one condition of the current content:
+ * glow (Part `zone`); the label that names the zone (Lab `zone`) is the red one, the part's other labels take the
+ * lighter style of the rest of the part. The condition page passes its condition (RegionDiagramProps.condition) and the
+ * zones come from CONDITION_LESIONS; without one (older callers) they are inferred from the highlight set by lesionsOf,
+ * whose rules match exactly one condition each:
  *   'achilles-mid'        Achilles tendon injured, no retrocalcaneal bursa → 2–6 cm above the insertion (achilles-midportion)
  *   'achilles-insertion'  Achilles tendon injured with the retrocalcaneal bursa → where it meets the heel bone (achilles-insertional)
  *   'tibia-stress'        tibia injured → one point, posteromedial distal third (tibial-stress-fracture; MTSS keeps it 'involved')
@@ -501,6 +511,17 @@ export const partName = (id: PartId) => NAME.get(id) ?? id;
  */
 export type Lesion = 'achilles-mid' | 'achilles-insertion' | 'tibia-stress' | 'metatarsal-stress' | 'plantar-origin' | 'calf-strain';
 
+/** The focal lesions of each condition that has one; any other condition draws its injured parts whole. */
+export const CONDITION_LESIONS: Partial<Record<ConditionId, readonly Lesion[]>> = {
+  'achilles-midportion': ['achilles-mid'],
+  'achilles-insertional': ['achilles-insertion'],
+  'tibial-stress-fracture': ['tibia-stress'],
+  'metatarsal-stress-fracture': ['metatarsal-stress'],
+  'plantar-heel-pain': ['plantar-origin'],
+  'calf-strain': ['calf-strain'],
+};
+
+/** Fallback when no condition is given: the lesion read from the highlight set. */
 export function lesionsOf(hl: Highlights): ReadonlySet<Lesion> {
   const s = new Set<Lesion>();
   if (hl['achilles-tendon'] === 'injured') s.add(hl['retrocalcaneal-bursa'] ? 'achilles-insertion' : 'achilles-mid');
@@ -516,15 +537,18 @@ export interface Ctx {
   hl: Highlights;
   dim: boolean;
   onPart?: (id: PartId) => void;
-  /** focal lesions of the shown highlight set (see lesionsOf) */
+  /** focal lesions of the shown condition (CONDITION_LESIONS) or highlight set (lesionsOf) */
   les: ReadonlySet<Lesion>;
+  /** the left side: the Frame mirrors the drawing (see ./mirror) */
+  mir: boolean;
 }
 
 export function useCtx(p: RegionDiagramProps): Ctx {
   const raw = useId();
   const uid = `thk${raw.replace(/[^a-zA-Z0-9]/g, '')}`;
   const hl = p.highlights ?? {};
-  return { uid, hl, dim: !!p.dimOthers && Object.keys(hl).length > 0, onPart: p.onPartSelect, les: lesionsOf(hl) };
+  const les = p.condition ? new Set(CONDITION_LESIONS[p.condition] ?? []) : lesionsOf(hl);
+  return { uid, hl, dim: !!p.dimOthers && Object.keys(hl).length > 0, onPart: p.onPartSelect, les, mir: p.side === 'left' };
 }
 
 const keyAct = (fn: () => void) => (e: KeyboardEvent) => {
@@ -703,6 +727,11 @@ export interface Lab {
   a?: 'start' | 'end' | 'middle';
   /** optional elbow point of the leader line */
   via?: readonly number[];
+  /**
+   * this label names the focal lesion zone of its part (see lesionsOf): it stays red and bold, while the part's other
+   * labels (in a view that lists the part in Frame `zoned`) take the lighter style of the rest of the part
+   */
+  zone?: boolean;
 }
 
 export interface Spot {
@@ -713,11 +742,13 @@ export interface Spot {
 const FS = 13.25; // label font size in user units (≥ 11 CSS px on a 360 px phone, ≈ 12.2 px at 390)
 const LH = 15.25;
 
-function Label({ k, l }: { k: Ctx; l: Lab }) {
+function Label({ k, l, zoned }: { k: Ctx; l: Lab; zoned?: ReadonlySet<PartId> }) {
   const lines = l.t.split('\n');
   const a = l.a ?? 'start';
   const role = l.id ? k.hl[l.id] : undefined;
-  const cls = `thk-lab${!l.id ? ' is-ctx' : ''}${role ? ` is-hl is-${role}` : ''}${k.dim && !role ? ' is-dim' : ''}`;
+  // the rest of an injured part whose lesion zone is drawn: lighter style, the zone's own label is the red one
+  const rest = role === 'injured' && !l.zone && !!l.id && !!zoned?.has(l.id);
+  const cls = `thk-lab${!l.id ? ' is-ctx' : ''}${role ? (rest ? ' is-hl is-zrest' : ` is-hl is-${role}`) : ''}${k.dim && !role ? ' is-dim' : ''}`;
   const w = Math.max(...lines.map((s) => [...s].length)) * FS;
   const h = lines.length * LH;
   const midY = l.y - 4.5 + ((lines.length - 1) * LH) / 2;
@@ -799,15 +830,30 @@ export interface FrameProps {
   fade?: { top?: number; bottom?: number };
   /** 起始 / 停止 markers per muscle (drawn for the 'selected' one, with a legend strip under the drawing) */
   oi?: OIMap;
+  /**
+   * injured parts this view draws with their focal lesion zone (Part `zone` / `zoned` under the current lesions): their
+   * labels without `zone` take the lighter style of the rest of the part
+   */
+  zoned?: readonly (PartId | false | null | undefined)[];
 }
 
-/** Root <svg> of a region diagram: styles, glow filter, drawing, labels, hotspots. */
-export function Frame({ k, p, w, h, title, cap, labels, spots, children, overlay, defs, fade, oi }: FrameProps) {
+/**
+ * Root <svg> of a region diagram: styles, glow filter, drawing, labels, hotspots. For the left side (`k.mir`) the
+ * drawing is mirrored and the texts stay readable (see ./mirror).
+ */
+export function Frame({ k, p, w, h, title: title0, cap: cap0, labels: labels0, spots: spots0, children, overlay, defs, fade, oi, zoned: zoned0 }: FrameProps) {
   const showLabels = p.showLabels ?? true;
   const ft = fade?.top ?? 0;
   const fb = fade?.bottom ?? 0;
   const hasFade = ft > 0 || fb > 0;
   const dots = oiDots(oi, k.hl);
+  const mir = k.mir;
+  const title = mir ? flipLR(title0) : title0;
+  // left side: the corner captions swap corners (and say 左), labels and hotspots move to the mirrored places
+  const cap: [string, string] | undefined = cap0 && mir ? [flipLR(cap0[1]), flipLR(cap0[0])] : cap0;
+  const labels = mir ? labels0.map((l) => mirrorLab(l, w)) : labels0;
+  const spots = mir ? spots0.map((s) => ({ ...s, at: [w - s.at[0], s.at[1]] })) : spots0;
+  const zoned = zoned0?.some(Boolean) ? new Set(zoned0.filter((z): z is PartId => !!z)) : undefined;
   return (
     <svg
       viewBox={`0 0 ${w} ${dots.length ? h + OI_LEG_H : h}`}
@@ -838,9 +884,11 @@ export function Frame({ k, p, w, h, title, cap, labels, spots, children, overlay
         )}
         {defs}
       </defs>
-      <g mask={hasFade ? `url(#${k.uid}-fade)` : undefined}>{children}</g>
-      {overlay}
-      <OIMarks dots={dots} />
+      <MirrorG mir={mir} w={w}>
+        <g mask={hasFade ? `url(#${k.uid}-fade)` : undefined}>{children}</g>
+        {overlay}
+        <OIMarks dots={dots} />
+      </MirrorG>
       {dots.length > 0 && <OILegend w={w} y={h} dots={dots} className="note-t" />}
       {cap && (
         <g aria-hidden="true">
@@ -855,7 +903,7 @@ export function Frame({ k, p, w, h, title, cap, labels, spots, children, overlay
       {showLabels && (
         <g className="thk-labels">
           {labels.map((l, i) => (
-            <Label key={i} k={k} l={l} />
+            <Label key={i} k={k} l={l} zoned={zoned} />
           ))}
         </g>
       )}
@@ -884,9 +932,9 @@ export function Inset({ k, name, cx, cy, r, title, children }: { k: Ctx; name: s
       <g clipPath={`url(#${id})`}>{children}</g>
       <circle className="inset-ring" cx={cx} cy={cy} r={r} />
       {title && (
-        <text className="cap-t" x={cx} y={cy + r + 16} textAnchor="middle">
+        <MText mir={k.mir} className="cap-t" x={cx} y={cy + r + 16} a="middle">
           {title}
-        </text>
+        </MText>
       )}
     </g>
   );
@@ -923,7 +971,7 @@ export const crescent = (cx: number, cy: number, r0: number, r1: number, a0: num
 const MXF = 302; // midline
 const HCF: XY = [210, 178]; // femoral head centre
 
-const FR = {
+const FR = once(() => ({
   body: sp([[152, -10], [146, 40], [130, 100], [114, 158], [110, 200], [113, 260], [118, 330], [124, 400], [131, 480], [370, 480], [370, -10]]),
   l5: sp([[278, 30, 1], [326, 30, 1], [329, 64], [302, 68], [275, 64]]),
   l5tp: sp([[279, 40], [262, 42], [248, 46], [246, 54], [262, 56], [279, 56]]),
@@ -935,7 +983,7 @@ const FR = {
   })(),
   sacrumLn: [104, 126, 148, 168].map((y, i) => ell(286 + i * 2.2, y, 4.2 - i * 0.4, 3.3 - i * 0.2) + ell(318 - i * 2.2, y, 4.2 - i * 0.4, 3.3 - i * 0.2)).join(''),
   coccyx: sp([[296, 214], [308, 214], [306, 226], [303, 236], [301, 236], [298, 226]]),
-};
+}));
 
 /** Right hemipelvis, front (outer contour) + obturator foramen (hole). */
 const PELVIS_F: P[] = [
@@ -945,19 +993,19 @@ const PELVIS_F: P[] = [
   [226, 254], [236, 264], [250, 262], [264, 254], [280, 246], [294, 242], [302, 240, 1],
 ];
 const OBT_F: P[] = [[246, 205], [262, 200], [278, 206], [282, 222], [274, 239], [258, 244], [241, 238], [233, 222]];
-const pelvisF = sp(PELVIS_F) + sp(OBT_F);
-const pelvisFL = sp(mirror(PELVIS_F, MXF)) + sp(mirror(OBT_F, MXF));
+const pelvisF = once(() => sp(PELVIS_F) + sp(OBT_F));
+const pelvisFL = once(() => sp(mirror(PELVIS_F, MXF)) + sp(mirror(OBT_F, MXF)));
 
-const FEMUR_F = sp([
+const FEMUR_F = once(() => sp([
   [156, 163], [172, 165], [192, 160], [210, 153], [228, 160], [235, 178], [229, 196], [214, 203], [203, 209], [194, 222], [192, 231],
   [196, 238, 1], [186, 250], [177, 259], [172, 282], [172, 340], [177, 400], [184, 480], [152, 480], [145, 400], [138, 340], [132, 282],
   [128, 232], [122, 212], [119, 195], [123, 178], [134, 166], [146, 161],
-]);
-const HEAD_F = ell(HCF[0], HCF[1], 25, 25);
-const CAPSULE_F = sp([[186, 150], [168, 158], [150, 168], [144, 184], [152, 208], [176, 236], [196, 236], [222, 210], [236, 190], [238, 162], [228, 150], [210, 146]]);
-const LABRUM_F = crescent(HCF[0], HCF[1], 24.5, 29, 185, 300);
+]));
+const HEAD_F = once(() => ell(HCF[0], HCF[1], 25, 25));
+const CAPSULE_F = once(() => sp([[186, 150], [168, 158], [150, 168], [144, 184], [152, 208], [176, 236], [196, 236], [222, 210], [236, 190], [238, 162], [228, 150], [210, 146]]));
+const LABRUM_F = once(() => crescent(HCF[0], HCF[1], 24.5, 29, 185, 300));
 
-const FM = {
+const FM = once(() => ({
   gmed: muscle({
     r: [
       [[181, 100], [170, 84], [160, 73], [151, 76]],
@@ -1073,10 +1121,10 @@ const FM = {
     t1: 0.8,
     n: 6,
   }),
-};
+}));
 const ITB_F: P[] = [[126, 150], [127, 200], [130, 250], [133, 305], [136, 360], [140, 420], [146, 480]];
 const INGUINAL_F: P[] = [[176, 118], [202, 141], [231, 163], [258, 181], [277, 191]];
-const RA_CUT = ell(284, 127, 15.4, 3.1, 3.5);
+const RA_CUT = once(() => ell(284, 127, 15.4, 3.1, 3.5));
 
 /** Hip-joint cross-section (coronal, seen from the front; lateral = left), local coords around the inset centre. */
 function hipSection(c: XY) {
@@ -1112,24 +1160,27 @@ function hipSection(c: XY) {
 /** what the hip views show uncropped (top / bottom fades) */
 const BOX_HIP = [4, 24, 356, 420] as const;
 /** 起始 / 停止 markers (muscle page): the sheet ends inside the view; see oiFrom. */
-const OI_FRONT: OIMap = oiFrom(
-  {
-    'adductor-magnus': FM.amag,
-    iliopsoas: [FM.iliacus, FM.psoas],
-    'adductor-longus': FM.alon,
-    gracilis: FM.grac,
-    'vastus-lateralis': FM.vl,
-    'gluteus-medius': FM.gmed,
-    'rectus-femoris': FM.rf,
-    'tensor-fasciae-latae': FM.tfl,
-    sartorius: FM.sart,
-    'rectus-abdominis': FM.ra,
-  },
-  BOX_HIP,
-);
-// vastus lateralis: a pennate field whose s runs ACROSS the thigh — it starts along the femur (below the greater
-// trochanter, down the linea aspera) and inserts through the quadriceps tendon on the kneecap (below these views)
-OI_FRONT['vastus-lateralis'] = { o: att(FM.vl, 'o', [0.04, 0.42]) };
+const OI_FRONT = once((): OIMap => {
+  const m = oiFrom(
+    {
+      'adductor-magnus': FM().amag,
+      iliopsoas: [FM().iliacus, FM().psoas],
+      'adductor-longus': FM().alon,
+      gracilis: FM().grac,
+      'vastus-lateralis': FM().vl,
+      'gluteus-medius': FM().gmed,
+      'rectus-femoris': FM().rf,
+      'tensor-fasciae-latae': FM().tfl,
+      sartorius: FM().sart,
+      'rectus-abdominis': FM().ra,
+    },
+    BOX_HIP,
+  );
+  // vastus lateralis: a pennate field whose s runs ACROSS the thigh — it starts along the femur (below the greater
+  // trochanter, down the linea aspera) and inserts through the quadriceps tendon on the kneecap (below these views)
+  m['vastus-lateralis'] = { o: att(FM().vl, 'o', [0.04, 0.42]) };
+  return m;
+});
 
 function HipFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const IC: XY = [54, 412];
@@ -1168,7 +1219,7 @@ function HipFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       labels={labels}
       spots={spots}
       fade={{ top: 28, bottom: 46 }}
-      oi={OI_FRONT}
+      oi={OI_FRONT()}
       overlay={
         <>
           <Ctxt k={k}>
@@ -1192,72 +1243,72 @@ function HipFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
               <path className="labrum" d={hs.labrum} />
             </Part>
           </Inset>
-          <text className="cap-t" x={IC[0]} y={IC[1] - IR - 7} textAnchor="middle" aria-hidden="true">
+          <MText mir={k.mir} className="cap-t" x={IC[0]} y={IC[1] - IR - 7} a="middle" hidden>
             股関節の断面
-          </text>
+          </MText>
         </>
       }
     >
       <Ctxt k={k}>
-        <path className="body" d={FR.body} />
-        <path className="bone-g" d={FR.l4} />
-        <path className="cart" d={FR.disc} />
-        <path className="bone-g" d={FR.l5 + FR.l5tp + sp(mirror([[279, 40], [262, 42], [248, 46], [246, 54], [262, 56], [279, 56]], MXF))} />
-        <path className="bone-g" d={FR.sacrum} />
-        <path className="bone-ln" d={FR.sacrumLn} />
-        <path className="bone-g" d={FR.coccyx} />
-        <path className="bone-g" d={pelvisFL} fillRule="evenodd" />
-        <path className="bone" d={pelvisF} fillRule="evenodd" />
+        <path className="body" d={FR().body} />
+        <path className="bone-g" d={FR().l4} />
+        <path className="cart" d={FR().disc} />
+        <path className="bone-g" d={FR().l5 + FR().l5tp + sp(mirror([[279, 40], [262, 42], [248, 46], [246, 54], [262, 56], [279, 56]], MXF))} />
+        <path className="bone-g" d={FR().sacrum} />
+        <path className="bone-ln" d={FR().sacrumLn} />
+        <path className="bone-g" d={FR().coccyx} />
+        <path className="bone-g" d={pelvisFL()} fillRule="evenodd" />
+        <path className="bone" d={pelvisF()} fillRule="evenodd" />
         <path className="bone-ln" d={line([[262, 84], [266, 110], [272, 140], [282, 170], [292, 190]])} />
-        <path className="bone" d={FEMUR_F} />
+        <path className="bone" d={FEMUR_F()} />
       </Ctxt>
       <Part k={k} id="hip-joint">
-        <path className="cap" d={CAPSULE_F} />
-        <path className="bone" d={HEAD_F} />
+        <path className="cap" d={CAPSULE_F()} />
+        <path className="bone" d={HEAD_F()} />
       </Part>
       <Part k={k} id="hip-labrum">
-        <path className="labrum" d={LABRUM_F} />
+        <path className="labrum" d={LABRUM_F()} />
       </Part>
       <Part k={k} id="adductor-magnus">
-        <M g={FM.amag} />
+        <M g={FM().amag} />
       </Part>
       <Part k={k} id="iliopsoas">
-        <M g={FM.iliacus} />
-        <M g={FM.psoas} />
+        <M g={FM().iliacus} />
+        <M g={FM().psoas} />
       </Part>
       <Ctxt k={k}>
-        <M g={FM.pect} ctx />
+        <M g={FM().pect} ctx />
       </Ctxt>
       <Part k={k} id="adductor-longus">
-        <M g={FM.alon} />
+        <M g={FM().alon} />
       </Part>
       <Part k={k} id="gracilis">
-        <M g={FM.grac} />
+        <M g={FM().grac} />
       </Part>
       <Part k={k} id="vastus-lateralis">
-        <M g={FM.vl} />
+        <M g={FM().vl} />
       </Part>
       <Part k={k} id="iliotibial-band">
         <Ten c={ITB_F} w={[22, 26, 20, 15, 13, 13, 13]} cls="fascia" lines={3} />
       </Part>
       <Part k={k} id="gluteus-medius">
-        <M g={FM.gmed} />
+        <M g={FM().gmed} />
       </Part>
       <Part k={k} id="rectus-femoris">
-        <M g={FM.rf} />
+        <M g={FM().rf} />
       </Part>
       <Part k={k} id="tensor-fasciae-latae">
-        <M g={FM.tfl} />
+        <M g={FM().tfl} />
       </Part>
       <Ctxt k={k}>
         <Ten c={INGUINAL_F} w={4} cls="lig" lines={1} />
       </Ctxt>
       <Part k={k} id="sartorius">
-        <M g={FM.sart} />
+        <M g={FM().sart} />
       </Part>
       <Part k={k} id="rectus-abdominis">
-        <M g={FM.ra} />
-        <path className="cutf" d={RA_CUT} />
+        <M g={FM().ra} />
+        <path className="cutf" d={RA_CUT()} />
       </Part>
       <Part k={k} id="pubic-symphysis">
         <path className="cart" d={sp([[299, 189, 1], [305, 189, 1], [306, 214], [305, 240, 1], [299, 240, 1], [298, 214]])} />
@@ -1271,7 +1322,7 @@ function HipFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
 /* ───────────── back & deep views: right hip from behind (midline at the viewer's left) ───────────── */
 const MXB = 64;
 
-const BK = {
+const BK = once(() => ({
   body: sp([[-20, -10], [214, -10], [222, 40], [238, 100], [254, 158], [261, 205], [258, 252], [252, 320], [246, 400], [240, 480], [-20, 480]]),
   cleft: line([[64, 150], [64.5, 200], [65, 248]]),
   fold: line([[70, 266], [100, 282], [138, 296], [176, 304]]),
@@ -1288,22 +1339,22 @@ const BK = {
     const r: P[] = [[64, 26, 1], [72, 26], [80, 22], [86, 24], [88, 34], [106, 36], [116, 40], [114, 47], [98, 49], [86, 50], [78, 56], [70, 58], [68, 70], [64, 76, 1]];
     return sp([...r, ...mirror(r, MXB).reverse().slice(1, -1)]);
   })(),
-};
+}));
 const PELVIS_B: P[] = [
   [108, 122, 1], [114, 102], [126, 80], [146, 62], [170, 52], [196, 53], [214, 62], [222, 78], [220, 100], [212, 124], [206, 146], [204, 162],
   [196, 178], [182, 192], [166, 204], [156, 222], [150, 242], [144, 258], [134, 265], [121, 261], [113, 249], [110, 232], [111, 214], [108, 198, 1],
   [116, 188], [119, 172], [117, 154], [110, 140], [105, 131],
 ];
-const pelvisB = sp(PELVIS_B);
+const pelvisB = once(() => sp(PELVIS_B));
 const RAMUS_B: P[] = [[124, 258], [102, 254], [82, 248], [64, 244]];
-const FEMUR_B = sp([
+const FEMUR_B = once(() => sp([
   [160, 166], [176, 168], [196, 166], [212, 160], [224, 158, 1], [238, 164], [248, 174], [251, 192], [248, 214], [240, 232], [234, 270], [226, 330],
   [218, 400], [212, 480], [180, 480], [184, 400], [190, 330], [192, 280], [190, 256], [182, 246], [176, 238, 1], [184, 228], [192, 214], [186, 204],
   [172, 202], [158, 198], [140, 196], [134, 180], [142, 166],
-]);
-const HEAD_B = ell(156, 178, 25, 25);
+]));
+const HEAD_B = once(() => ell(156, 178, 25, 25));
 
-const BM = {
+const BM = once(() => ({
   gmed: muscle({
     r: [
       [[128, 80], [148, 64], [172, 56], [196, 57], [214, 66], [222, 82]],
@@ -1378,25 +1429,28 @@ const BM = {
     ],
     n: 9,
   }),
-};
+}));
 const ITB_B: P[] = [[246, 150], [250, 200], [248, 260], [244, 330], [240, 400], [236, 480]];
 const ITB_BW = [20, 26, 22, 16, 14, 13];
 
 /** 起始 / 停止 markers (muscle page): the sheet ends inside the view; see oiFrom. */
-const OI_BACK: OIMap = oiFrom(
-  {
-    'adductor-magnus': BM.amag,
-    gracilis: BM.grac,
-    semimembranosus: BM.sm,
-    'vastus-lateralis': BM.vl,
-    'biceps-femoris': BM.bf,
-    semitendinosus: BM.st,
-    'gluteus-medius': BM.gmed,
-    'gluteus-maximus': BM.gmax,
-  },
-  BOX_HIP,
-);
-OI_BACK['vastus-lateralis'] = { o: att(BM.vl, 'o', [0.04, 0.42]) };
+const OI_BACK = once((): OIMap => {
+  const m = oiFrom(
+    {
+      'adductor-magnus': BM().amag,
+      gracilis: BM().grac,
+      semimembranosus: BM().sm,
+      'vastus-lateralis': BM().vl,
+      'biceps-femoris': BM().bf,
+      semitendinosus: BM().st,
+      'gluteus-medius': BM().gmed,
+      'gluteus-maximus': BM().gmax,
+    },
+    BOX_HIP,
+  );
+  m['vastus-lateralis'] = { o: att(BM().vl, 'o', [0.04, 0.42]) };
+  return m;
+});
 
 function HipBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const labels: Lab[] = [
@@ -1427,53 +1481,53 @@ function HipBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       labels={labels}
       spots={spots}
       fade={{ top: 20, bottom: 46 }}
-      oi={OI_BACK}
+      oi={OI_BACK()}
     >
       <Ctxt k={k}>
-        <path className="body" d={BK.body} />
-        <path className="bone-g" d={BK.l5} />
+        <path className="body" d={BK().body} />
+        <path className="bone-g" d={BK().l5} />
         <path className="bone-g" d={sp(mirror(PELVIS_B, MXB))} />
-        <path className="bone" d={BK.sacrum} />
-        <path className="bone-ln" d={BK.sacrumLn} />
-        <path className="bone" d={BK.coccyx} />
-        <path className="bone" d={pelvisB} />
+        <path className="bone" d={BK().sacrum} />
+        <path className="bone-ln" d={BK().sacrumLn} />
+        <path className="bone" d={BK().coccyx} />
+        <path className="bone" d={pelvisB()} />
         <Ten c={RAMUS_B} w={12} cls="bone" lines={0} />
-        <path className="bone" d={FEMUR_B} />
-        <path className="bone" d={HEAD_B} />
-        <path className="ghost" d={BK.cleft} />
+        <path className="bone" d={FEMUR_B()} />
+        <path className="bone" d={HEAD_B()} />
+        <path className="ghost" d={BK().cleft} />
       </Ctxt>
       <Part k={k} id="adductor-magnus">
-        <M g={BM.amag} />
+        <M g={BM().amag} />
       </Part>
       <Part k={k} id="gracilis">
-        <M g={BM.grac} />
+        <M g={BM().grac} />
       </Part>
       <Part k={k} id="semimembranosus">
-        <M g={BM.sm} />
+        <M g={BM().sm} />
       </Part>
       <Part k={k} id="vastus-lateralis">
-        <M g={BM.vl} />
+        <M g={BM().vl} />
       </Part>
       <Part k={k} id="iliotibial-band">
         <Ten c={ITB_B} w={ITB_BW} cls="fascia" lines={3} />
       </Part>
       <Part k={k} id="biceps-femoris">
-        <M g={BM.bf} />
+        <M g={BM().bf} />
       </Part>
       <Part k={k} id="semitendinosus">
-        <M g={BM.st} />
+        <M g={BM().st} />
       </Part>
       <Part k={k} id="gluteus-medius">
-        <M g={BM.gmed} />
+        <M g={BM().gmed} />
       </Part>
       <Part k={k} id="gluteus-maximus">
-        <M g={BM.gmax} />
+        <M g={BM().gmax} />
       </Part>
     </Frame>
   );
 }
 
-const DM = {
+const DM = once(() => ({
   gmin: muscle({
     r: [
       [[148, 118], [166, 102], [190, 92], [214, 92], [232, 104]],
@@ -1515,27 +1569,30 @@ const DM = {
     ],
     n: 7,
   }),
-};
-const GMED_HOLE = ell(192, 133, 31, 17, -12);
+}));
+const GMED_HOLE = once(() => ell(192, 133, 31, 17, -12));
 const SACROTUB: P[] = [[103, 150], [106, 176], [110, 204], [116, 232]];
 const SCIATIC: P[] = [[136, 150], [142, 172], [150, 196], [156, 222], [160, 252], [164, 292], [166, 340], [164, 400], [160, 490]];
 
 /** 起始 / 停止 markers (muscle page): the sheet ends inside the view; see oiFrom. */
-const OI_DEEP: OIMap = oiFrom(
-  {
-    'vastus-lateralis': BM.vl,
-    'adductor-magnus': [DM.amin, BM.amag],
-    gracilis: BM.grac,
-    semimembranosus: BM.sm,
-    'gluteus-minimus': DM.gmin,
-    'gluteus-medius': BM.gmed,
-    piriformis: DM.pir,
-    semitendinosus: DM.st,
-    'biceps-femoris': DM.bf,
-  },
-  BOX_HIP,
-);
-OI_DEEP['vastus-lateralis'] = { o: att(BM.vl, 'o', [0.04, 0.42]) };
+const OI_DEEP = once((): OIMap => {
+  const m = oiFrom(
+    {
+      'vastus-lateralis': BM().vl,
+      'adductor-magnus': [DM().amin, BM().amag],
+      gracilis: BM().grac,
+      semimembranosus: BM().sm,
+      'gluteus-minimus': DM().gmin,
+      'gluteus-medius': BM().gmed,
+      piriformis: DM().pir,
+      semitendinosus: DM().st,
+      'biceps-femoris': DM().bf,
+    },
+    BOX_HIP,
+  );
+  m['vastus-lateralis'] = { o: att(BM().vl, 'o', [0.04, 0.42]) };
+  return m;
+});
 
 function HipDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const hole = `${k.uid}-gmh`;
@@ -1574,20 +1631,20 @@ function HipDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       labels={labels}
       spots={spots}
       fade={{ top: 20, bottom: 46 }}
-      oi={OI_DEEP}
-      defs={<HoleMask id={hole} d={GMED_HOLE} w={W} h={H} />}
+      oi={OI_DEEP()}
+      defs={<HoleMask id={hole} d={GMED_HOLE()} w={W} h={H} />}
     >
       <Ctxt k={k}>
-        <path className="body" d={BK.body} />
-        <path className="bone-g" d={BK.l5} />
+        <path className="body" d={BK().body} />
+        <path className="bone-g" d={BK().l5} />
         <path className="bone-g" d={sp(mirror(PELVIS_B, MXB))} />
-        <path className="bone" d={BK.sacrum} />
-        <path className="bone-ln" d={BK.sacrumLn} />
-        <path className="bone" d={BK.coccyx} />
-        <path className="bone" d={pelvisB} />
+        <path className="bone" d={BK().sacrum} />
+        <path className="bone-ln" d={BK().sacrumLn} />
+        <path className="bone" d={BK().coccyx} />
+        <path className="bone" d={pelvisB()} />
         <Ten c={RAMUS_B} w={12} cls="bone" lines={0} />
-        <path className="bone" d={FEMUR_B} />
-        <path className="bone" d={HEAD_B} />
+        <path className="bone" d={FEMUR_B()} />
+        <path className="bone" d={HEAD_B()} />
         <path className="bone-ln" d={line([[226, 170], [214, 190], [200, 214], [186, 236]])} />
         <Ten c={SACROTUB} w={[18, 15, 12, 10]} cls="lig" lines={3} />
       </Ctxt>
@@ -1596,25 +1653,25 @@ function HipDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <path className="bone-ln" d={line([[222, 166], [230, 184], [232, 206]])} />
       </Part>
       <Part k={k} id="vastus-lateralis">
-        <M g={BM.vl} />
+        <M g={BM().vl} />
       </Part>
       <Part k={k} id="adductor-magnus">
-        <M g={DM.amin} />
-        <M g={BM.amag} />
+        <M g={DM().amin} />
+        <M g={BM().amag} />
       </Part>
       <Part k={k} id="gracilis">
-        <M g={BM.grac} />
+        <M g={BM().grac} />
       </Part>
       <Part k={k} id="semimembranosus">
-        <M g={BM.sm} />
+        <M g={BM().sm} />
       </Part>
       <Part k={k} id="iliotibial-band">
         <Ten c={ITB_B.slice(1)} w={ITB_BW.slice(1)} cls="fascia" lines={3} />
       </Part>
       <Ctxt k={k}>
-        <M g={DM.qf} ctx />
-        <M g={DM.gemS} ctx />
-        <M g={DM.gemI} ctx />
+        <M g={DM().qf} ctx />
+        <M g={DM().gemS} ctx />
+        <M g={DM().gemI} ctx />
         <Ten c={[[118, 199], [166, 189], [214, 178]]} w={[7, 6, 5]} cls="ten" lines={1} />
       </Ctxt>
       <Part k={k} id="trochanteric-bursa">
@@ -1624,31 +1681,31 @@ function HipDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <Nerve c={SCIATIC} w={[15, 16, 16, 15, 15, 14, 14, 13, 13]} />
       </Part>
       <Part k={k} id="gluteus-minimus">
-        <M g={DM.gmin} />
+        <M g={DM().gmin} />
       </Part>
       <Part k={k} id="gluteus-medius">
         <g mask={`url(#${hole})`}>
-          <M g={BM.gmed} />
+          <M g={BM().gmed} />
         </g>
-        <path className="rimc" d={GMED_HOLE} />
-        <path className="rim" d={GMED_HOLE} />
+        <path className="rimc" d={GMED_HOLE()} />
+        <path className="rim" d={GMED_HOLE()} />
       </Part>
       <Part k={k} id="gluteal-tendons">
         <path className="ten" d={sp([[211, 163], [222, 160], [234, 160], [246, 164], [251, 176], [246, 182], [236, 176], [224, 172], [214, 172]])} />
         <path className="ten-fib" d={line([[216, 166], [234, 165], [247, 172]]) + line([[218, 170], [236, 170], [246, 178]])} />
       </Part>
       <Part k={k} id="piriformis">
-        <M g={DM.pir} />
+        <M g={DM().pir} />
       </Part>
       <Part k={k} id="ischial-tuberosity">
         <path className="bone" d={sp([[110, 222], [120, 210], [136, 212], [146, 230], [145, 252], [136, 266], [121, 264], [111, 250]])} />
         <path className="bone-ln" d={line([[122, 216], [130, 236], [138, 258]])} />
       </Part>
       <Part k={k} id="semitendinosus">
-        <M g={DM.st} />
+        <M g={DM().st} />
       </Part>
       <Part k={k} id="biceps-femoris">
-        <M g={DM.bf} />
+        <M g={DM().bf} />
       </Part>
       <Part k={k} id="proximal-hamstring-tendon">
         <path className="ten" d={sp([[117, 244], [124, 236], [132, 240], [136, 256], [134, 272], [128, 284], [119, 281], [116, 264]])} />
@@ -1656,7 +1713,7 @@ function HipDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <path className="ten-fib" d={line([[122, 244], [124, 262], [123, 278]]) + line([[129, 244], [131, 262], [130, 278]])} />
       </Part>
       <Ctxt k={k}>
-        <path className="ghost" d={BM.gmax.body} />
+        <path className="ghost" d={BM().gmax.body} />
       </Ctxt>
     </Frame>
   );
@@ -1664,7 +1721,7 @@ function HipDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
 
 /* ───────────── side view: right hip from the outside (front of the body at the viewer's right) ───────────── */
 const HCS: XY = [178, 196];
-const SD = {
+const SD = once(() => ({
   body: sp([[112, -10], [104, 60], [90, 130], [80, 190], [86, 250], [108, 292], [118, 380], [124, 480], [262, 480], [264, 400], [262, 320], [254, 240], [248, 180], [246, 128], [252, 60], [258, -10]]),
   pelvis: sp([
     [231, 127, 1], [224, 108], [212, 90], [196, 80], [172, 72], [144, 76], [118, 88], [106, 104], [100, 124], [98, 146], [104, 162], [114, 180],
@@ -1676,8 +1733,8 @@ const SD = {
     [148, 200], [158, 189], [176, 185], [192, 189], [202, 199], [204, 216], [198, 236], [192, 250], [190, 300], [194, 380], [200, 480], [166, 480],
     [160, 380], [158, 300], [156, 252], [150, 238], [146, 220],
   ]),
-};
-const SM2 = {
+}));
+const SM2 = once(() => ({
   gmed: muscle({
     r: [
       [[124, 90], [146, 78], [170, 74], [196, 80], [214, 94], [224, 112]],
@@ -1741,25 +1798,28 @@ const SM2 = {
     ],
     n: 6,
   }),
-};
+}));
 const ITB_S: P[] = [[183, 194], [184, 260], [185, 330], [185, 400], [186, 480]];
-const WIN_S = ell(172, 222, 26, 37, -4);
+const WIN_S = once(() => ell(172, 222, 26, 37, -4));
 
 /** 起始 / 停止 markers (muscle page): the sheet ends inside the view; see oiFrom. */
-const OI_SIDE: OIMap = oiFrom(
-  {
-    'vastus-lateralis': SM2.vl,
-    'rectus-femoris': SM2.rf,
-    'biceps-femoris': SM2.bf,
-    'gluteus-medius': SM2.gmed,
-    'gluteus-maximus': SM2.gmax,
-    'tensor-fasciae-latae': SM2.tfl,
-  },
-  BOX_HIP,
-);
-OI_SIDE['vastus-lateralis'] = { o: att(SM2.vl, 'o', [0.04, 0.42]) };
-// the long head of biceps femoris comes out from under gluteus maximus here: its origin (ischial tuberosity) is hidden
-delete OI_SIDE['biceps-femoris'];
+const OI_SIDE = once((): OIMap => {
+  const m = oiFrom(
+    {
+      'vastus-lateralis': SM2().vl,
+      'rectus-femoris': SM2().rf,
+      'biceps-femoris': SM2().bf,
+      'gluteus-medius': SM2().gmed,
+      'gluteus-maximus': SM2().gmax,
+      'tensor-fasciae-latae': SM2().tfl,
+    },
+    BOX_HIP,
+  );
+  m['vastus-lateralis'] = { o: att(SM2().vl, 'o', [0.04, 0.42]) };
+  // the long head of biceps femoris comes out from under gluteus maximus here: its origin (ischial tuberosity) is hidden
+  delete m['biceps-femoris'];
+  return m;
+});
 
 function HipSide({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const win = `${k.uid}-sw`;
@@ -1788,50 +1848,50 @@ function HipSide({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       labels={labels}
       spots={spots}
       fade={{ top: 20, bottom: 46 }}
-      oi={OI_SIDE}
+      oi={OI_SIDE()}
       defs={
         <clipPath id={win}>
-          <path d={WIN_S} />
+          <path d={WIN_S()} />
         </clipPath>
       }
     >
       <Ctxt k={k}>
-        <path className="body" d={SD.body} />
-        <path className="bone" d={SD.pelvis} fillRule="evenodd" />
-        <path className="bone-ln" d={SD.lines} />
-        <path className="bone" d={SD.femur} />
+        <path className="body" d={SD().body} />
+        <path className="bone" d={SD().pelvis} fillRule="evenodd" />
+        <path className="bone-ln" d={SD().lines} />
+        <path className="bone" d={SD().femur} />
       </Ctxt>
       <Part k={k} id="asis">
         <path className="bone" d={ell(231, 127, 4.4, 3.6, 30)} />
       </Part>
       <Part k={k} id="vastus-lateralis">
-        <M g={SM2.vl} />
+        <M g={SM2().vl} />
       </Part>
       <Part k={k} id="rectus-femoris">
-        <M g={SM2.rf} />
+        <M g={SM2().rf} />
       </Part>
       <Part k={k} id="biceps-femoris">
-        <M g={SM2.bf} />
+        <M g={SM2().bf} />
       </Part>
       <Part k={k} id="gluteus-medius">
-        <M g={SM2.gmed} />
+        <M g={SM2().gmed} />
       </Part>
       <Part k={k} id="iliotibial-band">
         <Ten c={ITB_S} w={[46, 44, 38, 32, 28]} cls="fascia" lines={5} />
       </Part>
       <Part k={k} id="gluteus-maximus">
-        <M g={SM2.gmax} />
+        <M g={SM2().gmax} />
       </Part>
       <Part k={k} id="tensor-fasciae-latae">
-        <M g={SM2.tfl} />
+        <M g={SM2().tfl} />
       </Part>
       {/* cut-away window over the greater trochanter */}
       <g clipPath={`url(#${win})`}>
         <Ctxt k={k}>
-          <path className="body" d={WIN_S} />
+          <path className="body" d={WIN_S()} />
         </Ctxt>
         <Part k={k} id="vastus-lateralis">
-          <M g={SM2.vl} />
+          <M g={SM2().vl} />
         </Part>
         <Part k={k} id="greater-trochanter">
           <path className="bone" d={sp([[146, 206], [156, 193], [175, 189], [193, 193], [203, 204], [206, 222], [201, 242], [188, 252], [166, 252], [151, 242], [145, 224]])} />
@@ -1839,7 +1899,7 @@ function HipSide({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
           <path className="bone-ln" d={line([[156, 244], [176, 249], [196, 242]])} />
         </Part>
         <Part k={k} id="gluteus-medius">
-          <M g={SM2.gmed} />
+          <M g={SM2().gmed} />
         </Part>
         <Part k={k} id="gluteal-tendons">
           <path className="ten" d={sp([[154, 188, 1], [192, 188, 1], [190, 200], [186, 214], [180, 224], [170, 226], [163, 216], [157, 202]])} />
@@ -1851,8 +1911,8 @@ function HipSide({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         </Part>
       </g>
       <Part k={k} id="iliotibial-band">
-        <path className="rimc" d={WIN_S} style={{ stroke: 'var(--tendon)' }} />
-        <path className="rim-t" d={WIN_S} />
+        <path className="rimc" d={WIN_S()} style={{ stroke: 'var(--tendon)' }} />
+        <path className="rim-t" d={WIN_S()} />
       </Part>
     </Frame>
   );

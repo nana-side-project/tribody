@@ -4,7 +4,7 @@
 // Used when `<AnatomyViewer highlights condition=…>` (condition page) or `highlights` + `focus` without a condition
 // (region page). Exercise and muscle pages never use them. Values were tried in the harness: see docs/ENGINE.md
 // § Condition & region scenes.
-import type { ConditionId, RegionId, StructureId } from '../data/registry';
+import type { ConditionId, PainSpotId, RegionId, StructureId } from '../data/registry';
 import type { Highlight3DRole } from './contract';
 import type { PartId, StructureOverride, ZoneSpec } from './anatomy';
 import type { AttachRef } from './landmarks';
@@ -55,6 +55,23 @@ export interface Scene3D {
    *  injured red over that stretch, carries the part's label (`label`) and the pulse; the rest of the part takes
    *  `partRole` ('plain' = its own colour, default). */
   zones?: SceneZone[];
+  /** central / bilateral problem drawn on both sides (low back, the neck on the bike): the page's `side` does not
+   *  change the view. Every other scene is mirrored for `side: 'left'` (posture, crop, camera, props, parts on the left) */
+  bilateral?: boolean;
+  /** per pain-spot variants: when the user tapped this spot on the body map (`AnatomyViewerProps.spot`), these fields
+   *  replace the scene's own (a camera / crop that shows that part of the problem: 水泳肩 from 肩の後ろ → the back of the
+   *  shoulder). Spots that the default camera already shows have no entry. */
+  spots?: Partial<Record<PainSpotId, SceneVariant>>;
+}
+
+/** A per-spot variant of a scene: any scene field (they replace the scene's, shallowly). */
+export type SceneVariant = Omit<Scene3D, 'spots' | 'bilateral'>;
+
+/** The scene for a view: the scene itself, or with the tapped spot's variant merged in. */
+export function sceneFor(scene: Scene3D | undefined, spot?: PainSpotId): Scene3D | null {
+  if (!scene) return null;
+  const v = spot ? scene.spots?.[spot] : undefined;
+  return v ? { ...scene, ...v } : scene;
 }
 
 export interface SceneZone extends Omit<ZoneSpec, 'key'> {
@@ -82,6 +99,15 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     minSize: 0.17,
     fade: { trapezius: 0.2, 'latissimus-dorsi': 0.2, 'serratus-anterior': 0.2 },
     minor: ['latissimus-dorsi', 'thoracic-spine', 'serratus-anterior'],
+    spots: {
+      // 肩の後ろ: the same posture from behind-lateral, a little above: the infraspinatus (amber) over the back of the
+      // blade, the posterior capsule at the back of the humeral head, the red supraspinatus / bursa above them
+      'shoulder-back': {
+        camera: { dir: [-0.75, 0.2, -0.9] },
+        frame: ['scapula:acromion', 'humerus:head', 'humerus:greater_tubercle_inf', 'scapula:infraspinous_fossa', 'scapula:lateral_border', 'scapula:infraglenoid_tubercle', 'scapula:spine_lateral'],
+        minSize: 0.16,
+      },
+    },
   },
   'biceps-tendinopathy': {
     camera: 'rig',
@@ -116,6 +142,16 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     minor: ['pectoralis-minor', 'thoracic-spine'],
     // fatigue / stiffness, nothing damaged (content's anatomyNote): steady red where it hurts, no pulse
     sensitive: true,
+    // both sides of the neck are drawn (and the bike's drive side faces the camera): the same view for either side
+    bilateral: true,
+    spots: {
+      // 肩甲骨の内側: the upper back from behind and above (the rider leans forward): the rhomboids between the blades
+      // under the two red trapezii (the side view hides them behind the shoulder)
+      'scapula-medial': {
+        camera: { dir: [-0.4, 0.8, -0.6] },
+        frame: ['neck:spinous_C5', 'thorax:spinous_T8', 'scapula:superior_angle', 'scapula:medial_border_mid', 'scapula:inferior_angle', 'scapula:acromion', 'scapula_L:medial_border_mid', 'scapula_L:superior_angle'],
+      },
+    },
   },
 
   // ── hip
@@ -264,6 +300,14 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     // the problem sits 2–6 cm above the insertion (the insertion footprint ends at rest y 0.045; arc 0.655–0.845 of the
     // tendon's main cord = rest y 0.105–0.065): that stretch is the red zone, the rest of the tendon its own cream
     zones: [{ on: 'achilles-tendon', range: [0.655, 0.845], label: 'アキレス腱の中央部' }],
+    spots: {
+      // ふくらはぎの下のほう: the crop reaches up to the middle of the shin, so the lower calf muscles above the tendon
+      // are in view (their labels on the bellies, not on the card's top edge)
+      'calf-lower': {
+        frame: ['foot:calcaneus_post', 'foot:calcaneus_plantar', 'tibia:medial_malleolus', 'tibia:lateral_malleolus', 'tibia:medial_border_mid', 'tibia:distal_post', 'tibia:fibula_post_mid', 'tibia:interosseous_mid'],
+        minSize: 0.26,
+      },
+    },
   },
   'achilles-insertional': {
     // dorsiflexion presses the tendon onto the bursa and the heel bone (lateral view; the bursa shows through)
@@ -313,6 +357,17 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     minSize: 0.2,
     // the metatarsals rig's spot (2nd / 3rd shaft–neck, the classic runner's site) is the pulsing lesion with the label
     zones: [{ on: 'metatarsals', label: '中足骨のひび', partRole: 'injured' }],
+    spots: {
+      // 足指の付け根: the sole of the forefoot (seated, legs out, toes a little up, like Morton's neuroma): the fracture
+      // spot at the 2nd metatarsal neck shows through the ball of the foot
+      'forefoot-ball': {
+        base: 'LONG_SIT',
+        joints: { toes_R: { ext: 20 } },
+        camera: { dir: [-0.15, 0.1, 1] },
+        frame: ['foot:met_head_1', 'foot:met_head_5', 'toes:toe_tips', 'foot:met_2_3_shaft', 'foot:arch_mid'],
+        minSize: 0.15,
+      },
+    },
   },
   'mortons-neuroma': {
     // toe extension squeezes the nerve between the metatarsal heads
@@ -349,6 +404,17 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     minor: ['iliopsoas', 'gluteus-maximus'],
     // non-specific low back pain: sensitised, not damaged (content's anatomyNote): steady red, no pulse
     sensitive: true,
+    // a central problem drawn on both sides of the spine: the same view for either side
+    bilateral: true,
+    spots: {
+      // お尻の奥 (pain referred into the buttock): the crop from T12 down to the sit bone, a little more from the side, so
+      // the gluteus maximus is in view and labelled (not in 「+N」)
+      'buttock-deep': {
+        camera: { dir: [-0.8, 0.2, -1] },
+        frame: ['thorax:spinous_T12', 'lumbar:spinous_L5', 'pelvis:iliac_crest_mid', 'pelvis:iliac_crest_mid_L', 'pelvis:sacrum_post', 'pelvis:ischial_tuberosity', 'femur:greater_trochanter'],
+        minor: ['iliopsoas'],
+      },
+    },
   },
 };
 

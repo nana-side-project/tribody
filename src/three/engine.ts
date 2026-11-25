@@ -18,11 +18,11 @@ import {
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { dataReady, getConditionSafe, getExerciseSafe as getExercise, getMuscleSafe as getMuscle, loadData } from './data-access';
-import type { ConditionId, ExerciseId, MuscleId, RegionId, StructureId } from '../data/registry';
+import type { ConditionId, ExerciseId, MuscleId, PainSpotId, RegionId, StructureId } from '../data/registry';
 import { STRUCTURES } from '../data/registry';
 import { AnatomyLayer, isMuscleId, labelName, type PartId, type ZoneSpec } from './anatomy';
 import { CAMERA_PRESETS, framePoints, PRESET_DIRS, REGION_CAMERA, regionMinSize, regionPoints } from './camera';
-import { CONDITION_SCENES, REGION_SCENES, type Scene3D } from './scenes';
+import { CONDITION_SCENES, REGION_SCENES, type Scene3D, sceneFor } from './scenes';
 import {
   clipPhase,
   compileClip,
@@ -66,6 +66,11 @@ export interface ViewSpec {
   /** highlights mode: the condition they belong to (picks its teaching scene, see scenes.ts) */
   condition?: ConditionId;
   focus?: RegionId;
+  /** highlights mode: the side the user is concerned with — 'left' mirrors the view (highlights, crop, camera, props
+   *  and the scene's posture on the left limb), unless the scene is `bilateral`. Default: the scene's own side (right) */
+  side?: 'left' | 'right';
+  /** highlights mode: the pain spot the user tapped — picks the scene's camera variant for it (`Scene3D.spots`) */
+  spot?: PainSpotId;
   labels: boolean;
   autoPlay: boolean;
   // ── dev / harness options
@@ -514,8 +519,9 @@ export class Engine {
     } else if (spec.highlights && Object.keys(spec.highlights).length) {
       this.mode = 'highlights';
       scope = { ...spec.highlights };
-      // teaching scene: the condition's own; on a region page (highlights + focus, no condition) the region's
-      scene = (spec.condition ? CONDITION_SCENES[spec.condition] : spec.focus ? REGION_SCENES[spec.focus] : undefined) ?? null;
+      // teaching scene: the condition's own; on a region page (highlights + focus, no condition) the region's — with
+      // the variant for the pain spot the user tapped (its camera / crop shows that part of the problem)
+      scene = sceneFor(spec.condition ? CONDITION_SCENES[spec.condition] : spec.focus ? REGION_SCENES[spec.focus] : undefined, spec.spot);
       for (const [id, r] of Object.entries(scene?.roles ?? {}) as [PartId, Highlight3DRole][]) if (scope[id]) scope[id] = r;
       const ids = Object.keys(scope) as PartId[];
       const injured = ids.filter((id) => scope[id] === 'injured');
@@ -526,6 +532,9 @@ export class Engine {
       clipSrc = staticClip(spec.pose ?? scene?.base ?? structBase ?? 'STAND');
       if (scene?.joints) clipSrc = { ...clipSrc, pose: { joints: scene.joints } };
       if (scene?.frame?.length) clipSrc = { ...clipSrc, frame: scene.frame };
+      // the user's LEFT side: the whole view mirrored like a clip's `mirror` (posture, crop, camera, props; every part,
+      // zone, ghost and label on the left limb, cc.side 'L'). A bilateral scene (low back, neck) is the same either way
+      if (spec.side === 'left' && !scene?.bilateral) clipSrc = { ...clipSrc, mirror: true };
       // camera: the scene's; else (or 'rig') the injured tissue's rig camera. A muscle rig's exact camera belongs to
       // its demo (it frames that muscle's movement), so here it only lends its direction and the view is fitted.
       const camId = order.find((id) => rigOf(id));
@@ -543,7 +552,9 @@ export class Engine {
       // lesion zones (where in the part the problem sits): the zone is the injured red, the rest of the part takes
       // the zone's partRole (its own colour by default); framing treats the part as injured
       for (const [i, z] of (scene?.zones ?? []).entries()) {
-        if (!scope[z.on]) continue;
+        // only on a part the page marks injured: the content decides the role (a part that is only context there — e.g.
+        // 'nearby', amber — never turns into a red lesion through the scene)
+        if (scope[z.on] !== 'injured') continue;
         const key = z.key ?? `zone${i}:${z.on}`;
         zones.push({ ...z, key });
         zoneLabels.set(z.on, z.label);

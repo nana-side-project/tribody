@@ -35,7 +35,7 @@ import { isFramed } from '../lib/framed';
 import { BottomSheet } from '../components/BottomSheet';
 import { isPersistent } from '../lib/storage';
 import { toast, toastSaved } from '../lib/toast';
-import { frequencyOf, useMenu, type MenuItem } from '../lib/useMenu';
+import { useMenu, type MenuItem } from '../lib/useMenu';
 import { scoreColorVar, scoreLabel, usePainLog, type PainContext, type PainEntry, type PainSide } from '../lib/usePainLog';
 
 type Tab = 'menu' | 'log';
@@ -322,7 +322,9 @@ function MenuTab() {
               const next = g.rows[k + 1]?.it.id;
               const ex = getExercise(it.id);
               const isDone = menu.isDone(it.id);
-              const freq = frequencyOf(it.id);
+              // added from a plan step: that step's dose (and frequency), from the current content
+              const dose = menu.dose(it.id);
+              const freq = menu.frequency(it.id);
               // the plan step is the group header; say so only when the plan no longer has this exercise
               const src = inPlan(it) ? '' : sourceLabel(it, true);
               return (
@@ -343,7 +345,7 @@ function MenuTab() {
                   )}
                   <Link to={exerciseLink(it)} className="menu-item__main" style={edit ? { paddingLeft: 10 } : undefined}>
                     <p className="row__title">{exerciseName(it.id)}</p>
-                    <p className="row__sub">{ex ? doseShort(ex.dose) : '準備中'}</p>
+                    <p className="row__sub">{ex ? doseShort(dose ?? ex.dose) : '準備中'}</p>
                     {freq.kind === 'weekly' && !edit && <WeeklyStatus id={it.id} min={freq.min} max={freq.max} />}
                     {src && <p className="menu-item__src">{src}</p>}
                   </Link>
@@ -483,6 +485,8 @@ function PainLogTab({ initialSpot, initialSide }: { initialSpot: string | null; 
   const [side, setSide] = useState<PainSide>(initialSide === 'left' || initialSide === 'right' ? initialSide : 'both');
   const intensity = useMemo(() => log.recentIntensity(14), [log]);
   const bySide = useMemo(() => log.recentBySide(14), [log]);
+  // the map tints the side that was logged ('both' tints both); intensity / activeSpots stay as the fallback
+  const sides = useMemo(() => log.recentSides(14), [log]);
   const activeSpots = (Object.keys(intensity) as PainSpotId[]).filter((k) => (intensity[k] ?? 0) > 0);
   // how many logged spots (with pain > 0) each view shows
   const viewCounts = useMemo(() => {
@@ -548,6 +552,8 @@ function PainLogTab({ initialSpot, initialSide }: { initialSpot: string | null; 
               view={mapView}
               intensity={intensity}
               activeSpots={activeSpots}
+              intensitySides={sides.intensitySides}
+              activeSides={sides.activeSides}
               selectedSpot={spot || null}
               onSelect={(id, s) => {
                 setSpot(id);
@@ -559,7 +565,7 @@ function PainLogTab({ initialSpot, initialSide }: { initialSpot: string | null; 
           {bySide.length > 0 && (
             <>
               <p className="tiny" style={{ marginTop: 8 }}>
-                図は場所ごとに色をつけています（左右の区別は下の一覧で）。
+                図は記録した側に色をつけています（「両側」の記録は左右とも）。
               </p>
               <ul className="side-list" aria-label="最近14日に記録した場所と左右（最大値）">
                 {bySide.map((x) => (

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { conditionsUsingExercise, getCondition, getExercise, getMuscle, type Condition, type Exercise } from '../data';
 import { LevelBadge, TypeBadge } from '../components/badges';
@@ -6,7 +7,8 @@ import { DISCIPLINE_ICON, IconAlert, IconCheck, IconChevron, IconPlus, IconTarge
 import { Page } from '../components/Layout';
 import { Bullets, EmptyState, NameText, PainRuleCallout, Section } from '../components/ui';
 import { SafeViewer } from '../components/Viewer3D';
-import { DISCIPLINE_JA, DISCIPLINE_ORDER, PHASE_JA, doseParts, exerciseName, isKnownExercise, muscleName, regionName } from '../lib/labels';
+import { DISCIPLINE_JA, DISCIPLINE_ORDER, PHASE_JA, doseParts, doseShort, exerciseName, isKnownExercise, muscleName, regionName } from '../lib/labels';
+import { stepDose, stepOverride } from '../lib/dose';
 import { toast, toastSaved } from '../lib/toast';
 import { useMenu } from '../lib/useMenu';
 import NotFoundPage from './NotFoundPage';
@@ -112,9 +114,11 @@ function targetDesc(type: Exercise['type']): string {
 }
 
 function ExerciseView({ e }: { e: Exercise }) {
-  const dose = doseParts(e.dose);
   const usedIn = conditionsUsingExercise(e.id);
   const plan = usePlanContext(e);
+  // opened from a recovery-plan step: that step's dose (RehabPhase.doses), the same the plan card and My Menu show
+  const stepped = plan ? stepOverride(e.id, plan.phase) : undefined;
+  const dose = doseParts(plan ? stepDose(e, plan.phase) : e.dose);
   return (
     <Page title={e.nameJa} back="/exercises">
       <div className="viewer-hero">
@@ -140,7 +144,19 @@ function ExerciseView({ e }: { e: Exercise }) {
 
       {plan && <PlanBanner e={e} ctx={plan} />}
 
-      {dose.length > 0 && <DoseBox parts={dose} />}
+      {dose.length > 0 && (
+        <DoseBox
+          parts={dose}
+          note={
+            plan && stepped ? (
+              <>
+                「{PHASE_JA[plan.phase.id]}」のステップでの量です
+                <span className="dose__default">（ふだんの目安：{doseShort({ ...e.dose, reps: e.dose.reps?.replace(/[（(][^）)]*[）)]/g, '') })}）</span>
+              </>
+            ) : undefined
+          }
+        />
+      )}
 
       {e.caution && (
         <div className="callout callout--note" style={{ marginTop: 12 }}>
@@ -311,7 +327,7 @@ function DoseValue({ v }: { v: string }) {
   );
 }
 
-function DoseBox({ parts }: { parts: { k: string; v: string }[] }) {
+function DoseBox({ parts, note }: { parts: { k: string; v: string }[]; /** e.g. the plan step this dose is for */ note?: ReactNode }) {
   const isWide = (d: { k: string; v: string }) => WIDE_KEYS.includes(d.k) || d.v.length > 9;
   const cells = parts.filter((d) => !isWide(d));
   const wide = parts.filter(isWide);
@@ -335,6 +351,7 @@ function DoseBox({ parts }: { parts: { k: string; v: string }[] }) {
           <span className="dose__wv">{d.v}</span>
         </div>
       ))}
+      {note && <p className="dose__note">{note}</p>}
     </div>
   );
 }

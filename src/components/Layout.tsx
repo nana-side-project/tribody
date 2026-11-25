@@ -2,9 +2,10 @@
 import { Suspense, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ReactNode, type SVGProps } from 'react';
 import { Link, Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import { dismissToast, useToast } from '../lib/toast';
+import { applyUpdate, dismissUpdate, useUpdateAvailable } from '../lib/swUpdate';
 import { ErrorBoundary } from './ErrorBoundary';
 import { AppMark } from './Logo';
-import { IconBack, IconBody, IconBook, IconCheck, IconChecklist, IconDumbbell, IconInfo, IconMuscle } from './icons';
+import { IconBack, IconBody, IconBook, IconCheck, IconChecklist, IconClose, IconDownload, IconDumbbell, IconInfo, IconMuscle } from './icons';
 
 /** `short`: shown on very narrow screens (< 340 px), where 「エクササイズ」「マイメニュー」 would run together. */
 const TABS: { to: string; label: string; short?: string; Icon: ComponentType<SVGProps<SVGSVGElement>>; match: string[] }[] = [
@@ -134,6 +135,7 @@ function Toaster() {
   }, [loc.pathname]);
   return (
     <div className="toast-region" aria-live="polite" role="status">
+      <UpdateNotice />
       {t && (
         <div className={`toast${t.action ? ' toast--action' : ''}`} key={t.id}>
           <IconCheck />
@@ -152,6 +154,28 @@ function Toaster() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * A new version of the app (service worker) is installed and waiting: 「新しいバージョンがあります」 [更新] [×]. It stays
+ * across pages until the user updates or closes it (src/lib/swUpdate.ts; never on the first install or in the
+ * single-file build).
+ */
+function UpdateNotice() {
+  const available = useUpdateAvailable();
+  if (!available) return null;
+  return (
+    <div className="toast toast--action toast--update">
+      <IconDownload />
+      <span className="grow">新しいバージョンがあります</span>
+      <button type="button" className="toast__action" onClick={applyUpdate}>
+        更新
+      </button>
+      <button type="button" className="toast__close" aria-label="閉じる" onClick={dismissUpdate}>
+        <IconClose />
+      </button>
     </div>
   );
 }

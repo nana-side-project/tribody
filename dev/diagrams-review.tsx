@@ -5,13 +5,17 @@
 //   ?r=knee&m=spots | nolabels                       every view with hotspots / without labels
 //   ?r=knee&v=front[&m=..][&c=<conditionId>][&part=<id>][&zoom=x,y,w,h]   one view
 //   ?c=<conditionId>                                 one condition (best view, injured/involved highlights, dimOthers)
-//   ?bm=front|back|sole[&labels=1]                   body map
+//   ?bm=front|back|sole[&labels=1][&heat=1][&sides=1] body map (pain-log tint / active spots; &sides=1 per-side entries)
+//   &side=left                                       draw the left side (mirrored); with ?check=1 only that side is checked
 //   ?check=1                                         automated contract checks (results in console + on page): parts, spots, taps,
 //                                                    label & caption size (≥ 11 px on a 360 px phone), clipping, text boxes closer
 //                                                    than 2 px (&gap=<px> to change), leader lines that cross / touch each other or
 //                                                    run through another label or caption — rendered at the real figure widths of
 //                                                    360 / 390 / 430 px phones (302 / 332 / 372 px), in the plain state and in every
-//                                                    muscle-page (part selected) and condition-page state (bold labels are wider)
+//                                                    muscle-page (part selected) and condition-page state (bold labels are wider);
+//                                                    every view also for side=left: the same checks, plus the left drawing must be
+//                                                    the mirror image of the right one (parts, hotspots, label boxes), no text drawn
+//                                                    mirrored, and every 右 turned into 左 (and back)
 //   &theme=dark|light                                force theme
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -19,9 +23,9 @@ import { flushSync } from 'react-dom';
 import '../src/styles/tokens.css';
 import '../src/styles/base.css';
 import '../src/styles/components.css';
-import { MUSCLES, PAIN_SPOTS, STRUCTURES, type MuscleId, type PainSpotId, type RegionId, type StructureId } from '../src/data/registry';
+import { MUSCLES, PAIN_SPOTS, STRUCTURES, type ConditionId, type MuscleId, type PainSpotId, type RegionId, type StructureId } from '../src/data/registry';
 import { conditions, muscles, structures } from '../src/data';
-import type { Highlights, RegionDiagram } from '../src/svg/types';
+import type { BodyMapProps, Highlights, RegionDiagram } from '../src/svg/types';
 import { getRegionDiagram } from '../src/svg/regions';
 import { bestView, findDiagramFor } from '../src/components/RegionFigure';
 import BodyMapView from '../src/svg/bodymap/BodyMapView';
@@ -52,7 +56,10 @@ const css = `
 .rv .bm { max-width: 390px; margin: 0 auto; }
 `;
 
-function View({ d, view, hl, dim, mode, zoom, onPick }: { d: RegionDiagram; view: string; hl?: Highlights; dim?: boolean; mode: string; zoom?: string; onPick?: (s: string) => void }) {
+/** &side=left: draw the left side (mirrored) in every gallery / single view */
+const SIDE = q.get('side') === 'left' ? 'left' : undefined;
+
+function View({ d, view, hl, dim, mode, zoom, onPick, condition }: { d: RegionDiagram; view: string; hl?: Highlights; dim?: boolean; mode: string; zoom?: string; onPick?: (s: string) => void; condition?: string }) {
   const C = d.Component;
   const [sel, setSel] = useState<PainSpotId | null>(null);
   const [picked, setPicked] = useState<MuscleId | StructureId | null>((q.get('part') as MuscleId | null) ?? null);
@@ -66,6 +73,8 @@ function View({ d, view, hl, dim, mode, zoom, onPick }: { d: RegionDiagram; view
   return (
     <C
       view={view}
+      side={SIDE}
+      condition={condition as ConditionId | undefined}
       highlights={h}
       dimOthers={dim ?? !!picked}
       showLabels={mode !== 'nolabels'}
@@ -93,7 +102,7 @@ function RegionGallery({ r }: { r: RegionId }) {
     const ch = cid ? conditionHighlights(cid) : null;
     return (
       <div className="cardx">
-        <View d={d} view={q.get('v')!} hl={ch?.hl} dim={ch ? true : undefined} mode={mode} zoom={q.get('zoom') ?? undefined} onPick={setMsg} />
+        <View d={d} view={q.get('v')!} hl={ch?.hl} dim={ch ? true : undefined} mode={mode} zoom={q.get('zoom') ?? undefined} onPick={setMsg} condition={cid ?? undefined} />
         <p className="meta">{msg}</p>
       </div>
     );
@@ -114,7 +123,7 @@ function RegionGallery({ r }: { r: RegionId }) {
                   {c.id} → {v}
                 </h2>
                 <div className="cardx">
-                  <View d={d} view={v} hl={ch.hl} dim mode="plain" />
+                  <View d={d} view={v} hl={ch.hl} dim mode="plain" condition={c.id} />
                   <p className="meta">
                     not in view:{' '}
                     {missing.map((i) => (
@@ -157,7 +166,7 @@ function ConditionOne({ cid }: { cid: string }) {
         {cid} → {ch.region}:{v}
       </h2>
       <div className="cardx">
-        <View d={d} view={v} hl={ch.hl} dim mode="plain" zoom={q.get('zoom') ?? undefined} />
+        <View d={d} view={v} hl={ch.hl} dim mode="plain" zoom={q.get('zoom') ?? undefined} condition={cid} />
       </div>
     </>
   );
@@ -199,9 +208,26 @@ function MuscleGallery() {
   );
 }
 
+/**
+ * &heat=1: pain-log tint on both sides (`intensity`) + `activeSpots`; &sides=1 adds per-side entries
+ * (`intensitySides` / `activeSides`), which win over the both-sides ones for their spots.
+ */
+const BM_HEAT: Partial<Record<PainSpotId, number>> = { 'knee-outer': 9, 'achilles-mid': 7, 'heel-bottom': 8, 'shoulder-top': 5, 'calf-lower': 4 };
+const BM_ACTIVE: PainSpotId[] = ['knee-front', 'ankle-outer', 'sit-bone', 'forefoot-ball', 'shoulder-back'];
+const BM_HEAT_SIDES: BodyMapProps['intensitySides'] = {
+  'knee-outer': { left: 6 },
+  'achilles-mid': { right: 3, both: 1 },
+  'heel-bottom': { left: 9 },
+  'knee-front': { right: 2 },
+  'lowback-center': { both: 5 },
+};
+const BM_ACTIVE_SIDES: BodyMapProps['activeSides'] = { 'knee-front': ['left'], 'ankle-outer': ['right'], 'forefoot-ball': ['left', 'right'] };
+
 function BodyMapOne() {
   const view = (q.get('bm') ?? 'front') as 'front' | 'back' | 'sole';
   const [sel, setSel] = useState<{ id: PainSpotId; side: string } | null>(null);
+  const heat = q.get('heat') === '1';
+  const sides = q.get('sides') === '1';
   return (
     <div className="bm">
       <BodyMapView
@@ -210,6 +236,10 @@ function BodyMapOne() {
         selectedSpot={sel?.id ?? (q.get('sel') as PainSpotId | null)}
         onSelect={(id, side) => setSel({ id, side })}
         debugViewBox={q.get('zoom')?.replace(/,/g, ' ')}
+        intensity={heat ? BM_HEAT : undefined}
+        activeSpots={heat ? BM_ACTIVE : undefined}
+        intensitySides={sides ? BM_HEAT_SIDES : undefined}
+        activeSides={sides ? BM_ACTIVE_SIDES : undefined}
       />
       <p className="meta" id="bm-out">
         {sel ? `${sel.id} / ${sel.side}` : ''}
@@ -358,6 +388,82 @@ function layoutIssues(host: HTMLElement, tag: string, phone: number, sEls: SVGGE
   return out;
 }
 
+/** Sides every view is checked on (&side=right / &side=left: only that one). */
+const SIDES = (q.get('side') ? [q.get('side')] : ['right', 'left']) as ('right' | 'left')[];
+
+type Box = [number, number, number, number];
+interface Geom {
+  /** svg width (CSS px) */
+  w: number;
+  /** part id → union box of its drawing, relative to the svg's top-left */
+  parts: Map<string, Box>;
+  /** hotspot id → centre */
+  spots: Map<string, [number, number]>;
+  /** label texts and text boxes, in drawing order */
+  labels: { t: string; b: Box }[];
+  /** every text drawn (title, captions, labels, notes) */
+  text: string;
+  /** texts drawn mirrored (their screen transform flips x) */
+  flipped: string[];
+}
+
+/** Where the parts, hotspots and labels of the diagram in `host` are (for the left / right mirror comparison). */
+function mirrorGeom(host: HTMLElement): Geom {
+  const svg = host.querySelector('svg')!;
+  const R = svg.getBoundingClientRect();
+  const rel = (b: DOMRect): Box => [b.left - R.left, b.top - R.top, b.right - R.left, b.bottom - R.top];
+  const parts = new Map<string, Box>();
+  for (const el of svg.querySelectorAll<SVGGElement>('[data-part]')) {
+    if (el.closest('.thk-lesion')) continue; // lesion overlay layer: same id, drawn over other parts
+    const b = el.getBoundingClientRect();
+    if (!b.width && !b.height) continue;
+    const id = el.getAttribute('data-part')!;
+    const o = parts.get(id);
+    const n = rel(b);
+    parts.set(id, o ? [Math.min(o[0], n[0]), Math.min(o[1], n[1]), Math.max(o[2], n[2]), Math.max(o[3], n[3])] : n);
+  }
+  const spots = new Map<string, [number, number]>();
+  for (const el of svg.querySelectorAll<SVGGElement>('[data-spot]')) {
+    const b = rel(el.querySelector('.s-dot')!.getBoundingClientRect());
+    spots.set(el.getAttribute('data-spot')!, [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]);
+  }
+  const labels = [...svg.querySelectorAll<SVGTextElement>('[class*="-lab"] text')].map((t) => ({ t: t.textContent ?? '', b: rel(t.getBoundingClientRect()) }));
+  const texts = [...svg.querySelectorAll<SVGTextElement>('text')];
+  const flipped = texts.filter((t) => (t.getScreenCTM()?.a ?? 1) < 0).map((t) => `"${t.textContent}"`);
+  const text = [svg.getAttribute('aria-label') ?? '', svg.querySelector(':scope > title')?.textContent ?? '', ...texts.map((t) => t.textContent ?? '')].join('|');
+  return { w: R.width, parts, spots, labels, text, flipped };
+}
+
+const count = (s: string, c: string) => s.split(c).length - 1;
+/** The left-side drawing `L` against the right side's `R`: everything mirrored (x → w − x), texts say 左 for 右. */
+function mirrorIssues(tag: string, R: Geom, L: Geom): string[] {
+  const out: string[] = [];
+  const TOL = 1.5;
+  const mx = (b: Box): Box => [R.w - b[2], b[1], R.w - b[0], b[3]];
+  const off = (a: Box, b: Box) => Math.max(...a.map((v, i) => Math.abs(v - b[i])));
+  for (const [id, b] of R.parts) {
+    const l = L.parts.get(id);
+    if (!l) out.push(`${tag}: part ${id} missing on the left side`);
+    else if (off(mx(b), l) > TOL) out.push(`${tag}: part ${id} not mirrored (${off(mx(b), l).toFixed(1)} px off)`);
+  }
+  for (const [id, c] of R.spots) {
+    const l = L.spots.get(id);
+    if (!l || Math.hypot(R.w - c[0] - l[0], c[1] - l[1]) > TOL) out.push(`${tag}: hotspot ${id} not mirrored`);
+  }
+  if (R.labels.length !== L.labels.length) out.push(`${tag}: ${L.labels.length} labels on the left side, ${R.labels.length} on the right`);
+  R.labels.forEach((rl, i) => {
+    const ll = L.labels[i];
+    if (!ll) return;
+    // the text box itself sits at the mirrored place (± glyph overhang; names that reach the frame's edge are kept
+    // inside it by up to 3 units)
+    if (off(mx(rl.b), ll.b) > 3) out.push(`${tag}: label "${rl.t}" not at its mirrored place (${off(mx(rl.b), ll.b).toFixed(1)} px off)`);
+  });
+  // every text says 左 where the right side's says 右 (and the other way round)
+  if (count(L.text, '左') !== count(R.text, '右') || count(L.text, '右') !== count(R.text, '左'))
+    out.push(`${tag}: texts not flipped to the left side (右 ${count(R.text, '右')}→左 ${count(L.text, '左')}, 左 ${count(R.text, '左')}→右 ${count(L.text, '右')})`);
+  return out;
+}
+
 /** Texts and emphasis (bold labels are wider) of the labels and captions currently drawn. */
 const textKey = (host: HTMLElement) =>
   [...host.querySelectorAll('[class*="-lab"] text, .cap-t, .note-t')]
@@ -383,6 +489,7 @@ function runChecks(): string[] {
   document.head.appendChild(noAnim);
   const root = createRoot(host);
   const render = (el: React.ReactNode) => flushSync(() => root.render(el));
+  const rightGeom = new Map<string, Geom>();
 
   PHONES.forEach(({ phone, fig }, wi) => {
     host.style.width = `${fig}px`;
@@ -396,13 +503,17 @@ function runChecks(): string[] {
       const C = d.Component;
       const allDrawn = new Set<string>();
       const allSpots = new Set<string>();
-      for (const v of d.views) {
-        const vtag = `${r}:${v.id}`;
+      for (const v of d.views)
+      for (const side of SIDES) {
+        // side=left: the same view mirrored (labels, captions and hotspots placed for the left side)
+        const sx = side === 'left' ? ({ side: 'left' } as const) : {};
+        const vtag = `${r}:${v.id}${side === 'left' ? '[左]' : ''}`;
         const tag = `${vtag}@${phone}`;
         let tapped: string[] = [];
         render(
           <C
             view={v.id}
+            {...sx}
             showSpots
             onSpotSelect={(id) => tapped.push(`s:${id}`)}
             onPartSelect={(id) => tapped.push(`p:${id}`)}
@@ -451,6 +562,14 @@ function runChecks(): string[] {
         // labels, captions, leaders, hotspots: size / clipping / overlaps / crossings
         note(layoutIssues(host, tag, phone, sEls), 'plain');
         if (first) {
+          // left side: the drawing is the mirror image of the right side's, every text reads normally and says 左 for 右
+          const g = mirrorGeom(host);
+          const rg = rightGeom.get(`${r}:${v.id}`);
+          if (side === 'right') rightGeom.set(`${r}:${v.id}`, g);
+          else if (rg) out.push(...mirrorIssues(vtag, rg, g));
+          if (g.flipped.length) out.push(`${vtag}: mirrored text ${g.flipped.slice(0, 3).join(', ')}`);
+        }
+        if (first) {
           // taps
           tapped = [];
           for (const e of sEls) e.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -466,25 +585,25 @@ function runChecks(): string[] {
         }
         // states that add labels / insets or embolden labels (muscle page: part selected + dimOthers;
         // condition page: highlights + dimOthers). States with the same texts & emphasis share one measurement.
-        render(<C view={v.id} />);
+        render(<C view={v.id} {...sx} />);
         const seen = new Map<string, string[]>([[textKey(host), layoutIssues(host, tag, phone)]]);
-        const states: [string, Highlights][] = [...drawn].map((id) => [`${id} selected`, { [id]: 'selected' } as Highlights]);
-        for (const c of conditions.filter((c) => c.region === r)) states.push([`condition ${c.id}`, conditionHighlights(c.id)!.hl]);
-        for (const [name, hl] of states) {
-          render(<C view={v.id} highlights={hl} dimOthers />);
+        const states: [string, Highlights, ConditionId?][] = [...drawn].map((id) => [`${id} selected`, { [id]: 'selected' } as Highlights]);
+        for (const c of conditions.filter((c) => c.region === r)) states.push([`condition ${c.id}`, conditionHighlights(c.id)!.hl, c.id as ConditionId]);
+        for (const [name, hl, cid] of states) {
+          render(<C view={v.id} {...sx} highlights={hl} condition={cid} dimOthers />);
           const key = textKey(host);
           if (!seen.has(key)) seen.set(key, layoutIssues(host, tag, phone));
           note(seen.get(key)!, name);
         }
         if (first) {
           // showLabels=false hides labels; showSpots=false hides spots
-          render(<C view={v.id} showLabels={false} />);
+          render(<C view={v.id} {...sx} showLabels={false} />);
           if (host.querySelectorAll('[class*="-lab"] text').length) out.push(`${vtag}: labels still drawn with showLabels=false`);
           if (host.querySelectorAll('[data-spot]').length) out.push(`${vtag}: hotspots drawn without showSpots`);
           // highlight + dim
           const f = [...drawn][0];
           if (f) {
-            render(<C view={v.id} highlights={{ [f]: 'injured' } as Highlights} dimOthers />);
+            render(<C view={v.id} {...sx} highlights={{ [f]: 'injured' } as Highlights} dimOthers />);
             const el = host.querySelector(`[data-part="${f}"]`)!;
             if (!/injured/.test(el.getAttribute('class') ?? '')) out.push(`${vtag}: injured class missing on ${f}`);
             const others = [...host.querySelectorAll('[data-part]')].filter((e) => e.getAttribute('data-part') !== f);

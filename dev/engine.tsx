@@ -2,6 +2,8 @@
 //   ?muscle=<id> | ?exercise=<id> | ?hl=id:role,id:role | ?pose=<BASE_POSE>
 //   ?condition=<id> (exactly what /#/condition/<id> shows in its 3D card: scene, content highlights & roles, 340 px)
 //   ?region=<id>[&sel=<muscle>] (the region page's 3D card: key muscles, the tapped chip as 'selected', its framing)
+//   &side=left|right &spot=<pain spot id> (with ?condition / ?region: the side / spot the user tapped on the body map,
+//   AnatomyViewerProps.side / spot — e.g. ?condition=swimmers-shoulder&spot=shoulder-back&side=left)
 //   &scene=<json> (with ?condition / ?region: merge these fields into that teaching scene for this page only, to try a
 //   camera / frame / ghost before editing scenes.ts, e.g. &scene={"ghost":{"patella":0.4},"minSize":0.2})
 //   ?t=0..1 (freeze) ?cam=front|back|left|right|top|iso|isoBack|isoLeft ?focus=<region>
@@ -12,7 +14,8 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CONDITIONS, EXERCISES, MUSCLES, REGIONS, STRUCTURES } from '../src/data/registry';
-import type { ConditionId, ExerciseId, MuscleId, RegionId, StructureId } from '../src/data/registry';
+import { PAIN_SPOTS } from '../src/data/registry';
+import type { ConditionId, ExerciseId, MuscleId, PainSpotId, RegionId, StructureId } from '../src/data/registry';
 import { getCondition, getRegion } from '../src/data';
 import { conditionHighlights3d, regionViewer } from '../src/lib/viewerHighlights';
 import AnatomyViewer from '../src/three/AnatomyViewer';
@@ -190,6 +193,11 @@ function Harness() {
   const exercise = (q.get('exercise') as ExerciseId) || undefined;
   const page = q.get('condition') ? conditionView(q.get('condition')!) : q.get('region') ? regionView(q.get('region')!, q.get('sel')) : null;
   const highlights = page?.highlights ?? parseHl(q.get('hl'));
+  // &side= / &spot= (condition / region views only): what the body map passes on to the page
+  const side = page && (q.get('side') === 'left' || q.get('side') === 'right') ? (q.get('side') as 'left' | 'right') : undefined;
+  const spotQ = page ? q.get('spot') : null;
+  const spot = spotQ && PAIN_SPOTS.some((s) => s.id === spotQ) ? (spotQ as PainSpotId) : undefined;
+  if (spotQ && !spot) console.warn('unknown spot', spotQ, '— ids:', PAIN_SPOTS.map((s) => s.id).join(' '));
   const focus = page?.focus ?? ((q.get('focus') as RegionId) || undefined);
   const pose = (q.get('pose') as BasePoseName) || undefined;
   // condition / region views: the app's card (340 px, Viewer3DToggle) unless card=0
@@ -202,6 +210,8 @@ function Harness() {
       highlights={highlights}
       condition={page?.condition}
       focus={focus && REGIONS.some((r) => r.id === focus) ? focus : undefined}
+      side={side}
+      spot={spot}
       labels={q.get('labels') !== '0'}
       controls={q.get('controls') !== '0'}
       autoPlay={q.get('autoplay') !== '0'}

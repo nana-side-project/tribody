@@ -4,8 +4,9 @@
 //   JS/CSS, the App chunk, each page chunk, the 3D viewer JS + CSS, icons, manifest). Install caches all of them, so
 //   the app works offline after the first visit — also the pages and the 3D viewer never opened online.
 // - One cache per build version: a new deploy installs next to the old one and takes over once no page of the old
-//   version is open any more (the old pages keep loading their own chunks from the old cache); activate then deletes
-//   the old caches, so hashed files of old builds do not pile up.
+//   version is open any more (the old pages keep loading their own chunks from the old cache), or at once when the
+//   user presses 「更新」 on the page's 「新しいバージョンがあります」 notice (message SKIP_WAITING); activate then
+//   deletes the old caches, so hashed files of old builds do not pile up.
 // - Navigations: the cached index.html of this version (it names exactly the precached chunks), else the network.
 // - Other same-origin GETs: cache first (any version), then the network (and store).
 /* eslint-disable */
@@ -23,6 +24,12 @@ self.addEventListener('install', (event) => {
       // first install: take control at once (nothing older to stay consistent with)
       .then(() => (self.registration.active ? undefined : self.skipWaiting())),
   );
+});
+
+// The page's 「更新」 button (src/lib/swUpdate.ts): a waiting new version takes over now instead of after every old page
+// has closed; the page reloads once this worker controls it.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {

@@ -585,11 +585,15 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
       { kind: 'band', from: { bone: 'femur', rest: [0.09, 0.515, -0.075] }, to: { bone: 'femur', rest: [0.028, 0.515, -0.045] } },
       { kind: 'band', from: [-0.055, 0.5, 0.648], to: { bone: 'femur', rest: [0.028, 0.515, -0.045] } },
     ],
-    camera: { dir: [-1, 0.2, 0.35] },
+    camera: { dir: [-1, 0.2, 0.2] },
     // knee close-up, hips down (fin-clips): from the hip joint to the feet plus the band's anchor on the post (not the
     // 2 m post): the thigh, the knee and the band fill the card. A crop from the lower chest showed the upper trunk
     // without the head, which the engine widens to the whole figure (the vasti were ~40 % smaller)
-    frame: ['femur:greater_trochanter', 'pelvis:ischial_tuberosity', 'toes:toe_tips', 'foot:calcaneus_post', 'toes_L:toe_tips', 'foot_L:calcaneus_post', { bone: 'pelvis', rest: [0.085, 0.5, 0.66] }],
+    frame: ['femur:greater_trochanter', 'pelvis:ischial_tuberosity', 'toes:toe_tips', 'foot:calcaneus_post', 'toes_L:toe_tips', 'foot_L:calcaneus_post', { bone: 'pelvis', rest: [0.085, 0.5, 0.66] }, { bone: 'pelvis', rest: [0.085, 0.3, 1.4] }],
+    // performed with the LEFT leg (the whole clip mirrored: camera on the left, post and band on the left of the card):
+    // the hips-down crop leaves the trunk running off the top of the card; on the right side it ran off under the long
+    // phase pill (top left, 「2秒キープ（太もも前を固める）」), now it leaves on the right, clear of it (ct-3d)
+    mirror: true,
     sides: 'R',
     highlights: { 'vastus-medialis': 'primary', 'vastus-lateralis': 'primary', 'rectus-femoris': 'secondary' },
   },

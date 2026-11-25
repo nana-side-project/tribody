@@ -28,6 +28,7 @@ import {
   type Spot,
   type XY,
 } from './shoulder';
+import { once } from './lazy';
 
 const W = 360;
 const H = 380;
@@ -52,7 +53,7 @@ const ribPts = (y: number, i: number) => {
   const k = Math.min(1, 0.6 + i * 0.08);
   return PS(`${MX + 22},${y - 7} ${MX + 38},${y - 4} ${MX + 38 + 26 * k},${y + 6 * k} ${MX + 38 + 52 * k},${y + 22 * k} ${MX + 38 + 74 * k},${y + 42 * k} ${MX + 38 + 86 * k},${y + 62 * k}`);
 };
-const NB = {
+const NB = once(() => ({
   skull: sp(PS('106,-30 246,-30 248,6 242,26 232,40 220,54,1 210,44 198,38 186,35 176,36 166,35 154,38 142,44 132,54,1 120,40 110,26 104,6')),
   skullLn: sp(PS('124,18 150,10 176,8 202,10 228,18'), false) + sp(PS('146,30 176,24 206,30'), false),
   c1: tube(PS('140,52 158,56 176,58 194,56 212,52'), [9, 7, 8, 7, 9]),
@@ -69,24 +70,24 @@ const NB = {
   ribsL: TV.slice(0, 11)
     .map((y, i) => sp(mir(ribPts(y, i)), false))
     .join(''),
-};
+}));
 
 /** Trapezius of the right side (mirrored onto the left half, where it is drawn). */
-const TRAP_R = {
+const TRAP_R = once(() => ({
   o: PS('178,20 178,52 178,96 178,140 178,175 178,226 178,294 178,345'),
   i: PS('250,162 264,168 286,180 276,189 250,196 228,202 214,207 208,210'),
   c: PS('232,100 226,130 230,160 229,171 214,188 203,214 196,250 193,277'),
-};
-const NMB = {
+}));
+const NMB = once(() => ({
   trapL: muscle({
-    o: mir(TRAP_R.o),
-    i: mir(TRAP_R.i),
-    c: mir(TRAP_R.c),
+    o: mir(TRAP_R().o),
+    i: mir(TRAP_R().i),
+    c: mir(TRAP_R().c),
     t0: [0, 0.02, 0.06, 0.12, 0.14, 0.06, 0.04, 0.06],
     t1: [1, 1, 1, 1, 1, 1, 0.9, 0.82],
     n: 22,
   }),
-  trapGhostR: muscle({ o: TRAP_R.o, i: TRAP_R.i, c: TRAP_R.c, n: 2 }),
+  trapGhostR: muscle({ o: TRAP_R().o, i: TRAP_R().i, c: TRAP_R().c, n: 2 }),
   levator: muscle({
     o: PS('214,48 200,62 199,77 199,92'),
     i: PS('213,182 210,190 207,198 205,206'),
@@ -96,51 +97,51 @@ const NMB = {
   }),
   splenius: muscle({ o: PS('176,190 176,132'), i: PS('132,52 146,40'), c: PS('126,110 160,90'), n: 8 }),
   scm: strap({ c: PS('136,48 131,74 128,98 127,120'), w: [12, 11, 9, 6], n: 4 }),
-};
+}));
 
 function BackView({ k }: { k: Ctx }) {
   return (
     <>
       <Ctxt k={k}>
-        <Rib d={NB.ribsR} w={5} />
-        <Rib d={NB.ribsL} w={5} />
-        <path className="bone" d={NB.skull} />
-        <path className="bone-ln" d={NB.skullLn} />
+        <Rib d={NB().ribsR} w={5} />
+        <Rib d={NB().ribsL} w={5} />
+        <path className="bone" d={NB().skull} />
+        <path className="bone-ln" d={NB().skullLn} />
       </Ctxt>
       <Part k={k} id="thoracic-spine">
-        <path className="bone" d={NB.thor} />
+        <path className="bone" d={NB().thor} />
       </Part>
       <Part k={k} id="cervical-spine">
-        <path className="bone" d={NB.cerv} />
-        <path className="bone" d={NB.c1} />
-        <path className="bone" d={NB.c1tp} />
+        <path className="bone" d={NB().cerv} />
+        <path className="bone" d={NB().c1} />
+        <path className="bone" d={NB().c1tp} />
       </Part>
       {/* right half: deep layer (trapezius removed) */}
       <g transform={SH_R}>
         <ShoulderBackLayers k={k} deep skip={['ribs', 'spine', 'levator', 'trapGhost']} />
       </g>
       <Part k={k} id="levator-scapulae">
-        <M g={NMB.levator} />
+        <M g={NMB().levator} />
       </Part>
       <Part k={k} id="trapezius">
-        <path className="ghost-mus" d={NMB.trapGhostR.body} />
+        <path className="ghost-mus" d={NMB().trapGhostR.body} />
       </Part>
       {/* left half: superficial layer */}
       <g transform={SH_L}>
         <ShoulderBackLayers k={k} deep={false} skip={['ribs', 'spine', 'trap']} />
       </g>
       <Ctxt k={k}>
-        <M g={NMB.splenius} />
-        <M g={NMB.scm} />
+        <M g={NMB().splenius} />
+        <M g={NMB().scm} />
       </Ctxt>
       <Part k={k} id="trapezius">
-        <M g={NMB.trapL} />
+        <M g={NMB().trapL} />
       </Part>
       <Part k={k} id="cervical-spine">
-        <path className="bone" d={NB.cervSpin} />
+        <path className="bone" d={NB().cervSpin} />
       </Part>
       <Part k={k} id="thoracic-spine">
-        <path className="bone" d={NB.thorSpin} />
+        <path className="bone" d={NB().thorSpin} />
       </Part>
     </>
   );
@@ -157,7 +158,7 @@ const LABELS_BACK_RAW: Lab[] = [
   { id: 'rhomboids', t: '菱形筋', at: [194, 232], x: 304, y: 266 },
   { id: 'thoracic-spine', t: '胸椎', at: [MX, 300], x: 304, y: 314 },
 ];
-const LABELS_BACK: Lab[] = LABELS_BACK_RAW.map((l) => ({ ...l, at: [l.at[0] + BACK_DX, l.at[1]] }));
+const LABELS_BACK = once((): Lab[] => LABELS_BACK_RAW.map((l) => ({ ...l, at: [l.at[0] + BACK_DX, l.at[1]] })));
 const SPOTS_BACK: Spot[] = [
   { id: 'neck-back', at: [194 + BACK_DX, 100] },
   { id: 'neck-base', at: [222 + BACK_DX, 168] },
@@ -202,7 +203,7 @@ function roundBox(i: number, w: number, h: number, du = 0, dv = 0): string {
   const q = (u: number, v: number) => f.at(u + du, v + dv);
   return sp([q(-w / 2 + r, -h / 2), q(w / 2 - r, -h / 2), q(w / 2, -h / 2 + r), q(w / 2, h / 2 - r), q(w / 2 - r, h / 2), q(-w / 2 + r, h / 2), q(-w / 2, h / 2 - r), q(-w / 2, -h / 2 + r)]);
 }
-const LAT = (() => {
+const LAT = once(() => {
   const bodies: string[] = [];
   const discs: string[] = [];
   const post: string[] = [];
@@ -240,18 +241,18 @@ const LAT = (() => {
     if (i < 6) pillars.push(roundBox(i, 10, 13, b - 9, 1));
   });
   return { bodies, discs, post, pillars };
-})();
-const C1 = {
+});
+const C1 = once(() => ({
   ant: sp(PS('226,90 234,88 238,96 234,104 226,102')),
   mass: sp(PS('204,90 218,92 220,104 206,106 198,100')),
   post: tube(PS('200,98 186,100 174,103 166,104'), [9, 7, 6, 8]),
   dens: sp(PS('209,84 217,83 219,96 216,108 208,108')),
-};
+}));
 /** Deep neck flexors run on the front of the vertebral bodies, from the skull base to T3. */
-const DNF_PATH: P[] = [[222, 80] as P, [232, 94] as P, ...BODY.map((_, i) => fixN(i).at(BW[i] / 2 + 4.6, 0))];
+const DNF_PATH = once((): P[] => [[222, 80] as P, [232, 94] as P, ...BODY.map((_, i) => fixN(i).at(BW[i] / 2 + 4.6, 0))]);
 
 /** Lateral skull (Frankfort plane ≈ y 56, porion ≈ 212,52), drawn from standard proportions. */
-const SKULL_S = {
+const SKULL_S = once(() => ({
   cranium: sp(
     PS(
       '104,-30 104,0 112,28 118,48 124,62,1 146,76 168,86 186,92 198,94 206,90 214,82 220,72 230,64 250,66 268,66 282,68 288,80 284,92 278,98,1 300,100 318,100 328,98 331,88 332,80,1 324,74 322,58 325,44,1 316,32 312,24,1 318,12 322,-4 322,-30',
@@ -271,19 +272,19 @@ const SKULL_S = {
   mastoid: sp(PS('192,66 204,66 208,78 203,92 196,84')),
   hyoid: tube(PS('244,160 256,162 268,162 276,158'), [4, 5, 6, 6]),
   occLn: sp(PS('116,52 132,68 156,80'), false),
-};
+}));
 const SKIN_SIDE =
-  sp(PS('98,-30 96,10 104,40 114,64 126,84 134,108 138,140 139,180 136,214 128,246 118,280 108,320 100,380'), false) +
-  sp(PS('328,-30 334,-4 326,16 330,26 344,52 356,74 346,82 340,88 344,98 338,108 342,116 336,128 338,140 328,154 300,160 276,164 266,176 264,206 268,238 276,262 292,296 310,340 322,380'), false);
-const CLAV_SIDE = tube(PS('230,274 250,278 268,282 284,286'), [12, 10, 10, 13]);
-const SCAP_SIDE = {
+  once(() => sp(PS('98,-30 96,10 104,40 114,64 126,84 134,108 138,140 139,180 136,214 128,246 118,280 108,320 100,380'), false) +
+  sp(PS('328,-30 334,-4 326,16 330,26 344,52 356,74 346,82 340,88 344,98 338,108 342,116 336,128 338,140 328,154 300,160 276,164 266,176 264,206 268,238 276,262 292,296 310,340 322,380'), false));
+const CLAV_SIDE = once(() => tube(PS('230,274 250,278 268,282 284,286'), [12, 10, 10, 13]));
+const SCAP_SIDE = once(() => ({
   spine: sp(PS('236,264 246,268 244,277 226,281 200,285 176,291 152,299 136,305 127,299 132,289 150,286 174,280 198,274 222,268')),
   body: sp(PS('130,292 148,292 154,320 154,390 132,390 126,330')),
-};
-const RIBS_SIDE = sp(PS('204,268 226,276 250,286 272,296 284,302'), false) + sp(PS('194,292 218,302 244,314 268,326 286,334'), false);
+}));
+const RIBS_SIDE = once(() => sp(PS('204,268 226,276 250,286 272,296 284,302'), false) + sp(PS('194,292 218,302 244,314 268,326 286,334'), false));
 
-const SMB = {
-  dnf: strap({ c: DNF_PATH, w: [6, 8, 9, 9, 10, 10, 10, 9, 8, 7, 6], t0: 0.05, n: 5 }),
+const SMB = once(() => ({
+  dnf: strap({ c: DNF_PATH(), w: [6, 8, 9, 9, 10, 10, 10, 9, 8, 7, 6], t0: 0.05, n: 5 }),
   levator: muscle({
     o: PS('205,100 201,118 205,140 208,162'),
     i: PS('130,302 133,296 136,290 140,284'),
@@ -299,74 +300,74 @@ const SMB = {
     t0: [0.02, 0.03, 0.04, 0.05, 0.08, 0.1, 0.1],
     n: 16,
   }),
-};
+}));
 
 function SideView({ k }: { k: Ctx }) {
   return (
     <>
       <Ctxt k={k}>
-        <path className="skin" d={SKIN_SIDE} />
-        <path className="ghost" d={SCAP_SIDE.body} />
-        <path className="ghost" d={RIBS_SIDE} />
-        <path className="bone" d={SKULL_S.cranium} />
-        <path className="bone-sh" d={SKULL_S.temporal} />
-        <path className="hole" d={SKULL_S.orbit} />
-        <path className="hole" d={SKULL_S.nasal} />
-        <path className="bone-ln" d={SKULL_S.zygLn} />
-        <path className="bone-ln" d={SKULL_S.occLn} />
-        <path className="tooth" d={SKULL_S.upperTeeth} />
-        <path className="bone" d={SKULL_S.mand} />
-        <path className="tooth" d={SKULL_S.lowerTeeth} />
-        <path className="bone-ln" d={SKULL_S.mandLn} />
-        <path className="bone" d={SKULL_S.hyoid} />
+        <path className="skin" d={SKIN_SIDE()} />
+        <path className="ghost" d={SCAP_SIDE().body} />
+        <path className="ghost" d={RIBS_SIDE()} />
+        <path className="bone" d={SKULL_S().cranium} />
+        <path className="bone-sh" d={SKULL_S().temporal} />
+        <path className="hole" d={SKULL_S().orbit} />
+        <path className="hole" d={SKULL_S().nasal} />
+        <path className="bone-ln" d={SKULL_S().zygLn} />
+        <path className="bone-ln" d={SKULL_S().occLn} />
+        <path className="tooth" d={SKULL_S().upperTeeth} />
+        <path className="bone" d={SKULL_S().mand} />
+        <path className="tooth" d={SKULL_S().lowerTeeth} />
+        <path className="bone-ln" d={SKULL_S().mandLn} />
+        <path className="bone" d={SKULL_S().hyoid} />
       </Ctxt>
       <Part k={k} id="thoracic-spine">
-        {LAT.discs.slice(5).map((d, i) => (
+        {LAT().discs.slice(5).map((d, i) => (
           <path key={i} className="cart" d={d} />
         ))}
-        {LAT.post.slice(6).map((d, i) => (
+        {LAT().post.slice(6).map((d, i) => (
           <path key={i} className="bone" d={d} />
         ))}
-        {LAT.bodies.slice(6).map((d, i) => (
+        {LAT().bodies.slice(6).map((d, i) => (
           <path key={i} className="bone" d={d} />
         ))}
       </Part>
       <Part k={k} id="cervical-spine">
-        {LAT.discs.slice(0, 5).map((d, i) => (
+        {LAT().discs.slice(0, 5).map((d, i) => (
           <path key={i} className="cart" d={d} />
         ))}
-        {LAT.post.slice(0, 6).map((d, i) => (
+        {LAT().post.slice(0, 6).map((d, i) => (
           <path key={i} className="bone" d={d} />
         ))}
-        {LAT.pillars.map((d, i) => (
+        {LAT().pillars.map((d, i) => (
           <path key={i} className="bone" d={d} />
         ))}
-        {LAT.bodies.slice(0, 6).map((d, i) => (
+        {LAT().bodies.slice(0, 6).map((d, i) => (
           <path key={i} className="bone" d={d} />
         ))}
-        <path className="bone" d={C1.dens} />
-        <path className="bone" d={C1.post} />
-        <path className="bone" d={C1.mass} />
-        <path className="bone" d={C1.ant} />
+        <path className="bone" d={C1().dens} />
+        <path className="bone" d={C1().post} />
+        <path className="bone" d={C1().mass} />
+        <path className="bone" d={C1().ant} />
       </Part>
       <Ctxt k={k}>
-        <path className="bone" d={SKULL_S.mastoid} />
-        <path className="hole" d={SKULL_S.eam} />
+        <path className="bone" d={SKULL_S().mastoid} />
+        <path className="hole" d={SKULL_S().eam} />
       </Ctxt>
       <Part k={k} id="deep-neck-flexors">
-        <M g={SMB.dnf} />
+        <M g={SMB().dnf} />
       </Part>
       <Part k={k} id="levator-scapulae">
-        <M g={SMB.levator} />
+        <M g={SMB().levator} />
       </Part>
       <Part k={k} id="scapula">
-        <path className="bone" d={SCAP_SIDE.spine} />
+        <path className="bone" d={SCAP_SIDE().spine} />
       </Part>
       <Part k={k} id="trapezius">
-        <M g={SMB.trap} />
+        <M g={SMB().trap} />
       </Part>
       <Ctxt k={k}>
-        <path className="bone" d={CLAV_SIDE} />
+        <path className="bone" d={CLAV_SIDE()} />
       </Ctxt>
     </>
   );
@@ -400,22 +401,22 @@ const VIEWS = [
  * of the strap) up to the upper vertebrae and the skull base (insertion, its upper end).
  */
 const shift = (pts: readonly (readonly number[])[]) => pts.map((q) => [q[0] + BACK_DX, q[1]]);
-const OI_NECK_BACK: OIMap = {
-  trapezius: { o: shift(att(NMB.trapL, 'o', [0.06, 0.4, 0.78])), i: shift(att(NMB.trapL, 'i', [0.08, 0.45, 0.85])) },
-  'levator-scapulae': { o: shift(att(NMB.levator, 'o')), i: shift(att(NMB.levator, 'i')) },
-};
-const OI_NECK_SIDE: OIMap = {
-  trapezius: { o: att(SMB.trap, 'o', [0.12, 0.6]), i: att(SMB.trap, 'i', [0.15, 0.6]) },
-  'levator-scapulae': { o: att(SMB.levator, 'o'), i: att(SMB.levator, 'i') },
-  'deep-neck-flexors': { o: att(SMB.dnf, 'i', 0.5, 0.97), i: att(SMB.dnf, 'o', 0.5, 0.04) },
-};
+const OI_NECK_BACK = once((): OIMap => ({
+  trapezius: { o: shift(att(NMB().trapL, 'o', [0.06, 0.4, 0.78])), i: shift(att(NMB().trapL, 'i', [0.08, 0.45, 0.85])) },
+  'levator-scapulae': { o: shift(att(NMB().levator, 'o')), i: shift(att(NMB().levator, 'i')) },
+}));
+const OI_NECK_SIDE = once((): OIMap => ({
+  trapezius: { o: att(SMB().trap, 'o', [0.12, 0.6]), i: att(SMB().trap, 'i', [0.15, 0.6]) },
+  'levator-scapulae': { o: att(SMB().levator, 'o'), i: att(SMB().levator, 'i') },
+  'deep-neck-flexors': { o: att(SMB().dnf, 'i', 0.5, 0.97), i: att(SMB().dnf, 'o', 0.5, 0.04) },
+}));
 
 function NeckDiagram(p: RegionDiagramProps) {
   const k = useCtx(p);
   const view = p.view === 'side' ? 'side' : 'back';
   if (view === 'side') {
     return (
-      <Frame k={k} p={p} w={W} h={H} title="首を右横から見た図" cap={['← 背中側', '右横から・顔側 →']} labels={LABELS_SIDE} spots={SPOTS_SIDE} fade={[30, 70]} oi={OI_NECK_SIDE}>
+      <Frame k={k} p={p} w={W} h={H} title="首を右横から見た図" cap={['← 背中側', '右横から・顔側 →']} labels={LABELS_SIDE} spots={SPOTS_SIDE} fade={[30, 70]} oi={OI_NECK_SIDE()}>
         <SideView k={k} />
       </Frame>
     );
@@ -428,11 +429,11 @@ function NeckDiagram(p: RegionDiagramProps) {
       h={H}
       title="首と肩の上部を後ろから見た図（左半分は表層、右半分は僧帽筋を外した深層）"
       cap={['左半身：表層', '右半身：深層']}
-      labels={LABELS_BACK}
+      labels={LABELS_BACK()}
       spots={SPOTS_BACK}
       fade={[24, 64]}
       fadeX={[16, 74]}
-      oi={OI_NECK_BACK}
+      oi={OI_NECK_BACK()}
     >
       <g transform={`translate(${BACK_DX} 0)`}>
         <BackView k={k} />

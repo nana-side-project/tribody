@@ -36,6 +36,8 @@ import {
   type P,
   type Spot,
 } from './shoulder';
+import { once } from './lazy';
+import { MText } from './mirror';
 
 const W = 360;
 const H = 380;
@@ -47,8 +49,8 @@ const PSm = (s: string) => mir(PS(s));
 const LV = [80, 110, 140, 170, 200]; // L1–L5 centres
 /** lumbar spinous process seen from behind: a broad, roughly rectangular plate */
 const lumbSpin = (y: number) => sp(PS(`${MX - 5},${y - 3} ${MX + 5},${y - 3} ${MX + 5.5},${y + 9} ${MX + 4},${y + 16} ${MX - 4},${y + 16} ${MX - 5.5},${y + 9}`));
-const ILIUM_R = PS('220,236 224,214 236,196 256,182 278,174 298,176 310,186 314,206 308,242 300,276 290,306 274,322 256,318 244,300 232,284 224,264 218,248');
-const B = {
+const ILIUM_R = once(() => PS('220,236 224,214 236,196 256,182 278,174 298,176 310,186 314,206 308,242 300,276 290,306 274,322 256,318 244,300 232,284 224,264 218,248'));
+const B = once(() => ({
   thor: [vertPost(MX, -6, { tp: 22, sp: 18, w: 10, spW: 3.2, tpY: -6 }), vertPost(MX, 22, { tp: 22, sp: 18, w: 10, spW: 3.4, tpY: -6 }), vertPost(MX, 50, { tp: 18, sp: 16, w: 11, spW: 4.5, tpY: -5 })].join(''),
   lumb: LV.map((y, i) => vertPost(MX, y, { tp: [24, 28, 34, 30, 28][i], sp: 15, w: 13, spW: 5, tpY: i === 4 ? -6 : -3 })).join(''),
   spinous: [spinePost(MX, -6, 18, 3.2), spinePost(MX, 22, 18, 3.4), spinePost(MX, 50, 16, 4.5)].join('') + LV.map(lumbSpin).join(''),
@@ -63,13 +65,13 @@ const B = {
     })
     .join(''),
   coccyx: sp(PS('176,314 184,314 186,324 182,336 178,336 174,324')),
-  iliumR: sp(ILIUM_R),
-  iliumL: sp(mir(ILIUM_R)),
+  iliumR: sp(ILIUM_R()),
+  iliumL: sp(mir(ILIUM_R())),
   crestR: sp(PS('221,232 228,212 242,194 262,181 284,175 304,180'), false),
-};
-const SIJ = tube(PS('218,228 217,242 214,258 210,276'), [4.4, 5, 5, 4]);
+}));
+const SIJ = once(() => tube(PS('218,228 217,242 214,258 210,276'), [4.4, 5, 5, 4]));
 
-const LB = {
+const LB = once(() => ({
   ql: muscle({ o: PS('288,178 262,184 238,196'), i: PS('242,68 224,66 206,70'), c: PS('268,122 246,128 222,134'), n: 10 }),
   multifidus: muscle({
     o: PS('186,66 186,96 186,126 186,156 186,186 184,218'),
@@ -94,10 +96,10 @@ const LB = {
   eoL: muscle({ o: PSm('262,84 290,98'), i: PSm('254,196 280,200'), c: PSm('260,140 286,150'), n: 7 }),
   gmedL: muscle({ o: PSm('230,212 252,196 274,186 294,188'), i: PSm('300,330 306,326 312,322 318,318'), c: PSm('250,260 268,250 284,244 302,246'), n: 10 }),
   gmaxL: muscle({ o: PSm('218,226 204,256 194,286 188,316 184,340'), i: PSm('290,300 298,336 304,372 310,408 314,444'), c: PSm('254,250 250,282 246,314 244,346 246,378'), t0: 0.04, n: 14 }),
-};
+}));
 /** Thoracolumbar fascia (posterior layer) on the superficial side: diamond-shaped aponeurosis. */
-const TLF_L = sp(PSm('178,-24 212,-24 238,60 256,120 262,150 256,182 242,204 226,226 212,256 200,286 190,312 180,322'));
-const TLF_HATCH = (() => {
+const TLF_L = once(() => sp(PSm('178,-24 212,-24 238,60 256,120 262,150 256,182 242,204 226,226 212,256 200,286 190,312 180,322')));
+const TLF_HATCH = once(() => {
   let d = '';
   for (let k = -10; k < 26; k++) {
     const y0 = -40 + k * 16;
@@ -105,59 +107,59 @@ const TLF_HATCH = (() => {
     d += `M${MX} ${y0 + 8}L${MX - 130} ${y0 - 64}`; // deep lamina: up-laterally
   }
   return d;
-})();
+});
 
 function BackView({ k, uid }: { k: Ctx; uid: string }) {
   return (
     <>
       <Ctxt k={k}>
-        <Rib d={B.rib12R + B.rib11R + sp(mir(PS('198,46 216,52 236,62 252,76')), false) + sp(mir(PS('200,18 224,24 250,36 276,54')), false)} w={6} />
-        <path className="bone" d={B.thor} />
-        <path className="bone" d={B.iliumL} />
-        <path className="bone" d={B.iliumR} />
-        <path className="bone-ln" d={B.crestR} />
-        <path className="bone" d={B.coccyx} />
+        <Rib d={B().rib12R + B().rib11R + sp(mir(PS('198,46 216,52 236,62 252,76')), false) + sp(mir(PS('200,18 224,24 250,36 276,54')), false)} w={6} />
+        <path className="bone" d={B().thor} />
+        <path className="bone" d={B().iliumL} />
+        <path className="bone" d={B().iliumR} />
+        <path className="bone-ln" d={B().crestR} />
+        <path className="bone" d={B().coccyx} />
       </Ctxt>
       <Part k={k} id="lumbar-spine">
-        <path className="bone" d={B.lumb} />
+        <path className="bone" d={B().lumb} />
       </Part>
       <Ctxt k={k}>
-        <path className="bone" d={B.sacrum} />
-        <path className="hole" d={B.foramina} />
-        <path className="bone-ln" d={B.sacLn} />
+        <path className="bone" d={B().sacrum} />
+        <path className="hole" d={B().foramina} />
+        <path className="bone-ln" d={B().sacLn} />
       </Ctxt>
       <Part k={k} id="sacroiliac-joint">
-        <path className="cart" d={SIJ} />
+        <path className="cart" d={SIJ()} />
       </Part>
       {/* right half: deep */}
       <Part k={k} id="quadratus-lumborum">
-        <M g={LB.ql} deep />
+        <M g={LB().ql} deep />
       </Part>
       <Part k={k} id="multifidus">
-        <M g={LB.multifidus} />
+        <M g={LB().multifidus} />
       </Part>
       <Part k={k} id="erector-spinae">
-        <M g={LB.es} />
+        <M g={LB().es} />
       </Part>
       {/* left half: superficial */}
       <Part k={k} id="gluteus-medius">
-        <M g={LB.gmedL} deep />
+        <M g={LB().gmedL} deep />
       </Part>
       <Part k={k} id="obliques">
-        <M g={LB.eoL} />
+        <M g={LB().eoL} />
       </Part>
       <Part k={k} id="thoracolumbar-fascia">
-        <path className="fascia" d={TLF_L} />
-        <path className="ten-fib" d={TLF_HATCH} clipPath={`url(#${uid}-tlf)`} />
+        <path className="fascia" d={TLF_L()} />
+        <path className="ten-fib" d={TLF_HATCH()} clipPath={`url(#${uid}-tlf)`} />
       </Part>
       <Part k={k} id="latissimus-dorsi">
-        <M g={LB.latL} />
+        <M g={LB().latL} />
       </Part>
       <Part k={k} id="gluteus-maximus">
-        <M g={LB.gmaxL} />
+        <M g={LB().gmaxL} />
       </Part>
       <Part k={k} id="lumbar-spine">
-        <path className="bone" d={B.spinous} />
+        <path className="bone" d={B().spinous} />
       </Part>
     </>
   );
@@ -180,7 +182,7 @@ const SPOTS_BACK: Spot[] = [{ id: 'lowback-center', at: [200, 166] }];
 
 /* ═════════════════════════ cross-section at L4/5 (seen from above, belly up) ═════════════════════════ */
 const CY = 196;
-const SEC = {
+const SEC = once(() => ({
   skin: sp(PS('180,106 214,108 250,118 282,138 302,166 308,198 300,232 284,258 256,276 222,284 196,282 186,276 180,280 174,276 164,282 138,284 104,276 76,258 60,232 52,198 58,166 78,138 110,118 146,108')),
   cavity: sp(PS('180,140 214,142 244,152 266,170 270,196 256,214 226,204 206,200 196,206 180,204 164,206 154,200 134,204 104,214 90,196 94,170 116,152 146,142')),
   disc: sp(PS('180,194 194,195 206,200 212,210 210,222 200,230 190,230 184,226 180,227 176,226 170,230 160,230 150,222 148,210 154,200 166,195')),
@@ -190,8 +192,8 @@ const SEC = {
   canal: sp(PS('180,232 190,233 194,240 188,248 180,250 172,248 166,240 170,233')),
   tps: sp(PS('198,226 214,222 230,220 234,226 230,230 214,232 200,232'), false) + sp(mir(PS('198,226 214,222 230,220 234,226 230,230 214,232 200,232'))),
   facetR: sp(PS('198,238 204,236 210,242 206,248 200,246')),
-};
-const cauda = [
+}));
+const cauda = once(() => [
   [176, 240],
   [181, 238],
   [186, 241],
@@ -200,7 +202,7 @@ const cauda = [
   [180, 242],
 ]
   .map(([x, y]) => `M${x - 1.8} ${y}a1.8 1.8 0 1 0 3.6 0a1.8 1.8 0 1 0-3.6 0Z`)
-  .join('');
+  .join(''));
 /** an elliptical cross-section blob with a few fascicle septa */
 function blob(cx: number, cy: number, rx: number, ry: number, rot = 0, squash = 0) {
   const pts: P[] = [];
@@ -222,7 +224,7 @@ function septa(cx: number, cy: number, rx: number, ry: number) {
     `M${cx - rx * 0.1} ${cy - ry * 0.8}Q${cx - rx * 0.2} ${cy} ${cx + rx * 0.05} ${cy + ry * 0.8}`,
   ].join('');
 }
-const SM = {
+const SM = once(() => ({
   psoas: [blob(213, 208, 15, 17, 0.3, 0.04), blob(147, 208, 15, 17, -0.3, 0.04)],
   psoasSep: septa(213, 208, 15, 17) + septa(147, 208, 15, 17),
   ql: [blob(240, 230, 15, 9, 0.35), blob(120, 230, 15, 9, -0.35)],
@@ -233,117 +235,117 @@ const SM = {
   mfSep: septa(195, 264, 10, 12) + septa(165, 264, 10, 12),
   ra: [blob(197, 124, 17, 7, 0.08), blob(163, 124, 17, 7, -0.08)],
   raSep: septa(197, 124, 17, 7) + septa(163, 124, 17, 7),
-};
+}));
 /** abdominal wall layers (right side), as straps following the flank from the rectus sheath to the TLF */
-const WALL = {
+const WALL = once(() => ({
   eo: PS('222,113 250,122 278,140 296,166 302,196 296,222'),
   io: PS('218,121 246,130 272,148 288,170 292,198 284,222 264,236'),
   ta: PS('216,129 242,138 266,154 280,174 283,198 274,220 258,234'),
-};
-const SMW = {
-  eoR: strap({ c: WALL.eo, w: [3, 4, 6, 7, 7, 6], t0: 0.18, n: 3 }),
-  ioR: strap({ c: WALL.io, w: [3, 4, 5, 6, 6, 5, 4], t0: 0.16, t1: 0.9, n: 3 }),
-  taR: strap({ c: WALL.ta, w: [3, 3, 4, 5, 5, 4, 3], t0: 0.16, t1: 0.78, n: 3 }),
-  eoL: strap({ c: mir(WALL.eo), w: [3, 4, 6, 7, 7, 6], t0: 0.18, n: 3 }),
-  ioL: strap({ c: mir(WALL.io), w: [3, 4, 5, 6, 6, 5, 4], t0: 0.16, t1: 0.9, n: 3 }),
-  taL: strap({ c: mir(WALL.ta), w: [3, 3, 4, 5, 5, 4, 3], t0: 0.16, t1: 0.78, n: 3 }),
-};
+}));
+const SMW = once(() => ({
+  eoR: strap({ c: WALL().eo, w: [3, 4, 6, 7, 7, 6], t0: 0.18, n: 3 }),
+  ioR: strap({ c: WALL().io, w: [3, 4, 5, 6, 6, 5, 4], t0: 0.16, t1: 0.9, n: 3 }),
+  taR: strap({ c: WALL().ta, w: [3, 3, 4, 5, 5, 4, 3], t0: 0.16, t1: 0.78, n: 3 }),
+  eoL: strap({ c: mir(WALL().eo), w: [3, 4, 6, 7, 7, 6], t0: 0.18, n: 3 }),
+  ioL: strap({ c: mir(WALL().io), w: [3, 4, 5, 6, 6, 5, 4], t0: 0.16, t1: 0.9, n: 3 }),
+  taL: strap({ c: mir(WALL().ta), w: [3, 3, 4, 5, 5, 4, 3], t0: 0.16, t1: 0.78, n: 3 }),
+}));
 /** thoracolumbar fascia: posterior layer over ES/MF, middle layer between QL and ES, anterior layer before QL, meeting at the lateral raphe */
-const TLF_SEC_R = [
+const TLF_SEC_R = once(() => [
   tube(PS('180,278 196,278 214,276 234,272 250,264 260,250 262,238'), 2.6),
   tube(PS('232,226 246,234 258,236'), 2.2),
   tube(PS('226,220 240,218 254,224 262,236'), 1.8),
-].join('');
-const TLF_SEC = TLF_SEC_R + [
+].join(''));
+const TLF_SEC = once(() => TLF_SEC_R() + [
   tube(mir(PS('180,278 196,278 214,276 234,272 250,264 260,250 262,238')), 2.6),
   tube(mir(PS('232,226 246,234 258,236')), 2.2),
   tube(mir(PS('226,220 240,218 254,224 262,236')), 1.8),
-].join('');
+].join(''));
 /** rectus sheath / linea alba (aponeuroses of the three layers in front) */
-const SHEATH = tube(PS('146,114 164,112 180,112 196,112 214,114'), 2.2) + tube(PS('146,133 164,134 180,135 196,134 214,133'), 2) + tube(PS('180,113 180,134'), 3);
+const SHEATH = once(() => tube(PS('146,114 164,112 180,112 196,112 214,114'), 2.2) + tube(PS('146,133 164,134 180,135 196,134 214,133'), 2) + tube(PS('180,113 180,134'), 3));
 
 function SectionView({ k }: { k: Ctx }) {
   return (
     <>
       <Ctxt k={k}>
-        <path className="sec-skin" d={SEC.skin} />
-        <path className="sec-cav" d={SEC.cavity} />
+        <path className="sec-skin" d={SEC().skin} />
+        <path className="sec-cav" d={SEC().cavity} />
       </Ctxt>
       <Part k={k} id="rectus-abdominis">
-        {SM.ra.map((d, i) => (
+        {SM().ra.map((d, i) => (
           <path key={i} className="mus" d={d} />
         ))}
-        <path className="fib" d={SM.raSep} />
-        {SM.ra.map((d, i) => (
+        <path className="fib" d={SM().raSep} />
+        {SM().ra.map((d, i) => (
           <path key={`o${i}`} className="ol" d={d} />
         ))}
       </Part>
       <Part k={k} id="obliques">
-        <M g={SMW.eoR} flat />
-        <M g={SMW.eoL} flat />
-        <M g={SMW.ioR} flat />
-        <M g={SMW.ioL} flat />
+        <M g={SMW().eoR} flat />
+        <M g={SMW().eoL} flat />
+        <M g={SMW().ioR} flat />
+        <M g={SMW().ioL} flat />
       </Part>
       <Part k={k} id="transversus-abdominis">
-        <M g={SMW.taR} flat />
-        <M g={SMW.taL} flat />
+        <M g={SMW().taR} flat />
+        <M g={SMW().taL} flat />
       </Part>
       <Ctxt k={k}>
-        <path className="ten" d={SHEATH} />
+        <path className="ten" d={SHEATH()} />
       </Ctxt>
       <Part k={k} id="iliopsoas">
-        {SM.psoas.map((d, i) => (
+        {SM().psoas.map((d, i) => (
           <path key={i} className="mus" d={d} />
         ))}
-        <path className="fib" d={SM.psoasSep} />
-        {SM.psoas.map((d, i) => (
+        <path className="fib" d={SM().psoasSep} />
+        {SM().psoas.map((d, i) => (
           <path key={`o${i}`} className="ol" d={d} />
         ))}
       </Part>
       <Part k={k} id="quadratus-lumborum">
-        {SM.ql.map((d, i) => (
+        {SM().ql.map((d, i) => (
           <path key={i} className="mus" d={d} />
         ))}
-        <path className="fib" d={SM.qlSep} />
-        {SM.ql.map((d, i) => (
+        <path className="fib" d={SM().qlSep} />
+        {SM().ql.map((d, i) => (
           <path key={`o${i}`} className="ol" d={d} />
         ))}
       </Part>
       <Part k={k} id="intervertebral-disc">
-        <path className="cart" d={SEC.disc} />
-        <path className="lamella" d={SEC.lamellae} />
-        <path className="nucleus" d={SEC.nucleus} />
+        <path className="cart" d={SEC().disc} />
+        <path className="lamella" d={SEC().lamellae} />
+        <path className="nucleus" d={SEC().nucleus} />
       </Part>
       <Part k={k} id="erector-spinae">
-        {SM.es.map((d, i) => (
+        {SM().es.map((d, i) => (
           <path key={i} className="mus" d={d} />
         ))}
-        <path className="fib" d={SM.esSep} />
-        {SM.es.map((d, i) => (
+        <path className="fib" d={SM().esSep} />
+        {SM().es.map((d, i) => (
           <path key={`o${i}`} className="ol" d={d} />
         ))}
       </Part>
       <Part k={k} id="multifidus">
-        {SM.mf.map((d, i) => (
+        {SM().mf.map((d, i) => (
           <path key={i} className="mus" d={d} />
         ))}
-        <path className="fib" d={SM.mfSep} />
-        {SM.mf.map((d, i) => (
+        <path className="fib" d={SM().mfSep} />
+        {SM().mf.map((d, i) => (
           <path key={`o${i}`} className="ol" d={d} />
         ))}
       </Part>
       <Part k={k} id="thoracolumbar-fascia">
-        <path className="fascia" d={TLF_SEC} />
+        <path className="fascia" d={TLF_SEC()} />
       </Part>
       <Part k={k} id="lumbar-spine">
-        <path className="ghost" d={SEC.tps} />
-        <path className="bone" d={SEC.post} />
-        <path className="cart" d={SEC.facetR} />
+        <path className="ghost" d={SEC().tps} />
+        <path className="bone" d={SEC().post} />
+        <path className="cart" d={SEC().facetR} />
         <path className="cart" d={sp(mir(PS('198,238 204,236 210,242 206,248 200,246')))} />
       </Part>
       <Ctxt k={k}>
-        <path className="sec-canal" d={SEC.canal} />
-        <path className="nerve" d={cauda} />
+        <path className="sec-canal" d={SEC().canal} />
+        <path className="nerve" d={cauda()} />
       </Ctxt>
     </>
   );
@@ -353,7 +355,7 @@ function SectionView({ k }: { k: Ctx }) {
 const SEC_TF = { s: 1.13, cx: 180, cy: 196, ty: 192 };
 const T = (x: number, y: number): [number, number] => [SEC_TF.cx + (x - SEC_TF.cx) * SEC_TF.s, SEC_TF.ty + (y - SEC_TF.cy) * SEC_TF.s];
 const SEC_TRANSFORM = `translate(${SEC_TF.cx} ${SEC_TF.ty}) scale(${SEC_TF.s}) translate(${-SEC_TF.cx} ${-SEC_TF.cy})`;
-const LABELS_SEC: Lab[] = [
+const LABELS_SEC = once((): Lab[] => [
   { id: 'iliopsoas', t: '大腰筋', at: T(214, 206), x: 318, y: 140 },
   { id: 'intervertebral-disc', t: '椎間板', at: T(168, 212), x: 140, y: 52, a: 'end' },
   { id: 'rectus-abdominis', t: '腹直筋', at: T(200, 122), x: 226, y: 56 },
@@ -365,16 +367,16 @@ const LABELS_SEC: Lab[] = [
   { id: 'lumbar-spine', t: '腰椎', at: T(180, 272), x: 180, y: 368, a: 'middle' },
   { id: 'thoracolumbar-fascia', t: '胸腰筋膜', at: T(234, 272), x: 214, y: 346 }, // medial to the QL leader
   { id: 'quadratus-lumborum', t: '腰方形筋', at: T(246, 230), x: 266, y: 322 },
-];
-const SPOTS_SEC: Spot[] = [{ id: 'lowback-center', at: T(222, 256) }];
+]);
+const SPOTS_SEC = once((): Spot[] => [{ id: 'lowback-center', at: T(222, 256) }]);
 
 /* ═════════════════════════ front view: the abdominal wall ═════════════════════════ */
 // Geometry is authored for the person's right half (viewer's left) and mirrored with `mir` (≈ 8.5 units per cm):
 // xiphoid ≈ y 40, umbilicus y 196, pubic crest y 330.
 const UMB = 196;
 /** rectus abdominis: origin = pubic crest / symphysis (bottom), insertion = xiphoid and 5th–7th costal cartilages (top) */
-const RA_F: Field = { o: PS('177,333 166,332 153,328'), i: PS('175,42 160,36 140,31 118,28'), c: PS('176,188 146,186 116.5,184') };
-const RA_FL: Field = { o: mir(RA_F.o), i: mir(RA_F.i), c: mir(RA_F.c!) };
+const RA_F = once((): Field => ({ o: PS('177,333 166,332 153,328'), i: PS('175,42 160,36 140,31 118,28'), c: PS('176,188 146,186 116.5,184') }));
+const RA_FL = once((): Field => ({ o: mir(RA_F().o), i: mir(RA_F().i), c: mir(RA_F().c!) }));
 /** fibre parameter s where fibre u of a (top-to-bottom monotonic) field crosses height y */
 function sAtY(f: Field, u: number, y: number): number {
   let a = 0;
@@ -405,28 +407,28 @@ const RA_ROWS: [number, number][] = [
   [136, 130],
   [86, 78],
 ];
-const EO_A: Field = { o: PS('80,8 58,44 44,88 36,134 34,178'), i: PS('120,40 121,100 126,170 136,250 152,328') };
-const EO_B: Field = { o: PS('34,178 32,210 34,240'), i: PS('152,328 108,312 66,286') };
-const ABF = {
-  ra: muscle({ ...RA_F, t0: 0.05, n: 9 }),
-  raL: muscle({ ...RA_FL, t0: 0.05, n: 9 }),
-  raInt: intersections(RA_F, RA_ROWS) + intersections(RA_FL, RA_ROWS),
+const EO_A = once((): Field => ({ o: PS('80,8 58,44 44,88 36,134 34,178'), i: PS('120,40 121,100 126,170 136,250 152,328') }));
+const EO_B = once((): Field => ({ o: PS('34,178 32,210 34,240'), i: PS('152,328 108,312 66,286') }));
+const ABF = once(() => ({
+  ra: muscle({ ...RA_F(), t0: 0.05, n: 9 }),
+  raL: muscle({ ...RA_FL(), t0: 0.05, n: 9 }),
+  raInt: intersections(RA_F(), RA_ROWS) + intersections(RA_FL(), RA_ROWS),
   // external oblique (person's right): fleshy on the flank, aponeurotic medially (semilunar line) and
   // below the spino-umbilical line; its free lower border rolls in as the inguinal ligament
   // (drawn as two fields — rib fibres to the aponeurosis / lower fibres to the inguinal ligament and iliac crest —
   // that share one fibre; their own outlines are dropped and `eoOutline` traces the union)
-  eoA: { ...muscle({ ...EO_A, t1: [0.86, 0.82, 0.78, 0.72, 0.55], n: 15 }), body: '' },
-  eoB: { ...muscle({ ...EO_B, t1: [0.55, 0.63, 0.98], n: 5 }), body: '' },
+  eoA: { ...muscle({ ...EO_A(), t1: [0.86, 0.82, 0.78, 0.72, 0.55], n: 15 }), body: '' },
+  eoB: { ...muscle({ ...EO_B(), t1: [0.55, 0.63, 0.98], n: 5 }), body: '' },
   eoOutline: (() => {
     const N = 16;
     const r = (n: number) => Array.from({ length: n + 1 }, (_, j) => j / n);
     const pts = [
-      ...r(N).map((s) => fpt(EO_A, 0, s)),
-      ...r(N).map((u) => fpt(EO_A, u, 1)),
-      ...r(N / 2).map((u) => fpt(EO_B, u, 1)),
-      ...r(N).map((s) => fpt(EO_B, 1, 1 - s)),
-      ...r(N / 2).map((u) => fpt(EO_B, 1 - u, 0)),
-      ...r(N).map((u) => fpt(EO_A, 1 - u, 0)),
+      ...r(N).map((s) => fpt(EO_A(), 0, s)),
+      ...r(N).map((u) => fpt(EO_A(), u, 1)),
+      ...r(N / 2).map((u) => fpt(EO_B(), u, 1)),
+      ...r(N).map((s) => fpt(EO_B(), 1, 1 - s)),
+      ...r(N / 2).map((u) => fpt(EO_B(), 1 - u, 0)),
+      ...r(N).map((u) => fpt(EO_A(), 1 - u, 0)),
     ];
     return pl(pts, true);
   })(),
@@ -440,21 +442,21 @@ const ABF = {
   }),
   // transversus abdominis: horizontal fibres from the flank to its aponeurosis (seen through the window)
   ta: muscle({ o: mir(PS('34,150 34,200 38,250 52,290')), i: mir(PS('124,150 128,200 134,250 144,296')), t1: [0.85, 0.8, 0.75, 0.65], n: 12 }),
-};
+}));
 /** cut window in the internal oblique (person's left) that shows transversus abdominis */
-const IO_WIN = sp(mir(PS('56,190,1 108,182,1 114,250,1 64,258,1')));
+const IO_WIN = once(() => sp(mir(PS('56,190,1 108,182,1 114,250,1 64,258,1'))));
 /** ribs 6–11 seen from the front: the bony rib slopes down-medially to its costochondral junction, the cartilage turns up to the sternum / costal margin */
-const RIBS_F = [
+const RIBS_F = once(() => [
   PS('28,0 68,12 104,22 150,18 172,12'),
   PS('28,26 64,40 98,52 130,48 158,36 172,30'),
   PS('28,54 58,68 88,80 108,72 124,60'),
   PS('30,84 54,98 76,110 90,100 106,84'),
   PS('32,114 50,126 66,136 78,130 92,116'),
   PS('32,148 46,156 56,160'),
-];
-const COSTAL_MARGIN = PS('172,32 152,44 132,58 116,76 102,96 90,114 80,130 70,140');
-const ribsF = [...RIBS_F, COSTAL_MARGIN].map((r) => sp(r, false) + sp(mir(r), false)).join('');
-const AF = {
+]);
+const COSTAL_MARGIN = once(() => PS('172,32 152,44 132,58 116,76 102,96 90,114 80,130 70,140'));
+const ribsF = once(() => [...RIBS_F(), COSTAL_MARGIN()].map((r) => sp(r, false) + sp(mir(r), false)).join(''));
+const AF = once(() => ({
   sternum: sp(PS('170,-20 190,-20 191,20 186,30 182,46,1 178,46,1 174,30 169,20')),
   // anterior ilium (crest → ASIS → AIIS) and pubis (superior ramus + body), both sides
   pelvis: [PS('0,244 24,248 46,258 62,272 70,284,1 66,294 60,302 56,322 52,352 44,384 0,384'), PS('94,334 120,328 146,326 162,324 175,326 175,356 162,362 148,356 126,346 100,348')]
@@ -464,53 +466,53 @@ const AF = {
   inguinal: PS('66,286 94,304 124,318 152,329'),
   linea: tube(PS('180,44 180,120 180,196 180,262 180,330'), [10, 9, 8, 4, 3]),
   symph: tube(PS('180,327 180,357'), 7.5),
-};
+}));
 
 function FrontView({ k, uid }: { k: Ctx; uid: string }) {
   return (
     <>
       <Ctxt k={k}>
-        <Rib d={ribsF} w={5.5} />
-        <path className="bone" d={AF.sternum} />
-        <path className="bone" d={AF.pelvis} />
+        <Rib d={ribsF()} w={5.5} />
+        <path className="bone" d={AF().sternum} />
+        <path className="bone" d={AF().pelvis} />
       </Ctxt>
       <Part k={k} id="pubic-symphysis">
-        <path className="cart" d={AF.symph} />
+        <path className="cart" d={AF().symph} />
       </Part>
       {/* person's left (viewer's right): deep — transversus through a window in the internal oblique */}
       <Part k={k} id="transversus-abdominis">
         <g clipPath={`url(#${uid}-taw)`}>
-          <M g={ABF.ta} deep flat />
+          <M g={ABF().ta} deep flat />
         </g>
       </Part>
       <Part k={k} id="obliques">
         <g mask={`url(#${uid}-iow)`}>
-          <M g={ABF.io} />
+          <M g={ABF().io} />
         </g>
-        <path className="ol" d={IO_WIN} />
+        <path className="ol" d={IO_WIN()} />
       </Part>
       {/* person's right (viewer's left): superficial — external oblique */}
       <Part k={k} id="obliques">
-        <path className="drop" d={ABF.eoOutline} filter={`url(#${uid}-sh)`} transform="translate(.9 1.6)" />
-        <M g={ABF.eoB} flat />
-        <M g={ABF.eoA} flat />
-        <path className="ol" d={ABF.eoOutline} />
+        <path className="drop" d={ABF().eoOutline} filter={`url(#${uid}-sh)`} transform="translate(.9 1.6)" />
+        <M g={ABF().eoB} flat />
+        <M g={ABF().eoA} flat />
+        <path className="ol" d={ABF().eoOutline} />
       </Part>
       <Ctxt k={k}>
-        <path className="lig" d={tube(AF.inguinal, 3.2)} />
-        <path className="lig" d={tube(mir(AF.inguinal), 3.2)} />
-        <path className="ten" d={AF.linea} />
+        <path className="lig" d={tube(AF().inguinal, 3.2)} />
+        <path className="lig" d={tube(mir(AF().inguinal), 3.2)} />
+        <path className="ten" d={AF().linea} />
       </Ctxt>
       <Part k={k} id="rectus-abdominis">
-        <M g={ABF.ra} />
-        <M g={ABF.raL} />
-        <path className="ten" d={ABF.raInt} />
+        <M g={ABF().ra} />
+        <M g={ABF().raL} />
+        <path className="ten" d={ABF().raInt} />
       </Part>
       <Ctxt k={k}>
         <path className="hole" d={`M${MX - 4} ${UMB}a4 5 0 1 0 8 0a4 5 0 1 0-8 0Z`} />
       </Ctxt>
       <Part k={k} id="asis">
-        <path className="bone" d={AF.asis} />
+        <path className="bone" d={AF().asis} />
       </Part>
     </>
   );
@@ -546,21 +548,21 @@ const VIEWS = [
  * internal from the iliac crest / inguinal ligament up to the ribs and aponeurosis. Cross-section: transversus
  * abdominis from the thoracolumbar fascia (back) round to its aponeurosis at the rectus sheath (front).
  */
-const OI_LB_BACK: OIMap = {
-  ...oiFrom({ 'quadratus-lumborum': LB.ql, 'erector-spinae': LB.es }, [62, 22, 300, 336]),
-  multifidus: { o: att(LB.multifidus, 'i', [0.35, 0.92]), i: att(LB.multifidus, 'o', [0.15, 0.6]) },
-};
-const OI_LB_FRONT: OIMap = oiFrom(
-  { 'rectus-abdominis': [ABF.ra, ABF.raL], obliques: [ABF.eoA, ABF.io] },
+const OI_LB_BACK = once((): OIMap => ({
+  ...oiFrom({ 'quadratus-lumborum': LB().ql, 'erector-spinae': LB().es }, [62, 22, 300, 336]),
+  multifidus: { o: att(LB().multifidus, 'i', [0.35, 0.92]), i: att(LB().multifidus, 'o', [0.15, 0.6]) },
+}));
+const OI_LB_FRONT = once((): OIMap => oiFrom(
+  { 'rectus-abdominis': [ABF().ra, ABF().raL], obliques: [ABF().eoA, ABF().io] },
   [40, 24, 320, 352],
-);
+));
 const secPt = (q: readonly number[]) => T(q[0], q[1]);
-const OI_LB_SEC: OIMap = {
+const OI_LB_SEC = once((): OIMap => ({
   'transversus-abdominis': {
-    o: [...att(SMW.taR, 'i', 0.5, 0.97), ...att(SMW.taL, 'i', 0.5, 0.97)].map(secPt),
-    i: [...att(SMW.taR, 'o', 0.5, 0.03), ...att(SMW.taL, 'o', 0.5, 0.03)].map(secPt),
+    o: [...att(SMW().taR, 'i', 0.5, 0.97), ...att(SMW().taL, 'i', 0.5, 0.97)].map(secPt),
+    i: [...att(SMW().taR, 'o', 0.5, 0.03), ...att(SMW().taL, 'o', 0.5, 0.03)].map(secPt),
   },
-};
+}));
 
 function LowbackDiagram(p: RegionDiagramProps) {
   const k = useCtx(p);
@@ -578,15 +580,15 @@ function LowbackDiagram(p: RegionDiagramProps) {
         spots={[]}
         fade={[26, 30]}
         fadeX={[46, 46]}
-        oi={OI_LB_FRONT}
+        oi={OI_LB_FRONT()}
         defs={(uid) => (
           <>
             <clipPath id={`${uid}-taw`}>
-              <path d={IO_WIN} />
+              <path d={IO_WIN()} />
             </clipPath>
             <mask id={`${uid}-iow`} maskUnits="userSpaceOnUse" x={-20} y={-20} width={W + 40} height={H + 40}>
               <rect x={-20} y={-20} width={W + 40} height={H + 40} fill="#fff" />
-              <path d={IO_WIN} fill="#000" />
+              <path d={IO_WIN()} fill="#000" />
             </mask>
           </>
         )}
@@ -604,13 +606,13 @@ function LowbackDiagram(p: RegionDiagramProps) {
         h={H}
         title="腰の輪切り（第4・第5腰椎の間の高さを上から見た図。上がおなか側）"
         cap={['腰の輪切り（上から見た図）', '↑ おなか側']}
-        labels={LABELS_SEC}
-        spots={SPOTS_SEC}
-        oi={OI_LB_SEC}
+        labels={LABELS_SEC()}
+        spots={SPOTS_SEC()}
+        oi={OI_LB_SEC()}
         overlay={
-          <text className="cap-t" x={W - 8} y={H - 8} textAnchor="end">
+          <MText mir={k.mir} className="cap-t" x={W - 8} y={H - 8} a="end">
             ↓ 背中側
-          </text>
+          </MText>
         }
       >
         <g transform={SEC_TRANSFORM}>
@@ -631,10 +633,10 @@ function LowbackDiagram(p: RegionDiagramProps) {
       spots={SPOTS_BACK}
       fade={[22, 44]}
       fadeX={[62, 60]}
-      oi={OI_LB_BACK}
+      oi={OI_LB_BACK()}
       defs={(uid) => (
         <clipPath id={`${uid}-tlf`}>
-          <path d={TLF_L} />
+          <path d={TLF_L()} />
         </clipPath>
       )}
     >

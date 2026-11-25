@@ -3,7 +3,6 @@
 // Layout comes from ./lens.ts; the artwork is the same as the map's (same CSS classes, so the
 // light/dark tokens apply).
 import { Fragment, useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from 'react';
-import type { PainSpotId } from '../../data/registry';
 import type { FigureArt } from './figure';
 import { type LensLayout, lensItemAt } from './lens';
 import { SIDE_JA, spotAriaLabel, type PlacedSpot } from './spots';
@@ -18,7 +17,8 @@ export interface LensProps {
   /** where the tap was, relative to the card (px) — the card grows out of it */
   originX: number;
   originY: number;
-  activeIds: ReadonlySet<PainSpotId>;
+  /** logged / active hotspot (per side) */
+  isActive: (s: PlacedSpot) => boolean;
   onPick: (s: PlacedSpot) => void;
   /** close button (focus goes back to the map) */
   onClose: () => void;
@@ -33,7 +33,7 @@ export const LENS_PAD = 6;
 const DOT = 7;
 const HALO = 15;
 
-export default function Lens({ uid, art, layout, left, top, originX, originY, activeIds, onPick, onClose, onLeave }: LensProps) {
+export default function Lens({ uid, art, layout, left, top, originX, originY, isActive, onPick, onClose, onLeave }: LensProps) {
   const { w, h, m, cx, cy, colW, items, side: oneSide } = layout;
   const ref = useRef<HTMLDivElement>(null);
   const [hot, setHot] = useState<string | null>(null);
@@ -169,7 +169,7 @@ export default function Lens({ uid, art, layout, left, top, originX, originY, ac
             const stop = DOT + 3;
             const on = hot === it.spot.key;
             return (
-              <g key={it.spot.key} className={`tb-lens-mark${on ? ' is-hot' : ''}${activeIds.has(it.spot.id) ? ' is-active' : ''}`}>
+              <g key={it.spot.key} className={`tb-lens-mark${on ? ' is-hot' : ''}${isActive(it.spot) ? ' is-active' : ''}`}>
                 <line
                   className="tb-lens-leader"
                   x1={x0}

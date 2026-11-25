@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { EXERCISES, getExercise, type ConditionId, type ExerciseId, type PhaseId } from '../data';
 import { createStore, useStore } from './storage';
 import { addDays, isISODate, todayISO, weekOf } from './date';
+import { effectiveDose, type Dose } from './dose';
 
 export interface MenuItem {
   id: ExerciseId;
@@ -156,6 +157,14 @@ export function parseFrequency(text: string | undefined): Frequency {
 
 export const frequencyOf = (id: ExerciseId): Frequency => parseFrequency(getExercise(id)?.dose.frequency);
 
+/**
+ * Dose of a menu item: added from a recovery-plan step → that step's dose for it (RehabPhase.doses), read from the
+ * current content so content updates apply; added from the library → the exercise's own dose.
+ */
+export const itemDose = (it: Pick<MenuItem, 'id' | 'from'>): Dose | undefined => effectiveDose(it.id, it.from);
+/** How often a menu item is meant to be done (its effective dose's frequency). */
+export const itemFrequency = (it: Pick<MenuItem, 'id' | 'from'>): Frequency => parseFrequency(itemDose(it)?.frequency);
+
 export function useMenu() {
   const state = useStore(menuStore);
   const today = todayISO();
@@ -170,15 +179,30 @@ export function useMenu() {
     const weekDates = weekOf(today);
     /** days of this week (Mon–Sun) the exercise was checked */
     const weekCount = (id: ExerciseId) => weekDates.filter((d) => (state.done[d] ?? []).includes(id)).length;
-    const daily = state.items.filter((i) => frequencyOf(i.id).kind === 'daily');
-    const weekly = state.items.filter((i) => frequencyOf(i.id).kind === 'weekly');
-    const weeklyTarget = weekly.reduce((a, i) => a + (frequencyOf(i.id) as { min: number }).min, 0);
-    const weeklyDone = weekly.reduce((a, i) => a + Math.min(weekCount(i.id), (frequencyOf(i.id) as { min: number }).min), 0);
+    // the effective frequency of each item (a plan step can set its own: 毎日 in ① vs 週3回 in ②)
+    const freq = new Map(state.items.map((i) => [i.id, itemFrequency(i)] as const));
+    const frequency = (id: ExerciseId): Frequency => freq.get(id) ?? frequencyOf(id);
+    const minOf = (id: ExerciseId) => {
+      const f = frequency(id);
+      return f.kind === 'weekly' ? f.min : 0;
+    };
+    const daily = state.items.filter((i) => frequency(i.id).kind === 'daily');
+    const weekly = state.items.filter((i) => frequency(i.id).kind === 'weekly');
+    const weeklyTarget = weekly.reduce((a, i) => a + minOf(i.id), 0);
+    const weeklyDone = weekly.reduce((a, i) => a + Math.min(weekCount(i.id), minOf(i.id)), 0);
+    const byId = new Map(state.items.map((i) => [i.id, i] as const));
     const yesterday = addDays(today, -1);
     return {
       items: state.items,
       today,
       has: (id: ExerciseId) => ids.has(id),
+      /** the menu item's effective dose (plan step dose when added from a step) */
+      dose: (id: ExerciseId): Dose | undefined => {
+        const it = byId.get(id);
+        return it ? itemDose(it) : getExercise(id)?.dose;
+      },
+      /** the menu item's effective frequency */
+      frequency,
       isDone: (id: ExerciseId, date = today) => (state.done[date] ?? []).includes(id),
       doneTodayCount: doneToday.size,
       /** daily exercises (毎日): today's checklist */
@@ -190,7 +214,7 @@ export function useMenu() {
       weeklyDone,
       weekCount,
       /** a weekly exercise done yesterday: today can be a rest day (腱・筋力の運動は1日おき) */
-      restToday: (id: ExerciseId) => frequencyOf(id).kind === 'weekly' && !doneToday.has(id) && (state.done[yesterday] ?? []).includes(id),
+      restToday: (id: ExerciseId) => frequency(id).kind === 'weekly' && !doneToday.has(id) && (state.done[yesterday] ?? []).includes(id),
       week,
       weekTotal: week.reduce((a, d) => a + d.count, 0),
       weekActiveDays: week.filter((d) => d.count > 0).length,

@@ -7,6 +7,7 @@ import {
   getGuide,
   getMuscle,
   type ConditionId,
+  type Exercise,
   type ExerciseId,
   type ExerciseType,
   type GuideId,
@@ -115,7 +116,19 @@ export function TypeIcon({ type }: { type: ExerciseType }) {
   }
 }
 
-export function ExerciseCard({ id, extra, search = '' }: { id: ExerciseId; extra?: ReactNode; /** e.g. '?from=<condition>&phase=build' */ search?: string }) {
+export function ExerciseCard({
+  id,
+  extra,
+  search = '',
+  dose,
+}: {
+  id: ExerciseId;
+  extra?: ReactNode;
+  /** e.g. '?from=<condition>&phase=build' */
+  search?: string;
+  /** the dose to show instead of the exercise's own (a recovery-plan step's dose, src/lib/dose.ts) */
+  dose?: Exercise['dose'];
+}) {
   const e = getExercise(id);
   return (
     <Link to={`/exercise/${id}${search}`} className="card" onPointerDown={prefetchViewer}>
@@ -127,7 +140,7 @@ export function ExerciseCard({ id, extra, search = '' }: { id: ExerciseId; extra
           <p className="card__title">{exerciseName(id)}</p>
           {e ? (
             <>
-              <p className="card__sub">{doseShort(e.dose) || e.nameEn}</p>
+              <p className="card__sub">{doseShort(dose ?? e.dose) || e.nameEn}</p>
               <div className="card__foot" style={{ marginTop: 8 }}>
                 <TypeBadge type={e.type} />
                 <LevelBadge level={e.level} />

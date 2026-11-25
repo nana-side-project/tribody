@@ -7,10 +7,14 @@
 //     line (quadratic curves, bulged by control points), so the outline, fibre direction and
 //     tendon ends all come from the same anatomical description;
 //   • bones / bursae / cartilage are smooth Catmull-Rom outlines through landmark points.
+// Module-level geometry is built lazily: every outline / muscle field is wrapped in once() (./lazy) and made the
+// first time a view that draws it renders. side='left' mirrors the drawing with readable texts (./mirror).
 import { createContext, useContext, useId, type KeyboardEvent, type ReactNode } from 'react';
 import { MUSCLES, PAIN_SPOTS, STRUCTURES, type MuscleId, type PainSpotId, type StructureId } from '../../data/registry';
 import type { Highlights, RegionDiagram, RegionDiagramProps } from '../types';
 import { OILegend, OIMarks, OI_CSS, OI_LEG_H, oiDots, type OIMap } from './markers';
+import { once } from './lazy';
+import { MText, MirrorG, flipLR, mirrorLab } from './mirror';
 
 export type { OI, OIMap } from './markers';
 
@@ -541,6 +545,8 @@ export interface Ctx {
   hl: Highlights;
   dim: boolean;
   onPart?: (id: PartId) => void;
+  /** the left side: the Frame mirrors the drawing (see ./mirror) */
+  mir: boolean;
 }
 
 const UidCtx = createContext('');
@@ -549,7 +555,7 @@ export function useCtx(p: RegionDiagramProps): Ctx {
   const raw = useId();
   const uid = `tbu${raw.replace(/[^a-zA-Z0-9]/g, '')}`;
   const hl = p.highlights ?? {};
-  return { uid, hl, dim: !!p.dimOthers && Object.keys(hl).length > 0, onPart: p.onPartSelect };
+  return { uid, hl, dim: !!p.dimOthers && Object.keys(hl).length > 0, onPart: p.onPartSelect, mir: p.side === 'left' };
 }
 
 const keyAct = (fn: () => void) => (e: KeyboardEvent) => {
@@ -757,10 +763,19 @@ export interface FrameProps {
   oi?: OIMap;
 }
 
-/** Root <svg> of a region diagram: styles, glow filter, drawing, labels, hotspots. */
-export function Frame({ k, p, w, h, title, cap, labels, spots, children, overlay, fade, fadeX, defs, oi }: FrameProps) {
+/**
+ * Root <svg> of a region diagram: styles, glow filter, drawing, labels, hotspots. For the left side (`k.mir`) the
+ * drawing is mirrored and the texts stay readable (see ./mirror).
+ */
+export function Frame({ k, p, w, h, title: title0, cap: cap0, labels: labels0, spots: spots0, children, overlay, fade, fadeX, defs, oi }: FrameProps) {
   const showLabels = p.showLabels ?? true;
   const dots = oiDots(oi, k.hl);
+  const mir = k.mir;
+  const title = mir ? flipLR(title0) : title0;
+  // left side: the corner captions swap corners (and say 左), labels and hotspots move to the mirrored places
+  const cap: [string, string] | undefined = cap0 && mir ? [flipLR(cap0[1]), flipLR(cap0[0])] : cap0;
+  const labels = mir ? labels0.map((l) => mirrorLab(l, w)) : labels0;
+  const spots = mir ? spots0.map((s) => ({ ...s, at: [w - s.at[0], s.at[1]] })) : spots0;
   return (
     <svg
       viewBox={`0 0 ${w} ${dots.length ? h + OI_LEG_H : h}`}
@@ -807,13 +822,15 @@ export function Frame({ k, p, w, h, title, cap, labels, spots, children, overlay
         )}
         {defs?.(k.uid)}
       </defs>
-      <g mask={fade ? `url(#${k.uid}-fade)` : undefined}>
-        <g mask={fadeX ? `url(#${k.uid}-fadex)` : undefined}>
-          <UidCtx.Provider value={k.uid}>{children}</UidCtx.Provider>
+      <MirrorG mir={mir} w={w}>
+        <g mask={fade ? `url(#${k.uid}-fade)` : undefined}>
+          <g mask={fadeX ? `url(#${k.uid}-fadex)` : undefined}>
+            <UidCtx.Provider value={k.uid}>{children}</UidCtx.Provider>
+          </g>
         </g>
-      </g>
-      <UidCtx.Provider value={k.uid}>{overlay}</UidCtx.Provider>
-      <OIMarks dots={dots} />
+        <UidCtx.Provider value={k.uid}>{overlay}</UidCtx.Provider>
+        <OIMarks dots={dots} />
+      </MirrorG>
       {dots.length > 0 && <OILegend w={w} y={h} dots={dots} className="note-t" />}
       {cap && (
         <g aria-hidden="true">
@@ -895,7 +912,7 @@ const H = 420;
 const MX = 78; // midline (spinous processes)
 const TV = [56, 78, 100, 122, 144, 166, 188, 210, 232, 254, 276, 298, 320, 342, 364]; // T1… vertebra centres
 
-const B = {
+const B = once(() => ({
   spine: TV.map((y, i) => vertPost(MX, y, { tp: 29 - i * 0.5, sp: 22, w: 11, spW: 3.2 })).join(''),
   cerv: [vertPost(MX, 12, { tp: 25, sp: 16, tpY: -6, spW: 3 }), vertPost(MX, 34, { tp: 27, sp: 20, tpY: -7, spW: 3.2 })].join(''),
   spinous: TV.map((y) => spinePost(MX, y, 22, 3.2)).join('') + spinePost(MX, 34, 20, 3.2),
@@ -928,10 +945,10 @@ const B = {
   acrLn: sp(PS('216,102 232,99 246,101'), false),
   humerus: sp(PS('226,106 240,107 251,113 257,125 256,140 252,152 251,178 255,212 252,242 250,300 249,440 224,440 224,300 222,220 219,172 214,157 208,147 206,130 210,115')),
   humLn: sp(PS('243,108 252,128 246,148'), false),
-};
+}));
 
 /** muscles of the posterior views */
-const MB = {
+const MB = once(() => ({
   supra: muscle({ o: PS('128,93 122,106 118,117'), i: PS('230,104 236,110'), c: PS('172,80 170,96 172,108'), t1: 0.8, n: 8 }),
   infra: muscle({
     o: PS('121,131 117,150 119,172 125,198'),
@@ -970,15 +987,15 @@ const MB = {
     t1: 0.92,
     n: 15,
   }),
-};
+}));
 
-const CAPSULE_B = sp(PS('211,104 224,101 238,105 249,114 253,130 249,148 238,160 226,170 214,166 209,150 207,128'));
-const CAPSULE_B_LN = [
+const CAPSULE_B = once(() => sp(PS('211,104 224,101 238,105 249,114 253,130 249,148 238,160 226,170 214,166 209,150 207,128')));
+const CAPSULE_B_LN = once(() => [
   sp(PS('214,110 232,108 246,118'), false),
   sp(PS('212,128 232,126 250,132'), false),
   sp(PS('212,146 228,150 244,148'), false),
   sp(PS('214,160 226,162 236,157'), false),
-].join('');
+].join(''));
 
 /**
  * Posterior shoulder layers, back to front. Exported so the neck diagram can reuse them
@@ -991,72 +1008,72 @@ export function ShoulderBackLayers({ k, deep, skip = [] }: { k: Ctx; deep: boole
       {has('ribs') && (
         <Ctxt k={k}>
           <g opacity={0.5}>
-            <Rib d={B.ribsL} w={6} />
+            <Rib d={B().ribsL} w={6} />
           </g>
-          <Rib d={B.ribsR} w={6.5} />
-          <path className="bone" d={B.cerv} />
+          <Rib d={B().ribsR} w={6.5} />
+          <path className="bone" d={B().cerv} />
         </Ctxt>
       )}
       {has('spine') && (
         <Part k={k} id="thoracic-spine">
-          <path className="bone" d={B.spine} />
+          <path className="bone" d={B().spine} />
         </Part>
       )}
       <Part k={k} id="scapula">
-        <path className="bone" d={B.scap} />
-        <path className="bone-sh" d={B.scapSh} />
+        <path className="bone" d={B().scap} />
+        <path className="bone-sh" d={B().scapSh} />
       </Part>
       <Ctxt k={k}>
-        <M g={MB.tmajor} deep />
-        <path className="bone" d={B.humerus} />
-        <path className="bone-ln" d={B.humLn} />
+        <M g={MB().tmajor} deep />
+        <path className="bone" d={B().humerus} />
+        <path className="bone-ln" d={B().humLn} />
       </Ctxt>
       {!deep && has('lat') && (
         <Part k={k} id="latissimus-dorsi">
-          <M g={MB.lat} />
+          <M g={MB().lat} />
         </Part>
       )}
       <Part k={k} id="triceps-brachii">
-        <M g={MB.triLat} />
-        <M g={MB.triLong} />
+        <M g={MB().triLat} />
+        <M g={MB().triLong} />
       </Part>
       {deep && (
         <Part k={k} id="posterior-capsule">
-          <path className="cap" d={CAPSULE_B} />
-          <path className="ten-fib" d={CAPSULE_B_LN} />
+          <path className="cap" d={CAPSULE_B()} />
+          <path className="ten-fib" d={CAPSULE_B_LN()} />
         </Part>
       )}
       <Part k={k} id="teres-minor">
-        <M g={MB.tminor} />
+        <M g={MB().tminor} />
       </Part>
       <Part k={k} id="infraspinatus">
-        <M g={MB.infra} />
+        <M g={MB().infra} />
       </Part>
       {deep && (
         <Part k={k} id="supraspinatus">
-          <M g={MB.supra} deep />
+          <M g={MB().supra} deep />
         </Part>
       )}
       <Part k={k} id="scapula">
-        <path className="bone" d={B.sspine} />
-        <path className="bone-sh" d={B.sspineSh} />
-        <path className="bone-ln" d={B.sspineLn} />
+        <path className="bone" d={B().sspine} />
+        <path className="bone-sh" d={B().sspineSh} />
+        <path className="bone-ln" d={B().sspineLn} />
       </Part>
       <Part k={k} id="acromion">
-        <path className="bone" d={B.acromion} />
-        <path className="bone-ln" d={B.acrLn} />
+        <path className="bone" d={B().acromion} />
+        <path className="bone-ln" d={B().acrLn} />
       </Part>
       {deep && (
         <>
           {has('levator') && (
             <Part k={k} id="levator-scapulae">
-              <M g={MB.levator} />
+              <M g={MB().levator} />
             </Part>
           )}
           {has('rhomboids') && (
             <Part k={k} id="rhomboids">
-              <M g={MB.rhMinor} />
-              <M g={MB.rhMajor} />
+              <M g={MB().rhMinor} />
+              <M g={MB().rhMajor} />
             </Part>
           )}
         </>
@@ -1065,22 +1082,22 @@ export function ShoulderBackLayers({ k, deep, skip = [] }: { k: Ctx; deep: boole
         <>
           {has('trap') && (
             <Part k={k} id="trapezius">
-              <M g={MB.trap} />
+              <M g={MB().trap} />
             </Part>
           )}
           <Part k={k} id="deltoid">
-            <M g={MB.deltoid} />
+            <M g={MB().deltoid} />
           </Part>
         </>
       )}
       {deep && has('trapGhost') && (
         <Part k={k} id="trapezius">
-          <path className="ghost-mus" d={MB.trap.body} />
+          <path className="ghost-mus" d={MB().trap.body} />
         </Part>
       )}
       {has('spine') && (
         <Part k={k} id="thoracic-spine">
-          <path className="bone" d={B.spinous} />
+          <path className="bone" d={B().spinous} />
         </Part>
       )}
     </>
@@ -1137,7 +1154,7 @@ const RIB_F: [XY, XY, XY][] = [
 const ABD = 10;
 const ab = (pts: readonly P[], f = 1) => rotP(pts, ABD * f, 130, 104);
 
-const F = {
+const F = once(() => ({
   sternum: sp(PS('284,74 300,74 304,84 300,102 302,200 298,236 292,254,1 286,236 282,200 284,102 280,84')),
   sternLn: sp(PS('284,103 300,103'), false),
   ribs: RIB_F.map(([L, C, S]) => sp([L, [(L[0] + C[0]) / 2, (L[1] + C[1]) / 2 + 5], C, S], false)).join(''),
@@ -1151,12 +1168,12 @@ const F = {
   shaft: sp(ab(PS('136,128 136,150 133,200 130,260 126,440 100,440 103,300 104,246 103,236 106,180 107,140 108,128'))),
   grooveLn: sp(ab(PS('118,104 118,130 117,170')), false) + sp(ab(PS('126,108 127,132 125,170')), false),
   headLn: sp(ab(PS('140,87 130,100 131,122 140,131')), false),
-};
+}));
 
 /** Arm silhouette filled with deep muscle tone so the superficial arm muscles read as one limb. */
-const ARM_UNDER = sp(ab(PS('104,136 98,180 96,236 92,300 92,430 152,430 156,300 160,220 158,170 150,140')));
+const ARM_UNDER = once(() => sp(ab(PS('104,136 98,180 96,236 92,300 92,430 152,430 156,300 160,220 158,170 150,140'))));
 
-const MF = {
+const MF = once(() => ({
   trap: muscle({ o: PS('214,-14 246,-14'), i: PS('138,60 196,71'), c: PS('200,30 236,46'), n: 9 }),
   scm: muscle({ o: PS('288,82 268,80'), i: PS('244,-14 232,-14'), c: PS('270,30 252,34'), t0: 0.08, n: 6 }),
   pecMajor: muscle({
@@ -1189,10 +1206,10 @@ const MF = {
     n: 14,
   }),
   supra: muscle({ o: PS('230,74 228,84 224,96'), i: ab(PS('110,85 112,90 114,95')), c: PS('176,66 172,80 166,94'), t1: 0.56, n: 6 }),
-};
+}));
 
 /** Serratus anterior: one finger-like slip per rib (4th–9th), pointed tip on the rib, running back-up under the lat. */
-const SERRATUS = [4, 5, 6, 7, 8, 9].map((r, j) => {
+const SERRATUS = once(() => [4, 5, 6, 7, 8, 9].map((r, j) => {
   const [L, C] = RIB_F[r - 1];
   const xt = 206 - j * 2.5;
   const yt = L[1] + ((C[1] - L[1]) * (xt - L[0])) / (C[0] - L[0]) + 3;
@@ -1214,16 +1231,16 @@ const SERRATUS = [4, 5, 6, 7, 8, 9].map((r, j) => {
     t0: 0.1,
     n: 5,
   });
-}).reverse();
+}).reverse());
 
-const BURSA_F = sp(PS('158,76 140,73 120,74 105,81 99,95 101,110 107,112 109,98 116,89 132,84 150,84'));
-const CA_LIG = tube(PS('158,92 146,80 132,74'), [7, 6, 8]);
-const LHB_TENDON = tube([...PS('154,86 142,83 130,86'), ...ab(PS('122,95 119,110 119,130 119,158 119,178'))], [4.6, 4.6, 4.8, 5, 5, 5, 5, 5.5]);
-const TRANSVERSE_LIG = tube(ab(PS('113,124 127,126')), 4);
+const BURSA_F = once(() => sp(PS('158,76 140,73 120,74 105,81 99,95 101,110 107,112 109,98 116,89 132,84 150,84')));
+const CA_LIG = once(() => tube(PS('158,92 146,80 132,74'), [7, 6, 8]));
+const LHB_TENDON = once(() => tube([...PS('154,86 142,83 130,86'), ...ab(PS('122,95 119,110 119,130 119,158 119,178'))], [4.6, 4.6, 4.8, 5, 5, 5, 5, 5.5]));
+const TRANSVERSE_LIG = once(() => tube(ab(PS('113,124 127,126')), 4));
 
 /** Inset: the right glenoid seen face-on from the side (humerus removed): labrum ring + biceps anchor. */
 const INSET = { cx: 304, cy: 350, r: 48 };
-const GLEN = (() => {
+const GLEN = once(() => {
   const { cx, cy } = INSET;
   const pear = (s: number, dy = 6): P[] =>
     PS('0,-24 7,-21 11,-10 15,5 14,17 8,24 0,26 -8,24 -14,17 -15,5 -11,-10 -7,-21').map(
@@ -1238,115 +1255,115 @@ const GLEN = (() => {
     body: sp(at('-26,44 -22,18 -20,-6 -12,-24 14,-24 20,-4 22,18 26,44'), false),
     biceps: tube(at('0,-26 4,-36 12,-46 22,-48'), [5.5, 5, 5, 5]),
   };
-})();
+});
 
 function FrontView({ k, deep }: { k: Ctx; deep: boolean }) {
   return (
     <>
       <Ctxt k={k}>
         <g opacity={deep ? 0.42 : 0.5}>
-          <Rib d={F.ribs} w={5.5} />
+          <Rib d={F().ribs} w={5.5} />
         </g>
-        <path className="bone" d={F.sternum} />
-        <path className="bone-ln" d={F.sternLn} />
+        <path className="bone" d={F().sternum} />
+        <path className="bone-ln" d={F().sternLn} />
       </Ctxt>
       {deep && (
         <>
           <Part k={k} id="scapula">
-            <path className="bone" d={F.scap} />
-            <path className="bone-sh" d={F.scapSh} />
+            <path className="bone" d={F().scap} />
+            <path className="bone-sh" d={F().scapSh} />
           </Part>
           <Part k={k} id="subscapularis">
-            <M g={MF.subscap} deep />
+            <M g={MF().subscap} deep />
           </Part>
         </>
       )}
       <Part k={k} id="serratus-anterior">
-        {SERRATUS.map((g, i) => (
+        {SERRATUS().map((g, i) => (
           <M key={i} g={g} />
         ))}
       </Part>
       {!deep && (
         <Part k={k} id="triceps-brachii">
-          <M g={MF.triceps} />
+          <M g={MF().triceps} />
         </Part>
       )}
       <Part k={k} id="latissimus-dorsi">
-        <M g={MF.lat} />
+        <M g={MF().lat} />
       </Part>
       {!deep && (
         <Ctxt k={k}>
           <g className="tone-deep">
-            <path className="mus" d={ARM_UNDER} />
+            <path className="mus" d={ARM_UNDER()} />
           </g>
         </Ctxt>
       )}
       {deep && (
         <>
           <Ctxt k={k}>
-            <path className="bone" d={F.shaft} />
+            <path className="bone" d={F().shaft} />
           </Ctxt>
           <Part k={k} id="humeral-head">
-            <path className="bone" d={F.head} />
-            <path className="bone-ln" d={F.grooveLn} />
-            <path className="bone-ln" d={F.headLn} />
+            <path className="bone" d={F().head} />
+            <path className="bone-ln" d={F().grooveLn} />
+            <path className="bone-ln" d={F().headLn} />
           </Part>
           <Part k={k} id="supraspinatus">
-            <M g={MF.supra} deep />
+            <M g={MF().supra} deep />
           </Part>
           <Part k={k} id="subacromial-bursa">
-            <path className="bursa" d={BURSA_F} />
+            <path className="bursa" d={BURSA_F()} />
           </Part>
           <Part k={k} id="scapula">
-            <path className="bone" d={F.coracoid} />
+            <path className="bone" d={F().coracoid} />
           </Part>
           <Part k={k} id="pectoralis-minor">
-            <M g={MF.pecMinor} />
+            <M g={MF().pecMinor} />
           </Part>
         </>
       )}
       {!deep && (
         <Ctxt k={k}>
-          <M g={MF.brachialis} />
+          <M g={MF().brachialis} />
         </Ctxt>
       )}
       <Part k={k} id="biceps-brachii">
-        <M g={MF.biShort} />
-        <M g={MF.biLong} />
+        <M g={MF().biShort} />
+        <M g={MF().biLong} />
       </Part>
       {deep && (
         <>
           <Part k={k} id="biceps-long-head-tendon">
-            <path className="ten" d={LHB_TENDON} />
+            <path className="ten" d={LHB_TENDON()} />
           </Part>
           <Ctxt k={k}>
-            <path className="lig" d={TRANSVERSE_LIG} />
-            <path className="lig" d={CA_LIG} />
+            <path className="lig" d={TRANSVERSE_LIG()} />
+            <path className="lig" d={CA_LIG()} />
           </Ctxt>
         </>
       )}
       {!deep && (
         <Part k={k} id="pectoralis-major">
-          <M g={MF.pecMajor} />
+          <M g={MF().pecMajor} />
         </Part>
       )}
       <Ctxt k={k}>
-        <M g={MF.scm} ctx />
+        <M g={MF().scm} ctx />
       </Ctxt>
       <Part k={k} id="trapezius">
-        <M g={MF.trap} />
+        <M g={MF().trap} />
       </Part>
       <Part k={k} id="acromion">
-        <path className="bone" d={F.acromion} />
+        <path className="bone" d={F().acromion} />
       </Part>
       {!deep && (
         <Part k={k} id="deltoid">
-          <M g={MF.deltoid} />
+          <M g={MF().deltoid} />
         </Part>
       )}
       <Ctxt k={k}>
-        <path className="bone" d={F.clav} />
-        <path className="bone-ln" d={F.clavLn} />
+        <path className="bone" d={F().clav} />
+        <path className="bone-ln" d={F().clavLn} />
       </Ctxt>
     </>
   );
@@ -1358,22 +1375,22 @@ function GlenoidInset({ k }: { k: Ctx }) {
     <g>
       <circle className="inset-bg" cx={cx} cy={cy} r={r} />
       <Ctxt k={k}>
-        <path className="ghost" d={GLEN.body} />
-        <path className="bone" d={GLEN.acromion} />
-        <path className="bone" d={GLEN.coracoid} />
+        <path className="ghost" d={GLEN().body} />
+        <path className="bone" d={GLEN().acromion} />
+        <path className="bone" d={GLEN().coracoid} />
       </Ctxt>
       <Part k={k} id="glenoid-labrum">
-        <path className="labrum" d={GLEN.rim} />
+        <path className="labrum" d={GLEN().rim} />
       </Part>
       <Ctxt k={k}>
-        <path className="face" d={GLEN.face} />
+        <path className="face" d={GLEN().face} />
       </Ctxt>
       <Part k={k} id="biceps-long-head-tendon">
-        <path className="ten" d={GLEN.biceps} />
+        <path className="ten" d={GLEN().biceps} />
       </Part>
-      <text className="note-t" x={cx} y={cy + r + 16} textAnchor="middle">
+      <MText mir={k.mir} className="note-t" x={cx} y={cy + r + 16} a="middle">
         関節窩を横から
-      </text>
+      </MText>
     </g>
   );
 }
@@ -1426,40 +1443,40 @@ const BOX_SH = [4, 30, 356, 376] as const;
  * and end on the scapula behind them (not visible from the front); the supraspinatus and latissimus are seen only at
  * their insertions. Back views: the broad trapezius and latissimus get dots along their origin lines.
  */
-const OI_SH_FRONT: OIMap = {
-  ...oiFrom({ 'pectoralis-major': MF.pecMajor, deltoid: MF.deltoid, trapezius: MF.trap, 'latissimus-dorsi': MF.lat }, BOX_SH),
-  'serratus-anterior': { o: SERRATUS.flatMap((g) => att(g, 'o')) },
-  'biceps-brachii': { o: [[153, 87], ...att(MF.biShort, 'o')] },
-};
-const OI_SH_DEEP: OIMap = {
-  ...oiFrom({ subscapularis: MF.subscap, 'pectoralis-minor': MF.pecMinor, trapezius: MF.trap, 'latissimus-dorsi': MF.lat }, BOX_SH),
-  supraspinatus: { i: att(MF.supra, 'i') },
-  'serratus-anterior': { o: SERRATUS.flatMap((g) => att(g, 'o')) },
-  'biceps-brachii': { o: [[153, 87], ...att(MF.biShort, 'o')] },
-};
-const OI_SH_BACK: OIMap = oiFrom(
+const OI_SH_FRONT = once((): OIMap => ({
+  ...oiFrom({ 'pectoralis-major': MF().pecMajor, deltoid: MF().deltoid, trapezius: MF().trap, 'latissimus-dorsi': MF().lat }, BOX_SH),
+  'serratus-anterior': { o: SERRATUS().flatMap((g) => att(g, 'o')) },
+  'biceps-brachii': { o: [[153, 87], ...att(MF().biShort, 'o')] },
+}));
+const OI_SH_DEEP = once((): OIMap => ({
+  ...oiFrom({ subscapularis: MF().subscap, 'pectoralis-minor': MF().pecMinor, trapezius: MF().trap, 'latissimus-dorsi': MF().lat }, BOX_SH),
+  supraspinatus: { i: att(MF().supra, 'i') },
+  'serratus-anterior': { o: SERRATUS().flatMap((g) => att(g, 'o')) },
+  'biceps-brachii': { o: [[153, 87], ...att(MF().biShort, 'o')] },
+}));
+const OI_SH_BACK = once((): OIMap => oiFrom(
   {
-    'latissimus-dorsi': MB.lat,
-    'triceps-brachii': [MB.triLat, MB.triLong],
-    'teres-minor': MB.tminor,
-    infraspinatus: MB.infra,
-    trapezius: MB.trap,
-    deltoid: MB.deltoid,
+    'latissimus-dorsi': MB().lat,
+    'triceps-brachii': [MB().triLat, MB().triLong],
+    'teres-minor': MB().tminor,
+    infraspinatus: MB().infra,
+    trapezius: MB().trap,
+    deltoid: MB().deltoid,
   },
   BOX_SH,
   { 'latissimus-dorsi': [0.15, 0.5], trapezius: [0.2, 0.55, 0.9] },
-);
-const OI_SH_BACK_DEEP: OIMap = oiFrom(
+));
+const OI_SH_BACK_DEEP = once((): OIMap => oiFrom(
   {
-    'triceps-brachii': [MB.triLat, MB.triLong],
-    'teres-minor': MB.tminor,
-    infraspinatus: MB.infra,
-    supraspinatus: MB.supra,
-    'levator-scapulae': MB.levator,
-    rhomboids: [MB.rhMinor, MB.rhMajor],
+    'triceps-brachii': [MB().triLat, MB().triLong],
+    'teres-minor': MB().tminor,
+    infraspinatus: MB().infra,
+    supraspinatus: MB().supra,
+    'levator-scapulae': MB().levator,
+    rhomboids: [MB().rhMinor, MB().rhMajor],
   },
   BOX_SH,
-);
+));
 
 function ShoulderDiagram(p: RegionDiagramProps) {
   const k = useCtx(p);
@@ -1478,7 +1495,7 @@ function ShoulderDiagram(p: RegionDiagramProps) {
         spots={SPOTS_FRONT}
         overlay={deep ? <GlenoidInset k={k} /> : undefined}
         fade={[34, 46]}
-        oi={deep ? OI_SH_DEEP : OI_SH_FRONT}
+        oi={deep ? OI_SH_DEEP() : OI_SH_FRONT()}
       >
         <FrontView k={k} deep={deep} />
       </Frame>
@@ -1496,7 +1513,7 @@ function ShoulderDiagram(p: RegionDiagramProps) {
       labels={deep ? LABELS_BACK_DEEP : LABELS_BACK}
       spots={SPOTS_BACK}
       fade={[30, 46]}
-      oi={deep ? OI_SH_BACK_DEEP : OI_SH_BACK}
+      oi={deep ? OI_SH_BACK_DEEP() : OI_SH_BACK()}
     >
       <BackView k={k} deep={deep} />
     </Frame>

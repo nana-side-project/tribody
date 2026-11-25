@@ -143,9 +143,9 @@ const achillesMidportion: Condition = {
       title: '② 腱を強くする',
       goal: '腱とふくらはぎに段階的に重い負荷をかけ、負荷に耐える力を取り戻します（目安12週間）。',
       guidance: [
-        'エキセントリック（下ろす動作を強調）か、重りを使ってゆっくり上げ下げするHSR（週3回、3秒で上げ3秒で下ろす）を行います。どちらも効果が示されています。',
+        'エキセントリック（下ろす動作を強調）のヒールドロップか、重りを使ってゆっくり上げ下げするHSR（カーフレイズを週3回、3秒で上げ3秒で下ろす）を行います。どちらも効果が示されています。',
         'ヒールドロップの原法は1日2回・12週間です。毎日できなくても、週3回以上続ければ効果が見込めます。',
-        '膝を伸ばした種目（腓腹筋）と曲げた種目（ヒラメ筋）の両方を行い、片脚で楽に15回できたらリュックに重りを入れます。',
+        '膝を伸ばしたカーフレイズ（腓腹筋）と膝曲げカーフレイズ（ヒラメ筋）の両方を行い、片脚で楽に15回できたらリュックに重りを入れます。',
         '翌朝のこわばりや痛みが前回より悪化していなければ、そのまま続けて少しずつ増やします。',
         'ランは平地のゆっくりペースで、痛みの基準を守りながら距離を戻します。',
         '足首が硬い場合は、練習後に腓腹筋ストレッチを加えます。腱の痛みが強まるなら控えます。',
@@ -157,8 +157,12 @@ const achillesMidportion: Condition = {
         'ex-single-leg-bridge',
         'ex-gastroc-stretch',
       ],
+      doses: {
+        'ex-calf-raise-straight': { reps: '片脚15回（楽にできたら重りを足す）', tempo: '3秒で上げ、3秒で下ろす' },
+        'ex-calf-raise-bent': { reps: '片脚15回（楽にできたら重りを足す）', tempo: '3秒で上げ、3秒で下ろす' },
+      },
       progressWhen: [
-        '片脚カーフレイズが反対側とほぼ同じ回数（目安20〜25回）できる',
+        '重りなしの片脚カーフレイズ（できるだけ多く）が、反対側とほぼ同じ回数（目安20〜25回）できる',
         '平地で30分のジョグをした翌朝に、こわばりや痛みの悪化がない',
         '両脚でその場の軽いジャンプ10回が痛み3以内でできる',
       ],
@@ -171,7 +175,7 @@ const achillesMidportion: Condition = {
         'ポゴジャンプなどの軽い跳躍から始め、両脚→片脚、回数→高さの順に増やします。',
         '坂道とスピード練習は1種類ずつ、週1回から戻します。',
         '厚底カーボンシューズは短い距離から、週の一部の練習で使います。',
-        'リハビリ後もふくらはぎの筋トレを週2回続けると再発予防になります。',
+        'ふくらはぎの筋トレ（ヒールドロップ・膝曲げカーフレイズ）は週2回、リハビリ後も続けると再発予防になります。',
       ],
       exercises: [
         'ex-pogo-hops',
@@ -179,6 +183,10 @@ const achillesMidportion: Condition = {
         'ex-calf-raise-bent',
         'ex-single-leg-rdl',
       ],
+      doses: {
+        'ex-eccentric-heel-drop': { frequency: '週2回（再発予防）' },
+        'ex-calf-raise-bent': { frequency: '週2回（再発予防）' },
+      },
       progressWhen: [
         '片脚ホップ20回が痛み3以内で、左右差なくできる',
         'ふだんの練習量・強度で走った翌朝に悪化がない',
@@ -399,7 +407,7 @@ const achillesInsertional: Condition = {
       goal: '床の高さまでの範囲で、腱とふくらはぎに重い負荷をかけて強くします。',
       guidance: [
         'ヒールドロップは段差を使わず床の高さで行い、かかとをつま先より下げません。',
-        '片脚で楽に15回できたら、範囲を広げる前に、リュックで重りを足して負荷を上げます。',
+        'ヒールドロップを片脚で楽に15回できたら、範囲を広げる前に、リュックで重りを足して負荷を上げます。',
         '膝を曲げたカーフレイズでヒラメ筋も鍛えます。',
         '腱の運動は週3回以上続け、痛みは運動中3〜5以内、翌朝までに戻ることを確かめます。',
         '段差で深く下ろす範囲を広げるのは、③の段階に入ってからにします。',
@@ -424,9 +432,13 @@ const achillesInsertional: Condition = {
         '床の高さのヒールドロップを重りを入れて行っても痛み3以内で、翌朝の悪化もなければ、段差で範囲を少しずつ広げます。最初は床より数cm下までにし、痛みが増えたら床の高さに戻します。',
         'ポゴジャンプなど軽い跳躍を、両脚→片脚の順に加えます。',
         '上り坂はゆるい坂・短い本数から。ヒールリフトは少しずつ外します。',
-        'ふくらはぎの筋トレを週2回続けます。',
+        'ふくらはぎの筋トレ（ヒールドロップ・膝曲げカーフレイズ）を週2回続けます。',
       ],
       exercises: ['ex-knee-to-wall', 'ex-pogo-hops', 'ex-heel-drop-floor', 'ex-calf-raise-bent'],
+      doses: {
+        'ex-heel-drop-floor': { frequency: '週2回（再発予防）' },
+        'ex-calf-raise-bent': { frequency: '週2回（再発予防）' },
+      },
       progressWhen: [
         '片脚ホップ20回が痛み3以内でできる',
         '坂道を含む練習の翌朝に悪化がない',
@@ -654,7 +666,7 @@ const ankleSprain: Condition = {
       guidance: [
         'LOVE（適切な負荷・前向きな気持ち・有酸素運動・運動療法）の段階です。痛みの範囲で積極的に動かします。',
         '片脚バランスを毎日行い、目を閉じる・クッションに立つなどで難しくしていきます。',
-        '腓骨筋（外がえし）、後脛骨筋（内がえし）、ふくらはぎの筋力を週3回鍛えます。',
+        '腓骨筋（チューブ外がえし）、後脛骨筋（チューブ内がえし）、ふくらはぎの筋力を週3回鍛えます。',
         '捻挫後は足首を反らす動き（背屈）が硬く残りやすいので、ニー・トゥ・ウォールで回復させます。',
         '片脚カーフレイズと片脚立ちが問題なくできたら、平地のジョグを再開します。',
       ],
@@ -665,6 +677,11 @@ const ankleSprain: Condition = {
         'ex-calf-raise-straight',
         'ex-knee-to-wall',
       ],
+      doses: {
+        'ex-single-leg-balance': { frequency: '毎日' },
+        'ex-band-eversion': { frequency: '週3回' },
+        'ex-band-inversion': { frequency: '週3回' },
+      },
       progressWhen: [
         '目を閉じた片脚立ちを20〜30秒、左右差なく保てる',
         '片脚カーフレイズが反対側と同じくらいできる',
@@ -677,11 +694,14 @@ const ankleSprain: Condition = {
       goal: '跳ぶ・切り返す・不整地に対応できる足首にして、レースに戻ります。',
       guidance: [
         '両脚→片脚のジャンプ、横への動き、芝生などの不整地を段階的に加えます。',
-        '捻挫後1年ほどは再発しやすい時期です。バランス練習を週3回、少なくとも3か月は続けます。',
+        '捻挫後1年ほどは再発しやすい時期です。片脚バランスなどのバランス練習を週3回、少なくとも3か月は続けます。',
         'トレイルや復帰後のレースでは、サポーターやテーピングも再発予防に有効です。',
         '殿筋を含めた片脚の安定性トレーニングも取り入れます。',
       ],
       exercises: ['ex-pogo-hops', 'ex-single-leg-balance', 'ex-single-leg-rdl', 'ex-band-walk'],
+      doses: {
+        'ex-single-leg-balance': { frequency: '週3回（少なくとも3か月続ける）' },
+      },
       progressWhen: [
         '片脚ホップ20回が、痛みや不安定感なく左右差なくできる',
         '芝生や不整地を走っても不安定感がない',
@@ -931,7 +951,7 @@ const posteriorTibialTendinopathy: Condition = {
       guidance: [
         '先に距離を戻し、スピードと坂道はその後に1つずつ加えます。',
         'ジャンプ系は両脚から始め、着地でアーチがつぶれないか確かめます。',
-        '筋トレは週2回続けます。疲れるとアーチが落ちやすいので、ブリックランは短めから始めます。',
+        '筋トレ（タオルを使ったヒールレイズ、チューブ内がえしなど）は週2〜3回続けます。疲れるとアーチが落ちやすいので、ブリックランは短めから始めます。',
       ],
       exercises: [
         'ex-pogo-hops',
@@ -939,6 +959,10 @@ const posteriorTibialTendinopathy: Condition = {
         'ex-single-leg-rdl',
         'ex-band-inversion',
       ],
+      doses: {
+        'ex-towel-heel-raise': { frequency: '週2〜3回' },
+        'ex-band-inversion': { frequency: '週2〜3回' },
+      },
       progressWhen: [
         '片脚ホップ20回が痛みなくできる',
         'ふだんの練習量で、翌朝に痛みや腫れが出ない',
@@ -1152,6 +1176,9 @@ const peronealTendinopathy: Condition = {
         'ex-calf-raise-straight',
         'ex-calf-raise-bent',
       ],
+      doses: {
+        'ex-single-leg-balance': { frequency: '毎日' },
+      },
       progressWhen: [
         '目を閉じた片脚立ちを20〜30秒保てる',
         '片脚カーフレイズが反対側と同じくらいできる',
@@ -1165,9 +1192,12 @@ const peronealTendinopathy: Condition = {
       guidance: [
         '軽いジャンプ、横への移動、芝生などの柔らかい不整地を段階的に加えます。',
         'トレイルは平坦なコースから戻し、下りは最後にします。',
-        'バランスと腓骨筋のトレーニングを週2〜3回続けます。',
+        '片脚バランスと腓骨筋のトレーニングを週2〜3回続けます。',
       ],
       exercises: ['ex-pogo-hops', 'ex-single-leg-balance', 'ex-band-walk', 'ex-single-leg-rdl'],
+      doses: {
+        'ex-single-leg-balance': { frequency: '週2〜3回' },
+      },
       progressWhen: [
         '片脚ホップ20回が痛みなくできる',
         '芝生や不整地を走っても痛みや不安定感がない',
@@ -1414,7 +1444,7 @@ const plantarHeelPain: Condition = {
       guidance: [
         '先に距離を戻し、スピード練習と坂道はその後に1つずつ加えます。',
         'ポゴジャンプなどの軽い跳躍で、足のバネを取り戻します。',
-        '筋トレを週2回続け、シューズの交換時期を管理します。',
+        '筋トレ（タオルを使ったヒールレイズ）を週2回続け、シューズの交換時期を管理します。',
       ],
       exercises: [
         'ex-pogo-hops',
@@ -1422,6 +1452,9 @@ const plantarHeelPain: Condition = {
         'ex-single-leg-balance',
         'ex-knee-to-wall',
       ],
+      doses: {
+        'ex-towel-heel-raise': { frequency: '週2回（再発予防）' },
+      },
       progressWhen: [
         '片脚ホップ20回が痛みなくできる',
         'ふだんの練習量・強度で、翌朝の痛みが出ない',
@@ -1767,8 +1800,8 @@ const mortonsNeuroma: Condition = {
     {
       ref: 'metatarsals',
       kind: 'structure',
-      role: 'overloaded',
-      note: '前足部が横から締めつけられると、中足骨の頭同士が近づいて神経を挟みます。',
+      role: 'nearby',
+      note: '神経の両わきにある足の甲の骨です。骨が傷んでいるわけではありませんが、前足部が横から締めつけられると骨の頭同士が近づき、間の神経を挟みます。',
     },
     {
       ref: 'gastrocnemius',
@@ -1891,9 +1924,12 @@ const mortonsNeuroma: Condition = {
       guidance: [
         'レース用シューズは練習で試してから使い、細身のものは避けます。',
         'ロングライドでは、足がむくむ後半にストラップを少しゆるめます。',
-        '足裏とふくらはぎのトレーニングを週2回続けます。',
+        '足裏とふくらはぎのトレーニング（膝曲げカーフレイズなど）を週2回続けます。',
       ],
       exercises: ['ex-pogo-hops', 'ex-single-leg-balance', 'ex-calf-raise-bent'],
+      doses: {
+        'ex-calf-raise-bent': { frequency: '週2回（再発予防）' },
+      },
       progressWhen: [
         'ふだんの練習量で、しびれや痛みが出ない',
         'レース用シューズ・バイクシューズで長い練習をしても症状が出ない',

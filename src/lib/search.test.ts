@@ -43,6 +43,38 @@ describe('search ranking', () => {
     expect(search('痛み').length).toBeGreaterThan(0);
   });
 
+  it('ranks the shoulder conditions for 肩が痛い / 肩痛 (肩 inside 肩甲 = the shoulder blade does not count as 肩)', () => {
+    for (const q of ['肩が痛い', '肩痛', 'かたがいたい']) {
+      const hits = search(q);
+      const ids = hits.map((h) => h.id);
+      expect(ids[0]).toBe('swimmers-shoulder');
+      const pos = (id: string) => ids.indexOf(id);
+      // every other shoulder condition comes before the shoulder-blade names that only start with 肩
+      for (const blade of ['scapular-dyskinesis', 'subscapularis', 'levator-scapulae']) {
+        expect(pos(blade)).toBeGreaterThan(pos('swimmers-shoulder'));
+        expect(pos(blade)).toBeGreaterThan(pos('biceps-tendinopathy'));
+      }
+      // a pain query lists the conditions before muscles and exercises
+      const firstOther = hits.findIndex((h) => h.kind !== 'condition');
+      expect(hits.slice(firstOther).some((h) => h.kind === 'condition')).toBe(false);
+    }
+    // 肩甲 itself still finds the shoulder-blade names first
+    expect(top('肩甲', 'muscle', 2).sort()).toEqual(['levator-scapulae', 'subscapularis']);
+  });
+
+  it('ranks the knee conditions before exercises for 膝が痛い (a knee posture in an exercise name is not 膝)', () => {
+    for (const q of ['膝が痛い', 'ひざがいたい', '膝痛']) {
+      const hits = search(q);
+      const knee = ['patellofemoral-pain', 'patellar-tendinopathy', 'itb-syndrome', 'pes-anserine-pain'];
+      const lastKnee = Math.max(...knee.map((id) => hits.findIndex((h) => h.id === id)));
+      expect(knee.every((id) => hits.some((h) => h.id === id))).toBe(true);
+      const firstExercise = hits.findIndex((h) => h.kind === 'exercise');
+      expect(lastKnee).toBeLessThan(firstExercise);
+    }
+    // 膝曲げカーフレイズ (a calf exercise done with bent knees) is not the top knee exercise
+    expect(top('膝', 'exercise', 1)).not.toEqual(['ex-calf-raise-bent']);
+  });
+
   it('understands もも裏 / 筋トレ / 腹筋', () => {
     expect(top('もも裏', 'condition', 1)).toEqual(['proximal-hamstring-tendinopathy']);
     expect(top('もも裏', 'muscle', 4)).toContain('biceps-femoris');

@@ -123,7 +123,22 @@ export function usePainLog() {
       }
       return [...m.values()].sort((a, b) => b.max - a.max || (a.last < b.last ? 1 : -1));
     };
-    return { entries: sorted, recentIntensity, recentBySide, ...painLogActions };
+    /**
+     * The body map's per-side tint (BodyMapProps.intensitySides / activeSides) over the last `days` days: an entry for
+     * one side tints that side only, a 'both' entry tints both.
+     */
+    const recentSides = (days = 14) => {
+      const intensitySides: Partial<Record<PainSpotId, { left?: number; right?: number; both?: number }>> = {};
+      const activeSides: Partial<Record<PainSpotId, ('left' | 'right')[]>> = {};
+      for (const x of recentBySide(days)) {
+        const cur = (intensitySides[x.spot] ??= {});
+        cur[x.side] = Math.max(cur[x.side] ?? 0, x.max);
+        const act = (activeSides[x.spot] ??= []);
+        for (const s of x.side === 'both' ? (['left', 'right'] as const) : [x.side]) if (!act.includes(s)) act.push(s);
+      }
+      return { intensitySides, activeSides };
+    };
+    return { entries: sorted, recentIntensity, recentBySide, recentSides, ...painLogActions };
   }, [entries]);
 }
 

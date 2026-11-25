@@ -100,9 +100,21 @@ Explain **why it happens in triathlon** per discipline, concretely:
   into マイメニュー) from every plan that uses it, e.g. the heel drop from Achilles tendinopathy *and* calf strain, the clamshell from
   a stress-fracture plan where running is not allowed. So no protocol-specific frequency (「原法は1日2回」), no 「ランの前に」,
   no 「痛みが強い時期」, no 「（腱のリハビリ時）」 in `dose`. When a rule differs by condition, name the condition
-  (「アキレス腱障害では5/10まで（肉離れでは3まで）」), and put the plan-specific dose into that phase's `guidance` in a line that
-  contains the exercise's name (the part after the last 「・」 is enough, e.g. 「ヒールドロップは週3回…」): the exercise page opened
-  from the plan shows matching guidance lines first.
+  (「アキレス腱障害では5/10まで（肉離れでは3まで）」) in `caution`.
+- **Plan-specific doses go into `RehabPhase.doses`** (`{ 'ex-…': { frequency: '週2回（再発予防）' } }`): only the fields that differ
+  from the exercise's `dose` (never a copy of the default), keys only from that phase's `exercises`. The exercise page opened from the
+  plan (`?from=&phase=`) and マイメニュー added from that step show the merged dose. Typical cases: a tendon isometric done 毎日 in
+  ①; 「週3回（1日おき）」 heavy loading in ②; 「週2回（再発予防）」 maintenance in ③; a gentler start (calf strain heel drop
+  10〜15回×2セット, 週3回); HSR tempo 「3秒で上げ、3秒で下ろす」.
+- **Guidance and dose say the same thing.** Every number the step's `guidance` (and `progressWhen`, and `prevention` for the
+  maintenance frequency) gives for an exercise must match the dose shown for that step — no 「週1〜2回」 in the text with
+  「週2〜3回」 in the dose box. A generic line (「筋トレは週2回…」) applies to every strength exercise of the phase, so override
+  them all, or name the exercises it means (「腱板と肩甲骨の補強（チューブ外旋、うつ伏せY・T・W、プッシュアッププラス）は週2回…」).
+  A progression is fine when it starts at the dose (「30秒から始め、楽なら45秒まで」, 「2セットから始め、楽なら3セットに」).
+  Lines that talk about one exercise contain its name (the part after the last 「・」 before any 「（」 is enough, e.g.
+  「ヒールドロップは週3回…」, 「ルーマニアンデッドリフト」): the plan banner on the exercise page shows those lines first.
+- `frequency` is also read by マイメニュー's weekly counter: start it with 「毎日」 or 「1日N回」 (daily), or write 「週N回」 / 「週N〜M回」 /
+  「1日おき」 (weekly). Put any remark in （）, which the counter ignores. A text without those words counts as daily.
 - Do not prescribe a tendon protocol (daily, pain up to 5/10) in a muscle-injury, bone or cramp plan. Bone (stress fracture) plans:
   bone pain 0–2/10 and stop at the first bony pain.
 
@@ -116,8 +128,21 @@ Explain **why it happens in triathlon** per discipline, concretely:
   Keep it to 1–2 sentences. It switches the page to 「どこが痛む？」 wording and the 3D to a steady (non-pulsing) red. Never add
   one to a real tissue injury (calf strain, tendinopathy, fracture).
 - Involvement roles: `injured` / `irritated` / `compressed` are drawn **red** in 2D, 3D and the list (「どこが傷んでいる？」).
-  Use them only for the tissue that hurts. A structure that is merely nearby or rarely affected (the sciatic nerve beside a
-  hamstring tendon, the periosteum strip around a stress fracture) gets an amber role and a note that says so.
+  Use them only for the tissue that hurts. Everything else is **amber** context: `overloaded` / `tight` / `weak` (a contributor)
+  or `nearby` (近くを通る).
+  - `irritated`: a secondary structure that really is sensitised and adds to the pain (subacromial / retrocalcaneal / pes anserine /
+    trochanteric bursa, the ischial tuberosity under a hamstring enthesopathy).
+  - `overloaded`: the tissue takes too much load and is part of the mechanism (a muscle working too hard, the tibia under bone
+    stress in MTSS, the facet joints in neck/back pain, the ITB tension that presses on the epicondyle).
+  - `nearby`: context tissue that lies right next to the lesion and is **not damaged and not really overloaded** — shown so the
+    reader knows what is there, what could be irritated secondarily, or what must not be confused with the lesion. Examples in use:
+    the sciatic nerve beside the proximal hamstring tendon, the periosteum strip (脛骨内側縁) around a tibial stress fracture
+    (the pain centre is the crack), the glenoid labrum at the biceps anchor (SLAP is a separate diagnosis), the pubic symphysis
+    beside the adductor origin (pubic-related groin pain is a separate entity), the metatarsal heads beside a Morton's neuroma
+    (not a bone injury). The note starts with what the tissue is, then says plainly that it is not damaged, then what can happen
+    (「傷んでいるわけではありませんが、まれに…」). If it can cause symptoms (nerve), say how to treat them (しびれは我慢しない).
+  - Decide by asking 「Would a clinician call this tissue part of the lesion or of the mechanism?」 Part of the lesion → red role;
+    part of the mechanism → `overloaded`/`tight`/`weak`; neither, just next door → `nearby`.
   A muscle marked `tight` needs a stretch in the plan, or a note saying why not (insertional Achilles: strengthen, don't stretch).
 - `Muscle.actions` is read by laypeople: every movement term gets a plain gloss in the same string —
   外転（腕を横に上げる／脚を横に開く）, 内転（体に引き寄せる／脚を閉じる）, 外旋・内旋（外／内にひねる）, 屈曲・伸展

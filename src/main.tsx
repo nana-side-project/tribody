@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { applyTheme, themeStore } from './lib/useTheme';
+import { watchServiceWorker } from './lib/swUpdate';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/components.css';
@@ -62,9 +63,13 @@ function StartupError() {
 try {
   if (import.meta.env.MODE !== 'single' && import.meta.env.PROD && location.protocol === 'https:' && window.top === window.self && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {
-        /* offline support is optional */
-      });
+      navigator.serviceWorker
+        .register('./sw.js', { scope: './' })
+        // a new deploy waiting to take over: offer 「更新」 (src/lib/swUpdate.ts)
+        .then(watchServiceWorker)
+        .catch(() => {
+          /* offline support is optional */
+        });
     });
   }
 } catch {

@@ -181,7 +181,7 @@ export const conditions: Condition[] = [
         ],
         progressWhen: [
           '着替えや棚に手を伸ばす動作の痛みが2/10以下',
-          '外旋アイソメトリックを痛み3/10以下で30〜45秒×5回できる',
+          '外旋アイソメトリックを痛み3/10以下で30秒×5回できる',
           '夜間痛がなく、運動の翌朝に痛みが悪化していない',
         ],
       },
@@ -219,9 +219,14 @@ export const conditions: Condition[] = [
           'パドルは小さめのサイズを、短い本数（例：50m×4本）から再開します。',
           'ウェットスーツでの練習は短い時間から始め、肩まわりの動きやすいサイズ・モデルを選びます。',
           'チューブ外旋は、腕を肩の高さに上げた位置（90/90）に進め、泳ぎの姿勢に近づけます。',
-          '腱板と肩甲骨の補強は週1〜2回、シーズン中も続けます。',
+          '腱板と肩甲骨の補強（チューブ外旋、うつ伏せY・T・W、プッシュアッププラス）は週2回、シーズン中も続けます。',
         ],
         exercises: ['ex-band-er', 'ex-prone-ytw', 'ex-push-up-plus', 'ex-side-plank', 'ex-open-book'],
+        doses: {
+          'ex-band-er': { frequency: '週2回（シーズン中も続ける）' },
+          'ex-prone-ytw': { frequency: '週2回（シーズン中も続ける）' },
+          'ex-push-up-plus': { frequency: '週2回（シーズン中も続ける）' },
+        },
         progressWhen: [
           'いつもの練習量と強度を、痛み2/10以下で2週間こなせる',
           'パドル練習やオープンウォーターの翌日に痛みが悪化しない',
@@ -351,8 +356,8 @@ export const conditions: Condition[] = [
       {
         ref: 'glenoid-labrum',
         kind: 'structure',
-        role: 'overloaded',
-        note: '長頭腱の付け根は関節唇の上部です。強く引っぱられる動きがくり返されると、まれに付け根が傷むことがあります（SLAP損傷）。',
+        role: 'nearby',
+        note: '長頭腱の付け根がつながる、受け皿のふちの軟骨です。この障害で傷んでいるわけではありませんが、強く引っぱられる動きがくり返されると、まれに付け根ごと傷むことがあります（SLAP損傷）。',
       },
       {
         ref: 'pectoralis-minor',
@@ -468,10 +473,15 @@ export const conditions: Condition[] = [
         goal: 'パドル・スプリント・オープンウォーターを段階的に戻し、腱板と肩甲骨の補強を習慣にします。',
         guidance: [
           '距離→強度→パドルの順に、一つずつ戻します。',
-          '腱板と肩甲骨の補強は週1〜2回続けます。',
+          '腱板と肩甲骨の補強（チューブ外旋、うつ伏せY・T・W、プッシュアッププラス）は週2回続けます。',
           '痛みが再燃したら、数日、距離と強度を落として様子を見ます。',
         ],
         exercises: ['ex-band-er', 'ex-prone-ytw', 'ex-push-up-plus', 'ex-side-plank'],
+        doses: {
+          'ex-band-er': { frequency: '週2回（シーズン中も続ける）' },
+          'ex-prone-ytw': { frequency: '週2回（シーズン中も続ける）' },
+          'ex-push-up-plus': { frequency: '週2回（シーズン中も続ける）' },
+        },
         progressWhen: [
           'いつもの練習を痛み2/10以下で2週間こなせる',
           'パドル練習の翌日に痛みが悪化しない',
@@ -704,10 +714,14 @@ export const conditions: Condition[] = [
         goal: '泳ぎの後半や長時間のバイクでも、肩甲骨の動きを保てる持久力をつけます。',
         guidance: [
           'スイムの距離とDHポジションの時間を段階的に戻します。',
-          '補強は週1〜2回、練習前のウォームアップに組み込みます。',
+          '肩甲骨の補強（プッシュアッププラス、うつ伏せY・T・W）は週2回、練習前のウォームアップに組み込みます。',
           'バイクフィットを見直し、ハンドルが遠すぎないか確認します。',
         ],
         exercises: ['ex-push-up-plus', 'ex-prone-ytw', 'ex-side-plank', 'ex-bird-dog'],
+        doses: {
+          'ex-push-up-plus': { frequency: '週2回（練習前のウォームアップに）' },
+          'ex-prone-ytw': { frequency: '週2回（練習前のウォームアップに）' },
+        },
         progressWhen: [
           'いつもの練習量で、肩甲骨の内側の痛みが2/10以下',
           '動画で見て、疲れたときにも肩甲骨の浮き上がりが目立たない',
@@ -972,10 +986,15 @@ export const conditions: Condition[] = [
         goal: 'レースの距離とDHポジションの時間に耐えられる首と背中をつくり、再発を防ぎます。',
         guidance: [
           'レースと同じ時間のDHポジションを、練習で段階的に経験しておきます。',
-          '補強とストレッチは週2回程度、シーズン中も続けます。',
+          '補強（チューブロウ、うつ伏せY・T・W、バードドッグ）は週2回、シーズン中も続けます。チンタックは毎日の習慣にします。',
           'エアロヘルメットやサングラスは、本番前に長時間の練習で試します。',
         ],
         exercises: ['ex-band-row', 'ex-prone-ytw', 'ex-chin-tuck', 'ex-bird-dog'],
+        doses: {
+          'ex-band-row': { frequency: '週2回（シーズン中も続ける）' },
+          'ex-prone-ytw': { frequency: '週2回（シーズン中も続ける）' },
+          'ex-bird-dog': { frequency: '週2回（シーズン中も続ける）' },
+        },
         progressWhen: [
           'レースを想定した時間のDHポジションを、痛み2/10以下で保てる',
           'ブリックランの間も、首や肩の上の張りが気にならない',

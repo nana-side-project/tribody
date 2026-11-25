@@ -116,6 +116,8 @@ export default function HomePage() {
   const menu = useMenu();
   const log = usePainLog();
   const recent = useMemo(() => Object.keys(log.recentIntensity(14)) as PainSpotId[], [log]);
+  // recently painful spots on the side that was logged (a 'both' entry marks both sides); activeSpots stays the fallback
+  const recentSides = useMemo(() => log.recentSides(14).activeSides, [log]);
   // the sheet lists conditions: load the condition page's code while the user reads it (never in the tap's own task)
   useEffect(() => (sel ? prefetchRouteWhenIdle('condition', 450) : undefined), [sel]);
 
@@ -139,6 +141,7 @@ export default function HomePage() {
           <SafeBodyMap
             view={view}
             activeSpots={recent}
+            activeSides={recentSides}
             selectedSpot={sel?.id ?? null}
             onSelect={(id, side) => setSel({ id, side })}
           />

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   getCondition,
+  getExercise,
   getStructure,
   type Condition,
   type ConditionId,
@@ -52,6 +53,7 @@ import {
 import { isFramed } from '../lib/framed';
 import { conditionHighlights2d, conditionHighlights3d } from '../lib/viewerHighlights';
 import { menuActions } from '../lib/useMenu';
+import { stepDose } from '../lib/dose';
 import { useRememberedView } from '../lib/useRememberedView';
 import { scrollBehavior } from '../lib/useMedia';
 import { toast, toastSaved } from '../lib/toast';
@@ -250,7 +252,13 @@ function ConditionView({ c }: { c: Condition }) {
   const drawn = useMemo(() => drawnParts(figRegion), [figRegion]);
   const figMemo = useRememberedView(`fig:${figRegion}`);
   const primary = involved.filter((i) => isPrimaryRole(i.role));
-  const secondary = involved.filter((i) => !isPrimaryRole(i.role));
+  // contributing parts first, then the context tissue that only runs close by (近くを通る, not damaged)
+  const secondary = [...involved.filter((i) => !isPrimaryRole(i.role) && i.role !== 'nearby'), ...involved.filter((i) => i.role === 'nearby')];
+  const hasNearby = secondary.some((i) => i.role === 'nearby');
+  const hasContrib = secondary.some((i) => i.role !== 'nearby');
+  // amber in the figure and the 3D view: the contributing parts and (where the content has some) nearby tissue
+  const amberLegend = hasNearby ? (hasContrib ? '関係している筋肉・要因／近くを通る組織' : '近くを通る組織（傷んではいない）') : '関係している筋肉・要因';
+  const amberShort = hasNearby ? (hasContrib ? '関係・近くを通る' : '近くを通る') : '関係';
   const primaryRefs = primary.map((i) => i.ref as string);
   // non-specific pain (low back, neck) and cramps: the content's anatomyNote says nothing is damaged, so the red is
   // named the way the note names it, never 「傷んでいる」; otherwise by the roles it really has
@@ -357,19 +365,20 @@ function ConditionView({ c }: { c: Condition }) {
           onViewChange={figMemo.onViewChange}
           zoomable
           zoomLabel={red.zoom}
+          condition={c.id}
+          side={side ?? undefined}
         />
-        {side === 'left' && (
-          <p className="figure__caption">図は右側を描いています。左側も左右対称の同じつくりです。</p>
-        )}
         <div className="legend" style={{ marginTop: 10, paddingLeft: 4 }}>
           <span className="legend__item">
             <span className="dot dot--injured dot--ring" />
             {red.legend}
           </span>
-          <span className="legend__item">
-            <span className="dot dot--involved" />
-            関係している筋肉・要因
-          </span>
+          {secondary.length > 0 && (
+            <span className="legend__item">
+              <span className="dot dot--involved" />
+              {amberLegend}
+            </span>
+          )}
         </div>
         {c.anatomyNote && (
           <div className="callout callout--note" style={{ marginTop: 10 }}>
@@ -423,6 +432,8 @@ function ConditionView({ c }: { c: Condition }) {
             highlights={highlights3d}
             condition={c.id}
             focus={c.region}
+            side={side ?? undefined}
+            spot={spot ?? undefined}
             sub={red.sub3d}
             legend={
               <span className="legend" style={{ margin: 0 }}>
@@ -430,10 +441,12 @@ function ConditionView({ c }: { c: Condition }) {
                   <span className="dot dot--injured" />
                   {red.short}
                 </span>
-                <span className="legend__item">
-                  <span className="dot dot--involved" />
-                  関係
-                </span>
+                {secondary.length > 0 && (
+                  <span className="legend__item">
+                    <span className="dot dot--involved" />
+                    {amberShort}
+                  </span>
+                )}
               </span>
             }
           />
@@ -595,9 +608,11 @@ function ConditionView({ c }: { c: Condition }) {
                 <>
                   <p className="phase__label">エクササイズ（この順番で）</p>
                   <div className="stack stack--sm">
-                    {cur.exercises.map((e) => (
-                      <ExerciseCard key={e} id={e} search={`?from=${c.id}&phase=${cur.id}`} />
-                    ))}
+                    {cur.exercises.map((e) => {
+                      const ex = getExercise(e);
+                      // the step's own dose for it (RehabPhase.doses), the same the exercise page and My Menu show
+                      return <ExerciseCard key={e} id={e} search={`?from=${c.id}&phase=${cur.id}`} dose={ex ? stepDose(ex, cur) : undefined} />;
+                    })}
                   </div>
                   <button type="button" className="btn btn--primary btn--block" style={{ marginTop: 14 }} onClick={addPhase}>
                     <IconPlus />

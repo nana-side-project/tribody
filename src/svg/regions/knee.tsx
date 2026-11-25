@@ -22,13 +22,15 @@ import {
   type Spot,
   type XY,
 } from './hip';
+import { once } from './lazy';
+import { MText } from './mirror';
 
 const W = 360;
 const H = 440;
 const JL = 250; // joint line
 
 /* ───────────── front view: right knee from the front (lateral side at the viewer's left) ───────────── */
-const KF = {
+const KF = once(() => ({
   body: sp([[96, -10], [98, 80], [106, 170], [104, 240], [100, 300], [104, 380], [114, 450], [262, 450], [270, 380], [272, 300], [264, 230], [264, 150], [258, 60], [254, -10]]),
   femur: sp([
     [150, -30], [150, 60], [146, 120], [136, 160], [124, 192], [119, 210], [121, 228], [128, 240], [140, 249], [158, 251], [170, 247], [176, 239],
@@ -47,8 +49,8 @@ const KF = {
   patSh: sp([[146, 172], [161, 158], [181, 156], [201, 161], [213, 176], [213, 198], [204, 221], [190, 236], [179, 242], [167, 236], [153, 220], [144, 198]]),
   menL: sp([[121, 250, 1], [132, 246], [150, 246], [166, 249, 1], [150, 253.5], [132, 255.5]]),
   menM: sp([[195, 249, 1], [212, 246], [232, 246], [243, 251, 1], [232, 255.5], [212, 254]]),
-};
-const KFM = {
+}));
+const KFM = once(() => ({
   vl: muscle({
     r: [
       [[110, -30], [107, 30], [111, 90], [121, 140]],
@@ -132,7 +134,7 @@ const KFM = {
     ],
     n: 4,
   }),
-};
+}));
 const ITB_KF: P[] = [[116, -30], [118, 60], [122, 140], [126, 200], [132, 240], [140, 270]];
 
 function KneeFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
@@ -171,54 +173,54 @@ function KneeFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       h={H}
       title="右膝を前から見た図（左が外側、右が内側）"
       cap={['右膝・前から', '内側 →']}
-      oi={{ 'vastus-medialis': { i: att(KFM.vm, 'i', [0.62, 0.88]) } }}
+      oi={{ 'vastus-medialis': { i: att(KFM().vm, 'i', [0.62, 0.88]) } }}
       labels={labels}
       spots={spots}
       fade={{ top: 34, bottom: 40 }}
     >
       <Ctxt k={k}>
-        <path className="body" d={KF.body} />
-        <path className="bone" d={KF.femur} />
-        <path className="bone-ln" d={KF.femLn} />
+        <path className="body" d={KF().body} />
+        <path className="bone" d={KF().femur} />
+        <path className="bone-ln" d={KF().femLn} />
       </Ctxt>
       <Part k={k} id="fibula">
-        <path className="bone" d={KF.fibula} />
+        <path className="bone" d={KF().fibula} />
       </Part>
       <Part k={k} id="tibia">
-        <path className="bone" d={KF.tibia} />
-        <path className="bone-ln" d={KF.tibLn} />
+        <path className="bone" d={KF().tibia} />
+        <path className="bone-ln" d={KF().tibLn} />
         <path className="bone" d={ell(140, 274, 7, 6)} />
       </Part>
       <Part k={k} id="meniscus">
-        <path className="cart" d={KF.menL} />
-        <path className="cart" d={KF.menM} />
+        <path className="cart" d={KF().menL} />
+        <path className="cart" d={KF().menM} />
       </Part>
       <Part k={k} id="mcl">
         <Ten c={[[243, 196], [242, 240], [238, 290], [232, 328]]} w={[11, 13, 13, 11]} cls="lig" lines={2} />
       </Part>
       <Part k={k} id="gastrocnemius">
-        <M g={KFM.gas} />
+        <M g={KFM().gas} />
       </Part>
       <Part k={k} id="fibularis-longus">
-        <M g={KFM.fl} />
+        <M g={KFM().fl} />
       </Part>
       <Ctxt k={k}>
-        <M g={KFM.edl} ctx />
+        <M g={KFM().edl} ctx />
       </Ctxt>
       <Part k={k} id="tibialis-anterior">
-        <M g={KFM.ta} />
+        <M g={KFM().ta} />
       </Part>
       <Part k={k} id="biceps-femoris">
-        <M g={KFM.bf} />
+        <M g={KFM().bf} />
       </Part>
       <Part k={k} id="vastus-lateralis">
-        <M g={KFM.vl} />
+        <M g={KFM().vl} />
       </Part>
       <Part k={k} id="vastus-medialis">
-        <M g={KFM.vm} />
+        <M g={KFM().vm} />
       </Part>
       <Part k={k} id="rectus-femoris">
-        <M g={KFM.rf} />
+        <M g={KFM().rf} />
       </Part>
       <Part k={k} id="quadriceps-tendon">
         <path className="ten" d={sp([[167, 118, 1], [189, 118, 1], [195, 140], [205, 166], [151, 166], [160, 140]])} />
@@ -229,11 +231,11 @@ function KneeFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <path className="ten-fib" d={line([[171, 236], [171, 288]]) + line([[178, 238], [178, 288]]) + line([[185, 236], [185, 288]])} />
       </Part>
       <Ctxt k={k}>
-        <path className="bone-sh" d={KF.patSh} />
+        <path className="bone-sh" d={KF().patSh} />
       </Ctxt>
       <Part k={k} id="patella">
-        <path className="bone" d={KF.patella} />
-        <path className="bone-ln" d={KF.patLn} />
+        <path className="bone" d={KF().patella} />
+        <path className="bone-ln" d={KF().patLn} />
       </Part>
       <Part k={k} id="iliotibial-band">
         <Ten c={ITB_KF} w={[16, 16, 16, 16, 17, 14]} cls="fascia" lines={2} />
@@ -245,7 +247,7 @@ function KneeFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <path className="bursa" d={ell(213, 307, 15, 9, -24)} />
       </Part>
       <Part k={k} id="sartorius">
-        <M g={KFM.sart} />
+        <M g={KFM().sart} />
       </Part>
       <Part k={k} id="pes-anserinus">
         <path className="ten" d={sp([[238, 268], [242, 282], [234, 300], [220, 314], [205, 318], [203, 309], [216, 298], [228, 282]])} />
@@ -256,7 +258,7 @@ function KneeFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
 }
 
 /* ───────────── lateral view: right knee from the outside (front of the knee at the viewer's right) ───────────── */
-const KL = {
+const KL = once(() => ({
   body: sp([[104, -10], [108, 80], [118, 170], [112, 220], [96, 290], [94, 360], [104, 450], [232, 450], [234, 380], [242, 310], [250, 250], [252, 180], [250, 100], [248, -10]]),
   femur: sp([
     [154, -30], [154, 60], [152, 130], [146, 168], [132, 190], [124, 208], [124, 226], [132, 240], [148, 250], [170, 253], [190, 248], [204, 236],
@@ -274,8 +276,8 @@ const KL = {
   cartT: sp([[205, 170], [210, 168], [214, 190], [214, 214], [210, 234], [205, 236], [208, 212], [209, 190]]),
   men: sp([[128, 250, 1], [140, 246], [170, 248], [204, 247], [214, 251, 1], [204, 255], [170, 256], [140, 256]]),
   fat: sp([[211, 232], [222, 229], [229, 258], [226, 286], [214, 276], [207, 256]]),
-};
-const KLM = {
+}));
+const KLM = once(() => ({
   rf: muscle({ r: [[[222, -30], [246, -30]], [[224, 50], [244, 50]], [[226, 100], [238, 100]]], n: 4 }),
   vl: muscle({
     r: [
@@ -311,12 +313,12 @@ const KLM = {
   fl: muscle({ r: [[[158, 292], [176, 290]], [[162, 370], [180, 372]], [[164, 460], [180, 460]]], n: 3 }),
   edl: muscle({ r: [[[178, 296], [212, 288]], [[178, 370], [204, 372]], [[178, 460], [198, 460]]], n: 4 }),
   ta: muscle({ r: [[[212, 284], [232, 302]], [[204, 370], [226, 372]], [[198, 460], [222, 460]]], n: 5 }),
-};
+}));
 const ITB_KL: P[] = [[176, -30], [180, 60], [185, 140], [190, 200], [197, 240], [205, 268]];
 
 /** Locator inset: the whole iliotibial band from the pelvis to the knee (mini lateral view). */
 const LOC = { x: 250, y: 288, w: 106, h: 148 };
-const LM = {
+const LM = once(() => ({
   body: sp([[270, 314], [300, 316], [308, 330], [306, 352], [302, 380], [300, 406], [302, 432], [276, 432], [274, 406], [270, 380], [266, 356], [262, 336], [264, 320]]),
   crest: sp([[264, 330], [271, 317], [287, 312], [302, 318], [307, 327], [300, 325], [288, 319], [275, 323], [268, 332]]),
   femur: sp([[278, 346], [288, 342], [290, 354], [290, 400], [294, 410], [282, 414], [280, 400], [280, 354]]),
@@ -324,7 +326,7 @@ const LM = {
   gmax: muscle({ r: [[[265, 326], [262, 344], [266, 364]], [[285, 352], [285, 362], [283, 372]]], n: 6 }),
   tfl: muscle({ r: [[[299, 323], [305, 328]], [[291, 361], [296, 363]]], n: 3 }),
   itb: tube([[287, 350], [288, 372], [290, 396], [293, 420]], [8, 7, 6, 5]),
-};
+}));
 
 function KneeLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const labels: Lab[] = [
@@ -367,27 +369,27 @@ function KneeLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       overlay={
         <g className="thk-inset">
           <rect className="inset-bg" x={LOC.x} y={LOC.y} width={LOC.w} height={LOC.h} rx={12} />
-          <text className="cap-t" x={LOC.x + LOC.w / 2} y={LOC.y + 15} textAnchor="middle">
+          <MText mir={k.mir} className="cap-t" x={LOC.x + LOC.w / 2} y={LOC.y + 15} a="middle">
             腸脛靱帯の全体
-          </text>
+          </MText>
           <Ctxt k={k}>
-            <path className="body" d={LM.body} />
-            <path className="bone-g" d={LM.crest} />
-            <path className="bone-g" d={LM.femur} />
+            <path className="body" d={LM().body} />
+            <path className="bone-g" d={LM().crest} />
+            <path className="bone-g" d={LM().femur} />
             <path className="bone-g" d={ell(300, 408, 2.8, 5.5)} />
             <path className="bone-g" d={sp([[281, 418], [300, 417], [299, 432], [284, 432]])} />
           </Ctxt>
           <Part k={k} id="gluteus-medius">
-            <M g={LM.gmed} />
+            <M g={LM().gmed} />
           </Part>
           <Part k={k} id="gluteus-maximus">
-            <M g={LM.gmax} />
+            <M g={LM().gmax} />
           </Part>
           <Part k={k} id="iliotibial-band">
-            <path className="fascia" d={LM.itb} />
+            <path className="fascia" d={LM().itb} />
           </Part>
           <Part k={k} id="tensor-fasciae-latae">
-            <M g={LM.tfl} />
+            <M g={LM().tfl} />
           </Part>
           <Ctxt k={k}>
             <rect className="inset-ln" x={271} y={384} width={36} height={46} rx={3} />
@@ -396,51 +398,51 @@ function KneeLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       }
     >
       <Ctxt k={k}>
-        <path className="body" d={KL.body} />
-        <path className="bone" d={KL.femur} />
-        <path className="bone-ln" d={KL.femLn} />
+        <path className="body" d={KL().body} />
+        <path className="bone" d={KL().femur} />
+        <path className="bone-ln" d={KL().femLn} />
       </Ctxt>
       <Part k={k} id="tibia">
-        <path className="bone" d={KL.tibia} />
+        <path className="bone" d={KL().tibia} />
         <path className="bone" d={ell(206, 268, 8, 6)} />
       </Part>
       <Part k={k} id="fibula">
-        <path className="bone" d={KL.fibula} />
+        <path className="bone" d={KL().fibula} />
       </Part>
       <Part k={k} id="meniscus">
-        <path className="cart" d={KL.men} />
+        <path className="cart" d={KL().men} />
       </Part>
       <Ctxt k={k}>
         <Ten c={[[165, 216], [160, 244], [155, 274]]} w={[8, 7, 7]} cls="lig" lines={1} />
-        <path className="fat" d={KL.fat} />
+        <path className="fat" d={KL().fat} />
       </Ctxt>
       <Part k={k} id="lateral-femoral-epicondyle">
         <path className="bone" d={sp([[156, 204], [164, 199], [173, 203], [175, 213], [170, 222], [160, 222], [155, 213]])} />
         <path className="bone-ln" d={line([[160, 206], [166, 204], [171, 208]])} />
       </Part>
       <Part k={k} id="gastrocnemius">
-        <M g={KLM.gas} />
+        <M g={KLM().gas} />
       </Part>
       <Part k={k} id="soleus">
-        <M g={KLM.sol} />
+        <M g={KLM().sol} />
       </Part>
       <Part k={k} id="fibularis-longus">
-        <M g={KLM.fl} />
+        <M g={KLM().fl} />
       </Part>
       <Ctxt k={k}>
-        <M g={KLM.edl} ctx />
+        <M g={KLM().edl} ctx />
       </Ctxt>
       <Part k={k} id="tibialis-anterior">
-        <M g={KLM.ta} />
+        <M g={KLM().ta} />
       </Part>
       <Part k={k} id="biceps-femoris">
-        <M g={KLM.bf} />
+        <M g={KLM().bf} />
       </Part>
       <Part k={k} id="vastus-lateralis">
-        <M g={KLM.vl} />
+        <M g={KLM().vl} />
       </Part>
       <Part k={k} id="rectus-femoris">
-        <M g={KLM.rf} />
+        <M g={KLM().rf} />
       </Part>
       <Part k={k} id="quadriceps-tendon">
         <path className="ten" d={sp([[200, 96], [236, 98], [242, 156], [216, 160], [208, 130]])} />
@@ -451,14 +453,14 @@ function KneeLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <path className="ten-fib" d={line([[230, 232], [233, 296]]) + line([[236, 232], [238, 296]])} />
       </Part>
       <Part k={k} id="patellofemoral-cartilage">
-        <path className="cart" d={KL.cartT} />
-        <path className="cart" d={KL.cartP} />
+        <path className="cart" d={KL().cartT} />
+        <path className="cart" d={KL().cartP} />
       </Part>
       <Ctxt k={k}>
-        <path className="bone-sh" d={KL.patSh} />
+        <path className="bone-sh" d={KL().patSh} />
       </Ctxt>
       <Part k={k} id="patella">
-        <path className="bone" d={KL.patella} />
+        <path className="bone" d={KL().patella} />
         <path className="bone-ln" d={line([[226, 166], [238, 180], [240, 204], [234, 222]])} />
       </Part>
       <Part k={k} id="iliotibial-band">
@@ -470,7 +472,7 @@ function KneeLateral({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
 
 /* ───────────── medial view: right knee from the inside (front of the knee at the viewer's left) ───────────── */
 const mx = (pts: readonly P[]): P[] => pts.map((q) => (q[2] ? [360 - q[0], q[1], 1] : [360 - q[0], q[1]]) as P);
-const KMD = {
+const KMD = once(() => ({
   body: sp([[116, -10], [112, 100], [108, 180], [110, 250], [116, 310], [122, 380], [128, 450], [282, 450], [286, 380], [286, 300], [272, 240], [280, 160], [282, 80], [280, -10]]),
   femur: sp([
     [202, -30], [202, 60], [206, 130], [214, 160], [228, 180], [238, 204], [238, 228], [230, 242], [212, 252], [190, 254], [170, 250], [156, 238],
@@ -488,8 +490,8 @@ const KMD = {
   cartT: sp(mx([[205, 170], [210, 168], [214, 190], [214, 214], [210, 234], [205, 236], [208, 212], [209, 190]])),
   men: sp([[233, 250, 1], [220, 246], [190, 248], [156, 247], [146, 251, 1], [156, 255], [190, 256], [220, 256]]),
   fat: sp(mx([[211, 232], [222, 229], [229, 258], [226, 286], [214, 276], [207, 256]])),
-};
-const KMM = {
+}));
+const KMM = once(() => ({
   rf: muscle({ r: [[[114, -30], [138, -30]], [[116, 50], [136, 50]], [[122, 100], [134, 100]]], n: 4 }),
   vm: muscle({
     r: [
@@ -559,7 +561,7 @@ const KMM = {
     n: 9,
   }),
   sol: muscle({ r: [[[208, 300], [198, 300]], [[212, 380], [196, 380]], [[210, 460], [196, 460]]], n: 3 }),
-};
+}));
 
 /** adductor tubercle and the adductor magnus tendon ending on it */
 const AM_TUB: XY = [211, 171];
@@ -600,33 +602,33 @@ function KneeMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       h={H}
       title="右膝を内側から見た図（左が膝の前）"
       cap={['← 前', '右膝・内側から']}
-      oi={{ 'vastus-medialis': { i: att(KMM.vm, 'i', [0.62, 0.88]) } }}
+      oi={{ 'vastus-medialis': { i: att(KMM().vm, 'i', [0.62, 0.88]) } }}
       labels={labels}
       spots={spots}
       fade={{ top: 34, bottom: 40 }}
     >
       <Ctxt k={k}>
-        <path className="body" d={KMD.body} />
-        <path className="bone" d={KMD.femur} />
-        <path className="bone-ln" d={KMD.femLn} />
+        <path className="body" d={KMD().body} />
+        <path className="bone" d={KMD().femur} />
+        <path className="bone-ln" d={KMD().femLn} />
         <path className="bone" d={ell(AM_TUB[0], AM_TUB[1], 6, 5)} />
         <path className="bone" d={ell(194, 208, 8, 9)} />
       </Ctxt>
       <Part k={k} id="tibia">
-        <path className="bone" d={KMD.tibia} />
-        <path className="bone-ln" d={KMD.tibLn} />
+        <path className="bone" d={KMD().tibia} />
+        <path className="bone-ln" d={KMD().tibLn} />
       </Part>
       <Part k={k} id="meniscus">
-        <path className="cart" d={KMD.men} />
+        <path className="cart" d={KMD().men} />
       </Part>
       <Ctxt k={k}>
-        <path className="fat" d={KMD.fat} />
+        <path className="fat" d={KMD().fat} />
       </Ctxt>
       <Part k={k} id="soleus">
-        <M g={KMM.sol} />
+        <M g={KMM().sol} />
       </Part>
       <Part k={k} id="gastrocnemius">
-        <M g={KMM.gas} />
+        <M g={KMM().gas} />
       </Part>
       <Part k={k} id="mcl">
         <Ten c={[[194, 198], [190, 240], [184, 290], [178, 334]]} w={[18, 21, 21, 16]} cls="lig" lines={3} />
@@ -635,10 +637,10 @@ function KneeMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <path className="bursa" d={ell(166, 302, 15, 10, 18)} />
       </Part>
       <Part k={k} id="semimembranosus">
-        <M g={KMM.sm} />
+        <M g={KMM().sm} />
       </Part>
       <Part k={k} id="vastus-medialis">
-        <M g={KMM.vm} />
+        <M g={KMM().vm} />
       </Part>
       {/* adductor magnus tendon: along the posterior border of VM (whose lowest fibres arise from it), in front of
           sartorius, down to the adductor tubercle */}
@@ -646,7 +648,7 @@ function KneeMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <Ten c={AM_TEN} w={[10, 9, 8, 7]} cls="ten" lines={2} />
       </Part>
       <Part k={k} id="rectus-femoris">
-        <M g={KMM.rf} />
+        <M g={KMM().rf} />
       </Part>
       <Part k={k} id="quadriceps-tendon">
         <path className="ten" d={sp(mx([[200, 96], [236, 98], [242, 156], [216, 160], [208, 130]]))} />
@@ -657,24 +659,24 @@ function KneeMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <path className="ten-fib" d={line(mx([[230, 232], [233, 296]])) + line(mx([[236, 232], [238, 296]]))} />
       </Part>
       <Part k={k} id="patellofemoral-cartilage">
-        <path className="cart" d={KMD.cartT} />
-        <path className="cart" d={KMD.cartP} />
+        <path className="cart" d={KMD().cartT} />
+        <path className="cart" d={KMD().cartP} />
       </Part>
       <Ctxt k={k}>
-        <path className="bone-sh" d={KMD.patSh} />
+        <path className="bone-sh" d={KMD().patSh} />
       </Ctxt>
       <Part k={k} id="patella">
-        <path className="bone" d={KMD.patella} />
+        <path className="bone" d={KMD().patella} />
         <path className="bone-ln" d={line(mx([[226, 166], [238, 180], [240, 204], [234, 222]]))} />
       </Part>
       <Part k={k} id="semitendinosus">
-        <M g={KMM.st} />
+        <M g={KMM().st} />
       </Part>
       <Part k={k} id="gracilis">
-        <M g={KMM.grac} />
+        <M g={KMM().grac} />
       </Part>
       <Part k={k} id="sartorius">
-        <M g={KMM.sart} />
+        <M g={KMM().sart} />
       </Part>
       <Part k={k} id="pes-anserinus">
         <path className="ten" d={sp([[180, 292], [178, 307], [161, 321], [142, 328], [134, 320], [148, 307], [165, 296]])} />
@@ -685,7 +687,7 @@ function KneeMedial({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
 }
 
 /* ───────────── back view: right knee from behind (medial side at the viewer's left) ───────────── */
-const KB = {
+const KB = once(() => ({
   body: sp([[100, -10], [98, 100], [102, 200], [100, 260], [104, 330], [110, 400], [118, 460], [246, 460], [254, 400], [258, 320], [258, 250], [254, 180], [252, 90], [250, -10]]),
   femur: sp([
     [158, -30], [158, 60], [152, 120], [140, 160], [124, 188], [116, 210], [118, 232], [128, 246], [146, 252], [164, 248], [172, 238], [176, 222],
@@ -699,8 +701,8 @@ const KB = {
   fibula: sp([[232, 276], [240, 268], [252, 270], [258, 280], [254, 294], [248, 304], [250, 330], [252, 460], [240, 460], [238, 330], [236, 304], [232, 292]]),
   menM: sp([[118, 250, 1], [130, 246], [150, 247], [168, 250, 1], [150, 254], [130, 255]]),
   menL: sp([[190, 250, 1], [210, 246], [230, 247], [242, 251, 1], [230, 255], [210, 254]]),
-};
-const KBM = {
+}));
+const KBM = once(() => ({
   bf: muscle({
     r: [
       [[177, -30], [238, -30]],
@@ -782,7 +784,7 @@ const KBM = {
   solM: muscle({ r: [[[113, 320], [124, 318]], [[111, 400], [126, 400]], [[115, 470], [128, 470]]], n: 2 }),
   solL: muscle({ r: [[[234, 316], [245, 320]], [[234, 400], [247, 400]], [[231, 470], [244, 470]]], n: 2 }),
   plant: muscle({ r: [[[204, 186], [216, 190]], [[198, 214], [207, 218]]], n: 3 }),
-};
+}));
 
 function KneeBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const labels: Lab[] = [
@@ -811,44 +813,44 @@ function KneeBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       fade={{ top: 34, bottom: 40 }}
     >
       <Ctxt k={k}>
-        <path className="body" d={KB.body} />
-        <path className="bone" d={KB.femur} />
-        <path className="bone-ln" d={KB.femLn} />
+        <path className="body" d={KB().body} />
+        <path className="bone" d={KB().femur} />
+        <path className="bone-ln" d={KB().femLn} />
       </Ctxt>
       <Part k={k} id="tibia">
-        <path className="bone" d={KB.tibia} />
+        <path className="bone" d={KB().tibia} />
         <path className="bone-ln" d={line([[146, 300], [182, 286], [222, 270]])} />
       </Part>
       <Part k={k} id="fibula">
-        <path className="bone" d={KB.fibula} />
+        <path className="bone" d={KB().fibula} />
       </Part>
       <Part k={k} id="soleus">
-        <M g={KBM.solM} />
-        <M g={KBM.solL} />
+        <M g={KBM().solM} />
+        <M g={KBM().solL} />
       </Part>
       <Ctxt k={k}>
-        <M g={KBM.plant} ctx />
+        <M g={KBM().plant} ctx />
         <Ten c={[[182, -30], [182, 100], [182, 180], [182, 240], [182, 290]]} w={9} cls="nerve" lines={2} />
         <Ten c={[[188, 110], [204, 160], [222, 210], [236, 256], [244, 300]]} w={6} cls="nerve" lines={1} />
       </Ctxt>
       <Part k={k} id="semimembranosus">
-        <M g={KBM.sm} />
+        <M g={KBM().sm} />
       </Part>
       <Part k={k} id="sartorius">
-        <M g={KBM.sart} />
+        <M g={KBM().sart} />
       </Part>
       <Part k={k} id="gracilis">
-        <M g={KBM.grac} />
+        <M g={KBM().grac} />
       </Part>
       <Part k={k} id="semitendinosus">
-        <M g={KBM.st} />
+        <M g={KBM().st} />
       </Part>
       <Part k={k} id="biceps-femoris">
-        <M g={KBM.bf} />
+        <M g={KBM().bf} />
       </Part>
       <Part k={k} id="gastrocnemius">
-        <M g={KBM.gasL} />
-        <M g={KBM.gasM} />
+        <M g={KBM().gasL} />
+        <M g={KBM().gasM} />
       </Part>
     </Frame>
   );

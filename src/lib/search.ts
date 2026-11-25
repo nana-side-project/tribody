@@ -12,6 +12,7 @@
 //   · related prefix 50 · target contains 40 · related contains 25 · description text 20
 // plus up to +5 for every further mention in the description, which only orders items within a tier
 // (heel drops before calf raises for 'アキレス': both are prescribed for Achilles pain, the heel drops are about it).
+// A query that talks about pain (「膝が痛い」) adds +30 to the conditions, so they come before muscles and exercises.
 import {
   CONDITIONS,
   EXERCISES,
@@ -103,6 +104,11 @@ const NOT_INSIDE: Record<string, string[]> = {
   くび: ['あしくび', 'てくび'],
   腹筋: ['腓腹筋'],
   腹: ['腓腹'],
+  // 肩甲（骨）is the shoulder blade: 「肩が痛い」 is about the shoulder joint, so 肩甲骨ジスキネジア / 肩甲下筋 / 肩甲挙筋
+  // match by their region, below 水泳肩
+  肩: ['肩甲'],
+  // a knee posture in an exercise name (膝曲げカーフレイズ, 「膝を伸ばして」) is not about the knee
+  膝: ['膝曲げ', '膝を曲げ', '膝を伸ば', '膝立ち', '膝つき'],
 };
 let notInside: Map<string, string[]> | null = null;
 function maskFor(w: string): ((s: string) => string) | null {
@@ -147,6 +153,16 @@ function terms(query: string): Term[] {
   const kept = words.filter((w) => subject(w) !== '');
   return kept.length ? kept.map((w) => [...new Set([subject(w), w])]) : words.map((w) => [w]);
 }
+
+/** Does the query talk about pain (「膝が痛い」「肩痛」「かかとの痛み」, or a lone 「痛い」 next to a body part)? */
+function isPainQuery(query: string): boolean {
+  return query
+    .split(/[\s　]+/)
+    .map(normalize)
+    .some((w) => w && PAIN_TAIL.test(w));
+}
+/** Extra score of a condition for a pain query: 「膝が痛い」 lists the knee conditions before muscles and exercises. */
+const PAIN_CONDITION_BONUS = 30;
 
 /** Normalised search words of a query (split on spaces; pain words dropped, see `subject`). */
 export function queryTerms(query: string): string[] {
@@ -255,8 +271,14 @@ function conditionFields(id: string, ja: string): SearchFields {
     names: [c?.nameJa, ja, c?.nameEn],
     aka: c?.aka ?? [],
     target: c
-      ? [regionName(c.region), ...involvedNames(c.involved.map((i) => i.ref)), ...c.painSpots.map((p) => getPainSpot(p)?.label)]
+      ? [
+          regionName(c.region),
+          ...involvedNames(c.involved.filter((i) => i.role !== 'nearby').map((i) => i.ref)),
+          ...c.painSpots.map((p) => getPainSpot(p)?.label),
+        ]
       : [],
+    // tissue that only runs close by (近くを通る) is context: it finds the condition, below the involved parts
+    related: c ? involvedNames(c.involved.filter((i) => i.role === 'nearby').map((i) => i.ref)) : [],
     body: c ? [c.summary, ...c.whatHappens, ...c.symptoms] : [],
   });
 }
@@ -383,13 +405,16 @@ function entries(): IndexEntry[] {
 export function search(query: string, kinds?: SearchKind[]): SearchHit[] {
   const ts = terms(query);
   if (!ts.length) return [];
+  const pain = isPainQuery(query);
   const hits: (SearchHit & { order: number })[] = [];
   for (const e of entries()) {
     if (kinds && !kinds.includes(e.kind)) continue;
     const score = scoreTerms(ts, e.fields);
     if (score > 0) {
       const { fields: _f, ...rest } = e;
-      hits.push({ ...rest, score: score + (e.ready ? 1 : 0) });
+      // someone who says where it hurts is looking for what it could be first
+      const bonus = pain && e.kind === 'condition' ? PAIN_CONDITION_BONUS : 0;
+      hits.push({ ...rest, score: score + bonus + (e.ready ? 1 : 0) });
     }
   }
   return hits.sort((a, b) => b.score - a.score || a.order - b.order).map(({ order: _o, ...h }) => h);
