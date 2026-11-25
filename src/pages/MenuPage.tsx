@@ -176,10 +176,11 @@ function WeeklyStatus({ id, min, max }: { id: ExerciseId; min: number; max: numb
   const menu = useMenu();
   const n = menu.weekCount(id);
   const met = n >= min;
-  const target = max > min ? `${min}〜${max}` : `${min}`;
+  // 週1回以上 / 週3回〜毎日 (max 7): an open-ended target reads 「1回以上」, not 「1〜7回」
+  const target = max >= 7 && min < 7 ? `${min}回以上` : max > min ? `${min}〜${max}回` : `${min}回`;
   return (
     <p className={`menu-item__freq${met ? ' is-met' : ''}`}>
-      今週 {n}/{target}回
+      今週 {n}/{target}
       {met ? '・今週の目標達成' : menu.restToday(id) ? '・今日は休みでもOK（1日おき）' : ''}
     </p>
   );

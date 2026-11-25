@@ -306,7 +306,7 @@ function SpotSheetBody({ id, side, onClose }: { id: PainSpotId; side?: Side; onC
 
       <div className="btn-stack" style={{ marginTop: 16 }}>
         {region && (
-          <button type="button" className="btn btn--secondary btn--block" onClick={() => go(`/region/${region}?spot=${id}`)}>
+          <button type="button" className="btn btn--secondary btn--block" onClick={() => go(`/region/${region}?spot=${id}${side ? `&side=${side}` : ''}`)}>
             <IconLayers />
             この部位を詳しく見る
           </button>

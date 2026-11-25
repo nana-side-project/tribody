@@ -51,7 +51,7 @@ import {
   spotLabel,
 } from '../lib/labels';
 import { isFramed } from '../lib/framed';
-import { conditionHighlights2d, conditionHighlights3d } from '../lib/viewerHighlights';
+import { conditionHighlights2d, conditionHighlights3d, drawnSide } from '../lib/viewerHighlights';
 import { menuActions } from '../lib/useMenu';
 import { stepDose } from '../lib/dose';
 import { useRememberedView } from '../lib/useRememberedView';
@@ -252,13 +252,13 @@ function ConditionView({ c }: { c: Condition }) {
   const drawn = useMemo(() => drawnParts(figRegion), [figRegion]);
   const figMemo = useRememberedView(`fig:${figRegion}`);
   const primary = involved.filter((i) => isPrimaryRole(i.role));
-  // contributing parts first, then the context tissue that only runs close by (近くを通る, not damaged)
+  // contributing parts first, then the context tissue that only runs close by (近くの組織, not damaged)
   const secondary = [...involved.filter((i) => !isPrimaryRole(i.role) && i.role !== 'nearby'), ...involved.filter((i) => i.role === 'nearby')];
   const hasNearby = secondary.some((i) => i.role === 'nearby');
   const hasContrib = secondary.some((i) => i.role !== 'nearby');
   // amber in the figure and the 3D view: the contributing parts and (where the content has some) nearby tissue
-  const amberLegend = hasNearby ? (hasContrib ? '関係している筋肉・要因／近くを通る組織' : '近くを通る組織（傷んではいない）') : '関係している筋肉・要因';
-  const amberShort = hasNearby ? (hasContrib ? '関係・近くを通る' : '近くを通る') : '関係';
+  const amberLegend = hasNearby ? (hasContrib ? '関係している筋肉・要因／近くの組織' : '近くの組織（傷んではいない）') : '関係している筋肉・要因';
+  const amberShort = hasNearby ? (hasContrib ? '関係・近くの組織' : '近くの組織') : '関係';
   const primaryRefs = primary.map((i) => i.ref as string);
   // non-specific pain (low back, neck) and cramps: the content's anatomyNote says nothing is damaged, so the red is
   // named the way the note names it, never 「傷んでいる」; otherwise by the roles it really has
@@ -272,6 +272,8 @@ function ConditionView({ c }: { c: Condition }) {
   const spot = spotParam && isKnownSpot(spotParam) ? (spotParam as PainSpotId) : null;
   const sideParam = params.get('side');
   const side: Side | null = sideParam === 'left' || sideParam === 'right' ? sideParam : null;
+  // the side the figure and 3D are drawn on (central / bilateral problems stay unmirrored; the log still records side)
+  const drawnOn = drawnSide(c.id, side);
   const spotView = useMemo(() => (spot ? viewForSpot(figRegion, spot, refs, primaryRefs, figView) : undefined), [figRegion, spot]); // eslint-disable-line react-hooks/exhaustive-deps
   // 「図で見る」 from a structure's sheet: remount the figure on the view that draws it
   const [figForce, setFigForce] = useState<{ view: string; n: number } | null>(null);
@@ -366,7 +368,7 @@ function ConditionView({ c }: { c: Condition }) {
           zoomable
           zoomLabel={red.zoom}
           condition={c.id}
-          side={side ?? undefined}
+          side={drawnOn}
         />
         <div className="legend" style={{ marginTop: 10, paddingLeft: 4 }}>
           <span className="legend__item">
@@ -432,7 +434,7 @@ function ConditionView({ c }: { c: Condition }) {
             highlights={highlights3d}
             condition={c.id}
             focus={c.region}
-            side={side ?? undefined}
+            side={drawnOn}
             spot={spot ?? undefined}
             sub={red.sub3d}
             legend={

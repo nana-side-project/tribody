@@ -1,6 +1,6 @@
 // Highlight mappings shared by the condition / region pages and the 3D dev harness (dev/engine.tsx ?condition= /
 // ?region=), so the harness always shows exactly what the pages show.
-import { getMuscle, type Condition, type InvolvementRole, type MuscleId, type RegionId, type StructureId } from '../data';
+import { getMuscle, type Condition, type ConditionId, type InvolvementRole, type MuscleId, type RegionId, type StructureId } from '../data';
 import type { Highlight3DRole } from '../three/contract';
 import type { Highlights } from '../svg/types';
 import { isPrimaryRole } from './labels';
@@ -9,7 +9,7 @@ type PartId = MuscleId | StructureId;
 
 /**
  * How a role is drawn in both views: the painful tissue itself (injured / irritated / compressed) 'injured' (red), the
- * contributing parts (overloaded / tight / weak) and the context tissue that only runs close by ('nearby', 近くを通る:
+ * contributing parts (overloaded / tight / weak) and the context tissue that only runs close by ('nearby', 近くの組織:
  * e.g. a nerve beside the lesion, not damaged) 'involved' (amber).
  */
 export const roleHighlight = (r: InvolvementRole): 'injured' | 'involved' => (isPrimaryRole(r) ? 'injured' : 'involved');
@@ -32,6 +32,17 @@ export function conditionHighlights3d(c: Pick<Condition, 'involved'>): Partial<R
   for (const i of [...(c.involved ?? [])].sort((a, b) => rank(a.role) - rank(b.role))) h[i.ref] = roleHighlight(i.role);
   return h;
 }
+
+/**
+ * Central / bilateral problems (non-specific low back pain, the neck on the bike) are drawn the same whichever side was
+ * tapped: their 3D scenes are marked `bilateral` (src/three/scenes.ts; a test keeps the two lists equal), so the 2D
+ * figure is not mirrored either — otherwise the low back's deep / superficial halves would swap in 2D only.
+ */
+export const BILATERAL_CONDITIONS: ReadonlySet<ConditionId> = new Set<ConditionId>(['low-back-pain', 'cyclist-neck-pain']);
+
+/** The side a condition page draws its figure and 3D on (undefined = the default right side). */
+export const drawnSide = (c: ConditionId, side: 'left' | 'right' | null | undefined): 'left' | 'right' | undefined =>
+  side && !BILATERAL_CONDITIONS.has(c) ? side : undefined;
 
 /** Key muscles listed for a region whose belly lies outside that region's 3D crop although their data names the
  *  region (大腿筋膜張筋 reaches the knee only through the iliotibial band): selecting one frames its first region. */

@@ -129,7 +129,7 @@ Explain **why it happens in triathlon** per discipline, concretely:
   one to a real tissue injury (calf strain, tendinopathy, fracture).
 - Involvement roles: `injured` / `irritated` / `compressed` are drawn **red** in 2D, 3D and the list (「どこが傷んでいる？」).
   Use them only for the tissue that hurts. Everything else is **amber** context: `overloaded` / `tight` / `weak` (a contributor)
-  or `nearby` (近くを通る).
+  or `nearby` (近くの組織).
   - `irritated`: a secondary structure that really is sensitised and adds to the pain (subacromial / retrocalcaneal / pes anserine /
     trochanteric bursa, the ischial tuberosity under a hamstring enthesopathy).
   - `overloaded`: the tissue takes too much load and is part of the mechanism (a muscle working too hard, the tibia under bone

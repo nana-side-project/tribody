@@ -884,7 +884,7 @@ means 「関係」 on condition pages) and the one the user taps in the chip row
 whatever hides it); when that
 muscle lies outside the region's crop (its data names other regions, or `BELLY_ELSEWHERE` in RegionPage.tsx, e.g.
 大腿筋膜張筋 on the knee page) the page passes that muscle's first region as `focus` instead. A content role `nearby`
-(近くを通る: context tissue next to the lesion, not damaged) is not a primary role, so it arrives as `involved` (amber)
+(近くの組織: context tissue next to the lesion, not damaged) is not a primary role, so it arrives as `involved` (amber)
 like the other contributing roles; nothing in `scenes.ts` changes a role (no scene uses `roles`, and a lesion zone only
 applies to a part the page marks `injured`).
 

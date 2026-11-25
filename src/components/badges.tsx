@@ -39,7 +39,7 @@ export function LikelihoodBadge({ l }: { l: keyof typeof LIKELIHOOD_JA }) {
 }
 
 /**
- * `label` replaces the role word where the red does not mean damage (「つりやすい」 / 「痛みやすい」). 'nearby' (近くを通る:
+ * `label` replaces the role word where the red does not mean damage (「つりやすい」 / 「痛みやすい」). 'nearby' (近くの組織:
  * runs close by, not damaged) keeps the amber of the other contributing roles but is drawn as an outline badge.
  */
 export function RoleBadge({ role, label }: { role: InvolvementRole; label?: string }) {

@@ -49,6 +49,11 @@ function RegionView({ id }: { id: RegionId }) {
   const spots = PAIN_SPOTS.filter((s) => s.region === id);
   const p = params.get('spot');
   const spot = spots.some((s) => s.id === p) ? (p as PainSpotId) : null;
+  // opened from a spot tapped on one side of the home body map (?side=): the figure and 3D show that side, and the
+  // condition links carry it on
+  const sp = params.get('side');
+  const side = sp === 'left' || sp === 'right' ? sp : undefined;
+  const conditionSearch = [spot && `spot=${spot}`, side && `side=${side}`].filter(Boolean).join('&');
   const setSpot = (next: PainSpotId | null) =>
     setParams(
       (cur) => {
@@ -104,6 +109,7 @@ function RegionView({ id }: { id: RegionId }) {
           onViewChange={figMemo.onViewChange}
           showSpots
           selectedSpot={spot}
+          side={side}
           onSpotSelect={toggleSpot}
           caption="図の赤い点をタップすると、その場所に多い障害に絞り込めます。"
         />
@@ -129,6 +135,7 @@ function RegionView({ id }: { id: RegionId }) {
         <Viewer3DToggle
           focus={focus3d}
           highlights={highlights3d}
+          side={side}
           sub="主な筋肉を3Dで確認（タップで読み込み）"
           footer={
             keyMuscles.length > 0 && (
@@ -204,7 +211,7 @@ function RegionView({ id }: { id: RegionId }) {
         {list.length ? (
           <div className="stack">
             {list.map((c) => (
-              <ConditionCard key={c.id} id={c.id} likelihood={c.likelihood} search={spot ? `?spot=${spot}` : undefined} />
+              <ConditionCard key={c.id} id={c.id} likelihood={c.likelihood} search={conditionSearch ? `?${conditionSearch}` : undefined} />
             ))}
           </div>
         ) : (

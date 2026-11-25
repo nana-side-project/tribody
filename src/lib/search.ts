@@ -277,7 +277,7 @@ function conditionFields(id: string, ja: string): SearchFields {
           ...c.painSpots.map((p) => getPainSpot(p)?.label),
         ]
       : [],
-    // tissue that only runs close by (近くを通る) is context: it finds the condition, below the involved parts
+    // tissue that only runs close by (近くの組織) is context: it finds the condition, below the involved parts
     related: c ? involvedNames(c.involved.filter((i) => i.role === 'nearby').map((i) => i.ref)) : [],
     body: c ? [c.summary, ...c.whatHappens, ...c.symptoms] : [],
   });
