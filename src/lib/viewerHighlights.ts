@@ -1,6 +1,6 @@
 // Highlight mappings shared by the condition / region pages and the 3D dev harness (dev/engine.tsx ?condition= /
 // ?region=), so the harness always shows exactly what the pages show.
-import { getMuscle, type Condition, type ConditionId, type InvolvementRole, type MuscleId, type RegionId, type StructureId } from '../data';
+import { CONDITIONS, getMuscle, type Condition, type ConditionId, type InvolvementRole, type MuscleId, type RegionId, type StructureId } from '../data';
 import type { Highlight3DRole } from '../three/contract';
 import type { Highlights } from '../svg/types';
 import { isPrimaryRole } from './labels';
@@ -43,6 +43,19 @@ export const BILATERAL_CONDITIONS: ReadonlySet<ConditionId> = new Set<ConditionI
 /** The side a condition page draws its figure and 3D on (undefined = the default right side). */
 export const drawnSide = (c: ConditionId, side: 'left' | 'right' | null | undefined): 'left' | 'right' | undefined =>
   side && !BILATERAL_CONDITIONS.has(c) ? side : undefined;
+
+/**
+ * Central regions: every condition of the region is bilateral (today the low back and the neck). Their region page draws
+ * the figure and 3D unmirrored as well, so the drawing does not flip between the region page and the condition pages it
+ * links to (the links still carry the side: 「選んだ場所」 and the pain-log link on the condition page).
+ */
+export const BILATERAL_REGIONS: ReadonlySet<RegionId> = new Set<RegionId>(
+  CONDITIONS.map((c) => c.region).filter((r) => CONDITIONS.every((c) => c.region !== r || BILATERAL_CONDITIONS.has(c.id))),
+);
+
+/** The side a region page draws its figure and 3D on (undefined = the default right side). */
+export const regionDrawnSide = (r: RegionId, side: 'left' | 'right' | null | undefined): 'left' | 'right' | undefined =>
+  side && !BILATERAL_REGIONS.has(r) ? side : undefined;
 
 /** Key muscles listed for a region whose belly lies outside that region's 3D crop although their data names the
  *  region (大腿筋膜張筋 reaches the knee only through the iliotibial band): selecting one frames its first region. */

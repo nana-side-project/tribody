@@ -6,7 +6,7 @@
 import type { RegionDiagram, RegionDiagramProps } from '../types';
 import type { ReactNode } from 'react';
 import { Ctxt, Frame, HoleMask, Lesion, M, Nerve, Part, Ten, att, band, ell, line, muscle, sp, useCtx, type Ctx, type Lab, type OIMap, type P, type Sheet, type Spot } from './hip';
-import { FL_INSERT, FL_LAT, FlSoleInset, SOLE_INSET, soleInsetPt } from './footsole';
+import { FL_INSERT, FL_LAT, FlSoleInset, SOLE_INSET, XRAY_CSS, soleInsetPt } from './footsole';
 import { once } from './lazy';
 import { MText } from './mirror';
 
@@ -63,6 +63,21 @@ const Crack = ({ c }: { c: { spot: string; crack: string } }) => (
     <path className="crack" d={c.crack} />
   </>
 );
+/**
+ * From behind the crack lies deep, under the soleus (and the flexor digitorum longus in the deep view): it is drawn over
+ * the muscles in the see-through ("x-ray") style of the bones under the foot sole (XRAY_CSS: translucent red, the
+ * muscle fibres show through), so the point still reads from behind and the zoom onto it shows it. The bone itself
+ * stays at its depth in the light red of the rest of the part (Part `zoned`).
+ */
+const CrackSeen = ({ c }: { c: { spot: string; crack: string } }) => (
+  <>
+    <path className="bone-x" d={c.spot} />
+    <path className="crack" d={c.crack} />
+  </>
+);
+/** The deep crack's name in the posterior views (the red one; 脛骨（内果） takes the lighter style). */
+const tibCrackLab = (k: Ctx, y: number): Lab[] =>
+  k.les.has('tibia-stress') ? [{ id: 'tibia', t: '脛骨のひび\n（筋肉の奥）', at: [154, 343], x: 104, y, a: 'end', zone: true }] : [];
 /** Parts the calf views draw with their lesion zone (Frame `zoned`): their other labels take the lighter style. */
 const zonedCalf = (k: Ctx) => [k.les.has('tibia-stress') && 'tibia', k.les.has('calf-strain') && 'gastrocnemius', k.les.has('calf-strain') && 'soleus'] as const;
 /** Calf strain: the stretch of a muscle sheet s ∈ [s0, s1] (the torn part, not the whole muscle). */
@@ -194,6 +209,8 @@ function CalfBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
           { id: 'gastrocnemius', t: '腓腹筋・内側頭', at: [140, 120], x: 104, y: 112, a: 'end' },
           { id: 'soleus', t: 'ヒラメ筋', at: [134, 292], x: 104, y: 286, a: 'end' },
         ]) as Lab[]),
+    // stress fracture: the crack point, seen through the soleus
+    ...tibCrackLab(k, 334),
     { id: 'achilles-tendon', t: 'アキレス腱', at: [178, 408], x: 104, y: 394, a: 'end' },
     { id: 'tibia', t: '脛骨（内果）', at: [147, 430], x: 104, y: 432, a: 'end' },
     { id: 'calcaneus', t: '踵骨', at: [166, 488], x: 104, y: 486, a: 'end' },
@@ -229,7 +246,12 @@ function CalfBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       labels={labels}
       spots={spots}
       fade={{ top: 34 }}
-      defs={<LfStyle />}
+      defs={
+        <>
+          <LfStyle />
+          {k.les.has('tibia-stress') && <style>{XRAY_CSS}</style>}
+        </>
+      }
       oi={OI_BACK()}
       zoned={zonedCalf(k)}
       overlay={
@@ -251,7 +273,7 @@ function CalfBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <path className="bone-ln" d={BB().femLn} />
         <path className="bone" d={BB().talus} />
       </Ctxt>
-      <Part k={k} id="tibia" zone={k.les.has('tibia-stress') && <Crack c={TIB_CRACK_B()} />}>
+      <Part k={k} id="tibia" zoned={k.les.has('tibia-stress')}>
         <path className="bone" d={BB().tibia} />
         <path className="bone-ln" d={BB().tibLn} />
       </Part>
@@ -292,6 +314,12 @@ function CalfBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <M g={BM().gasL} />
         <M g={BM().gasM} />
       </Part>
+      {/* the stress-fracture point lies under the soleus: seen through it (see CrackSeen) */}
+      {k.les.has('tibia-stress') && (
+        <Lesion k={k} id="tibia">
+          <CrackSeen c={TIB_CRACK_B()} />
+        </Lesion>
+      )}
     </Frame>
   );
 }
@@ -383,6 +411,8 @@ function CalfDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     k.les.has('calf-strain')
       ? { id: 'soleus', t: 'ヒラメ筋\n（下半分）', at: [136, 318], x: 104, y: 324, a: 'end', zone: true }
       : { id: 'soleus', t: 'ヒラメ筋', at: [136, 318], x: 104, y: 324, a: 'end' },
+    // stress fracture: the crack point, seen through the soleus and the flexor digitorum longus
+    ...tibCrackLab(k, 366),
     { id: 'tibia', t: '脛骨（内果）', at: [147, 430], x: 104, y: 420, a: 'end' },
     { id: 'achilles-tendon', t: 'アキレス腱', at: [178, 466], x: 104, y: 466, a: 'end' },
     { id: 'fibula', t: '腓骨（腓骨頭）', at: [242, 70], x: 266, y: 70 },
@@ -412,6 +442,7 @@ function CalfDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       defs={
         <>
           <LfStyle />
+          {k.les.has('tibia-stress') && <style>{XRAY_CSS}</style>}
           <HoleMask id={hole} d={SOL_WIN()} w={W} h={H} />
         </>
       }
@@ -422,7 +453,7 @@ function CalfDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <path className="bone-ln" d={BB().femLn} />
         <path className="bone" d={BB().talus} />
       </Ctxt>
-      <Part k={k} id="tibia" zone={k.les.has('tibia-stress') && <Crack c={TIB_CRACK_B()} />}>
+      <Part k={k} id="tibia" zoned={k.les.has('tibia-stress')}>
         <path className="bone" d={BB().tibia} />
         <path className="bone-ln" d={BB().tibLn} />
       </Part>
@@ -471,6 +502,12 @@ function CalfDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <path className="cutf" d={ell(152.5, 56, 22.5, 4, -5)} />
         <path className="cutf" d={ell(205.5, 57, 19.5, 4, 8)} />
       </Part>
+      {/* the stress-fracture point lies under the soleus and the flexor digitorum longus: seen through them */}
+      {k.les.has('tibia-stress') && (
+        <Lesion k={k} id="tibia">
+          <CrackSeen c={TIB_CRACK_B()} />
+        </Lesion>
+      )}
     </Frame>
   );
 }

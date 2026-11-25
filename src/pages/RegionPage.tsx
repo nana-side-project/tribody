@@ -30,7 +30,7 @@ import {
   structureName,
 } from '../lib/labels';
 import { useRememberedView } from '../lib/useRememberedView';
-import { regionViewer } from '../lib/viewerHighlights';
+import { regionDrawnSide, regionViewer } from '../lib/viewerHighlights';
 import NotFoundPage from './NotFoundPage';
 
 const STRUCTURES_PREVIEW = 4;
@@ -50,9 +50,11 @@ function RegionView({ id }: { id: RegionId }) {
   const p = params.get('spot');
   const spot = spots.some((s) => s.id === p) ? (p as PainSpotId) : null;
   // opened from a spot tapped on one side of the home body map (?side=): the figure and 3D show that side, and the
-  // condition links carry it on
+  // condition links carry it on. A central region (the low back, the neck: all its conditions are drawn unmirrored,
+  // BILATERAL_REGIONS) stays unmirrored here too, so the drawing does not flip on the way to its condition page.
   const sp = params.get('side');
   const side = sp === 'left' || sp === 'right' ? sp : undefined;
+  const drawnOn = regionDrawnSide(id, side);
   const conditionSearch = [spot && `spot=${spot}`, side && `side=${side}`].filter(Boolean).join('&');
   const setSpot = (next: PainSpotId | null) =>
     setParams(
@@ -109,7 +111,7 @@ function RegionView({ id }: { id: RegionId }) {
           onViewChange={figMemo.onViewChange}
           showSpots
           selectedSpot={spot}
-          side={side}
+          side={drawnOn}
           onSpotSelect={toggleSpot}
           caption="図の赤い点をタップすると、その場所に多い障害に絞り込めます。"
         />
@@ -135,7 +137,7 @@ function RegionView({ id }: { id: RegionId }) {
         <Viewer3DToggle
           focus={focus3d}
           highlights={highlights3d}
-          side={side}
+          side={drawnOn}
           sub="主な筋肉を3Dで確認（タップで読み込み）"
           footer={
             keyMuscles.length > 0 && (

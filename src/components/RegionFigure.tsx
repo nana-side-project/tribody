@@ -203,6 +203,150 @@ const lineBox = (b: Box): Box => {
 };
 const overlaps = (a: Box, b: Box, gx = 3, gy = 2) => a.x0 < b.x1 + gx && b.x0 < a.x1 + gx && a.y0 < b.y1 + gy && b.y0 < a.y1 + gy;
 
+/** A point through a matrix (client px → a user space). */
+const apply = (m: DOMMatrix, x: number, y: number) => ({ x: m.a * x + m.c * y + m.e, y: m.b * x + m.d * y + m.f });
+/** An element's transform attribute as a matrix (not consolidate(): that rewrites the attribute). */
+const ownTransform = (el: SVGGraphicsElement | SVGClipPathElement): DOMMatrix => {
+  const list = el.transform.baseVal;
+  let m = new DOMMatrix();
+  for (let i = 0; i < list.numberOfItems; i++) m = m.multiply(list.getItem(i).matrix);
+  return m;
+};
+type HitClip = { m: DOMMatrix; shapes: { el: SVGGeometryElement; m: DOMMatrix }[] };
+/** A shape of a part as partHitTest tests it. */
+interface HitShape {
+  el: SVGGeometryElement;
+  /** client px → its user space */
+  m: DOMMatrix;
+  fill: boolean;
+  stroke: boolean;
+  /** its box in its user space, grown by the reach of its stroke */
+  bb: Box;
+  /** its svg's box on screen, where the svg clips what it draws (overflow other than visible) */
+  vp: DOMRect | null;
+  /** the clip paths on it and on its groups: client px → the clip's space, the clip's shapes (their transform inverted) */
+  clips: HitClip[];
+}
+
+/**
+ * The browser's hit test of the parts `els` at a point in client px, for any point, on screen or not
+ * (document.elementsFromPoint answers nothing outside the viewport: a figure scrolled partly off screen when the zoom
+ * is tapped, a re-layout while the phone turns). Same rules as elementsFromPoint, which lists every layer at the point
+ * (not only the top one): a part is hit where one of its shapes is, whatever is drawn over it; a shape by its fill
+ * unless the fill is none and by its stroke unless the stroke is none (pointer-events auto; the other values as the
+ * browser reads them), never with pointer-events none, display none or visibility hidden; opacity and masks do not
+ * matter, clip paths (url references; clip-rule read as fill-rule) and the svg's own box do. It follows the layout,
+ * not the pixels: Chrome draws and hit-tests the zoomed (CSS-scaled) drawing from a whole-pixel origin, up to a pixel
+ * off, so a point that close to an edge can come out the other way than elementsFromPoint had it.
+ */
+function partHitTest(els: Element[]): (x: number, y: number) => boolean {
+  // Each svg: its box on screen, and the map of its user space (viewBox units) to client px taken from that box (CSS
+  // transforms included, in every browser). It stands in for the CSS part of getScreenCTM, which WebKit maps only by
+  // position (not the zoom's scale): client ← local = (box map) · getScreenCTM(svg)⁻¹ · getScreenCTM(shape).
+  const svgs = new Map<SVGSVGElement, { vp: DOMRect | null; fix: DOMMatrix }>();
+  const svgOf = (svg: SVGSVGElement) => {
+    let v = svgs.get(svg);
+    if (!v) {
+      const r = svg.getBoundingClientRect();
+      const vb = svg.viewBox.baseVal;
+      const own = svg.getScreenCTM();
+      let fix = new DOMMatrix();
+      if (vb && vb.width && vb.height && r.width && r.height && own) {
+        const par = svg.preserveAspectRatio.baseVal;
+        let sx = r.width / vb.width;
+        let sy = r.height / vb.height;
+        let dx = 0;
+        let dy = 0;
+        if (par.align >= SVGPreserveAspectRatio.SVG_PRESERVEASPECTRATIO_XMINYMIN) {
+          sx = sy = par.meetOrSlice === SVGPreserveAspectRatio.SVG_MEETORSLICE_SLICE ? Math.max(sx, sy) : Math.min(sx, sy);
+          // xMin / xMid / xMax, yMin / yMid / yMax
+          const a = par.align - SVGPreserveAspectRatio.SVG_PRESERVEASPECTRATIO_XMINYMIN;
+          dx = ((r.width - vb.width * sx) * (a % 3)) / 2;
+          dy = ((r.height - vb.height * sy) * Math.floor(a / 3)) / 2;
+        }
+        fix = new DOMMatrix([sx, 0, 0, sy, r.left + dx - vb.x * sx, r.top + dy - vb.y * sy]).multiply(DOMMatrix.fromMatrix(own).inverse());
+      }
+      svgs.set(svg, (v = { vp: getComputedStyle(svg).overflow === 'visible' ? null : r, fix }));
+    }
+    return v;
+  };
+  /** client px → the user space of `e` (its own transform included) */
+  const toLocal = (e: SVGGraphicsElement): DOMMatrix | null => {
+    const ctm = e.getScreenCTM();
+    const svg = e.ownerSVGElement;
+    return ctm && svg ? svgOf(svg).fix.multiply(DOMMatrix.fromMatrix(ctm)).inverse() : null;
+  };
+  const shownAt = new Map<Element, boolean>();
+  const shown = (e: Element | null): boolean => {
+    if (!e || e instanceof SVGSVGElement) return true;
+    let v = shownAt.get(e);
+    if (v === undefined) shownAt.set(e, (v = getComputedStyle(e).display !== 'none' && shown(e.parentElement)));
+    return v;
+  };
+  const clipsAt = new Map<Element, HitClip[]>();
+  const clipsOf = (e: Element | null): HitClip[] => {
+    if (!e || e instanceof SVGSVGElement) return [];
+    let c = clipsAt.get(e);
+    if (!c) {
+      c = clipsOf(e.parentElement);
+      const id = /^url\("?#(.+?)"?\)$/.exec(getComputedStyle(e).clipPath)?.[1];
+      const cp = id ? e.ownerDocument.getElementById(id) : null;
+      let m = cp instanceof SVGClipPathElement && e instanceof SVGGraphicsElement ? toLocal(e) : null;
+      if (cp instanceof SVGClipPathElement && m) {
+        // (the clip path's units: the user space of `e`, or its bounding box)
+        if (cp.clipPathUnits.baseVal === SVGUnitTypes.SVG_UNIT_TYPE_OBJECTBOUNDINGBOX) {
+          const b = (e as SVGGraphicsElement).getBBox();
+          m = new DOMMatrix([1 / b.width, 0, 0, 1 / b.height, -b.x / b.width, -b.y / b.height]).multiply(m);
+        }
+        const shapes = [...cp.children].flatMap((k) => {
+          if (!(k instanceof SVGGeometryElement)) return [];
+          const cs = getComputedStyle(k);
+          return cs.display === 'none' || cs.visibility !== 'visible' ? [] : [{ el: k, m: ownTransform(k).inverse() }];
+        });
+        c = [...c, { m: ownTransform(cp).inverse().multiply(m), shapes }];
+      }
+      clipsAt.set(e, c);
+    }
+    return c;
+  };
+  const shapes: HitShape[] = [];
+  for (const p of els)
+    for (const el of p.querySelectorAll('*')) {
+      if (!(el instanceof SVGGeometryElement) || !shown(el)) continue;
+      const cs = getComputedStyle(el);
+      const pe = cs.pointerEvents.toLowerCase();
+      // auto is visiblePainted: visible shapes, by what of them is painted
+      const painted = pe === 'auto' || pe === 'visiblepainted' || pe === 'painted';
+      if (pe === 'none' || ((pe === 'auto' || pe.startsWith('visible')) && cs.visibility !== 'visible')) continue;
+      const fill = !pe.endsWith('stroke') && !(painted && cs.fill === 'none');
+      const stroke = !pe.endsWith('fill') && !(painted && cs.stroke === 'none');
+      const m = fill || stroke ? toLocal(el) : null;
+      if (!m || !el.ownerSVGElement) continue;
+      let b: DOMRect;
+      try {
+        b = el.getBBox();
+      } catch {
+        continue;
+      }
+      // a stroke reaches half its width out of the path; a corner, its miter (up to the miter limit) or a square cap
+      const sw = stroke ? parseFloat(cs.strokeWidth) || 0 : 0;
+      const join = cs.strokeLinejoin === 'round' || cs.strokeLinejoin === 'bevel' ? 1 : parseFloat(cs.strokeMiterlimit) || 4;
+      const r = (sw / 2) * Math.max(Math.SQRT2, join) + 1;
+      shapes.push({ el, m, fill, stroke, bb: { x0: b.x - r, y0: b.y - r, x1: b.x + b.width + r, y1: b.y + b.height + r }, vp: svgOf(el.ownerSVGElement).vp, clips: clipsOf(el) });
+    }
+  return (x, y) =>
+    shapes.some((s) => {
+      if (s.vp && (x < s.vp.left || x > s.vp.right || y < s.vp.top || y > s.vp.bottom)) return false;
+      const q = apply(s.m, x, y);
+      if (q.x < s.bb.x0 || q.x > s.bb.x1 || q.y < s.bb.y0 || q.y > s.bb.y1) return false;
+      for (const c of s.clips) {
+        const u = apply(c.m, x, y);
+        if (!c.shapes.some((k) => k.el.isPointInFill(apply(k.m, u.x, u.y)))) return false;
+      }
+      return (s.fill && s.el.isPointInFill(q)) || (s.stroke && s.el.isPointInStroke(q));
+    });
+}
+
 /** The extent of something in the zoomed frame along one axis, before the shift, at scale s. */
 type Span = (s: number) => [number, number];
 
@@ -464,16 +608,8 @@ export function RegionFigure({
   useEffect(() => setZoomed(false), [shown]);
   useLayoutEffect(() => {
     if (!zoomable || !injuredIds.length) return setFit(null);
-    const measure = () => {
-      const wrap = zoomRef.current;
-      const canvas = canvasRef.current;
-      if (!wrap || !canvas) return;
-      const wr = wrap.getBoundingClientRect();
-      const cw = canvas.clientWidth;
-      const ch = canvas.clientHeight;
-      if (!cw || !ch) return setFit(null);
-      // current (possibly zoomed or mid-transition) scale: positions / scale = unzoomed canvas px
-      const scale = wr.width / cw || 1;
+    /** The zoom that frames the injured tissue in the canvas as it is now (`scale`: the drawing's current zoom). */
+    const fitNow = (wrap: HTMLElement, canvas: HTMLElement, wr: DOMRect, scale: number, cw: number, ch: number): ZoomT | null => {
       const box = (els: Element[]): Box => {
         let x0 = Infinity;
         let y0 = Infinity;
@@ -513,17 +649,36 @@ export function RegionFigure({
           const pb = box(partsOf(id));
           if (isSmall(pb) && (!best || (pb.x1 - pb.x0) * (pb.y1 - pb.y0) < (best.x1 - best.x0) * (best.y1 - best.y0))) best = pb;
         }
-        if (!best) return setFit(null);
+        if (!best) return null;
         focus = best;
         need = [best, ...parts.filter((el) => el.classList.contains('thk-zone')).map((el) => box([el]))];
       }
-      if (!Number.isFinite(focus.x0)) return setFit(null);
+      if (!Number.isFinite(focus.x0)) return null;
       // the injured tissue fills ~40% of the frame (at most 2×); its labels (the diagrams mark them …is-hl is-injured)
       // stay readable in the frame at their own size: zoom less if they would not fit, no zoom below ZOOM_MIN
       const rad = parseFloat(getComputedStyle(canvas).borderTopLeftRadius) || 0;
       const labs = labelGeos(wrap, wr, scale).filter((l) => l.rank === 4);
       const sHi = Math.min((0.4 * cw) / Math.max(1, focus.x1 - focus.x0), (0.4 * ch) / Math.max(1, focus.y1 - focus.y0));
-      const z = fitZoom(cw, ch, sHi, need.filter((b) => Number.isFinite(b.x0)), labs, rad);
+      return fitZoom(cw, ch, sHi, need.filter((b) => Number.isFinite(b.x0)), labs, rad);
+    };
+    // While zoomed the labels are scaled back (--zinv) and the browser lays a text out at its own scale, so they measure
+    // a unit or two differently: measured again while zoomed (the phone turned and back), a canvas size already measured
+    // unzoomed keeps the fit it had, and the zoom and the names drawn again are those of a fresh tap
+    const fits = new Map<string, ZoomT | null>();
+    const measure = () => {
+      const wrap = zoomRef.current;
+      const canvas = canvasRef.current;
+      if (!wrap || !canvas) return;
+      const wr = wrap.getBoundingClientRect();
+      const cw = canvas.clientWidth;
+      const ch = canvas.clientHeight;
+      // current (possibly zoomed or mid-transition) scale: positions / scale = unzoomed canvas px
+      const scale = wr.width / cw || 1;
+      const size = `${cw}x${ch}`;
+      // (no zoom and no zoom transition: the labels are not scaled either)
+      const unzoomed = getComputedStyle(wrap).transform === 'none';
+      const z = !unzoomed && fits.has(size) ? (fits.get(size) ?? null) : cw && ch ? fitNow(wrap, canvas, wr, scale, cw, ch) : null;
+      if (unzoomed) fits.set(size, z);
       setFit((f) => (z && f && f.s === z.s && Math.abs(f.tx - z.tx) < 0.05 && Math.abs(f.ty - z.ty) < 0.05 ? f : z));
     };
     measure();
@@ -614,7 +769,12 @@ export function RegionFigure({
       const name = squash(p.querySelector(':scope > title')?.textContent);
       if (name) named.set(name, [...(named.get(name) ?? []), p]);
     }
-    /** The point of the named part inside the frame that is nearest to (ax, ay), if a good piece of it is visible. */
+    /** the hit test of the parts by name (built when first needed) */
+    const hitOf = new Map<string, (x: number, y: number) => boolean>();
+    /**
+     * The point of the named part inside the frame that is nearest to (ax, ay), if a good piece of it is visible: a
+     * 6 × 6 grid over its box in the frame, hit-tested as the browser would, wherever the figure is scrolled.
+     */
     const visiblePointOf = (name: string, ax: number, ay: number): Pt | null => {
       const els = named.get(name);
       if (!els) return null;
@@ -624,14 +784,15 @@ export function RegionFigure({
       const x1 = Math.min(cw - 8, Math.max(...bs.map((q) => q.x1)));
       const y1 = Math.min(ch - 8, Math.max(...bs.map((q) => q.y1)));
       if (x1 - x0 < 16 || y1 - y0 < 16) return null;
+      let hit = hitOf.get(name);
+      if (!hit) hitOf.set(name, (hit = partHitTest(els)));
       const N = 6;
       const hits: Pt[] = [];
       for (let i = 0; i < N; i++)
         for (let j = 0; j < N; j++) {
           const x = x0 + ((i + 0.5) * (x1 - x0)) / N;
           const y = y0 + ((j + 0.5) * (y1 - y0)) / N;
-          const [sx, sy] = toScreen(x, y);
-          if (document.elementsFromPoint(sx, sy).some((e) => els.some((p) => p.contains(e)))) hits.push([x, y]);
+          if (hit(...toScreen(x, y))) hits.push([x, y]);
         }
       if (hits.length < 2) return null;
       return hits.reduce((a, q) => (Math.hypot(q[0] - ax, q[1] - ay) < Math.hypot(a[0] - ax, a[1] - ay) ? q : a));
