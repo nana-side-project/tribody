@@ -2265,12 +2265,35 @@ a.involve:active {
   pointer-events: none;
   transition: opacity 0.15s;
 }
+/* zoomed: the labels keep their size while the drawing zooms. RegionFigure sets --zinv (1 / zoom) on the drawing and
+   each label's transform-origin at the point where its leader meets it; the leader lines and anchor dots keep their
+   width. Without .is-zoomed nothing here changes the drawing (no transform), the transitions only animate the zoom. */
+.figure__zoom :is(.thk-lab, .tbu-lab) :is(text, .lhit) {
+  transition: transform 0.25s var(--ease);
+}
+.figure__zoom :is(.thk-lab, .tbu-lab) .ldot {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.25s var(--ease);
+}
+.figure__zoom :is(.thk-lab, .tbu-lab) .ld {
+  transition: stroke-width 0.25s var(--ease);
+}
+.figure__canvas.is-zoomed > .figure__zoom :is(.thk-lab, .tbu-lab) :is(text, .lhit, .ldot) {
+  transform: scale(var(--zinv, 1));
+}
+.figure__canvas.is-zoomed > .figure__zoom :is(.thk-lab, .tbu-lab) .ld {
+  stroke-width: calc(0.75px * var(--zinv, 1));
+}
 @media (prefers-reduced-motion: reduce) {
-  .figure__zoom {
+  .figure__zoom,
+  .figure__zoom :is(.thk-lab, .tbu-lab) :is(text, .lhit, .ldot, .ld) {
     transition: none;
   }
 }
-/* zoomed: names of parts still in the frame whose own label the edge cuts, redrawn at the frame edge (RegionFigure) */
+/* zoomed: names of parts still in the frame whose own label the edge cuts, redrawn at the frame edge, and the corner
+   captions, at the size of the diagram's labels (RegionFigure sets each text's font size and --rl-k, the diagram's
+   px per drawing unit; the kits' labels: halo 3.2, leader .75, dot r 1.6 units) */
 .figure__relabels {
   position: absolute;
   inset: 0;
@@ -2289,29 +2312,38 @@ a.involve:active {
   --c: var(--text-2);
 }
 .relabel text {
-  font-size: 12px;
+  font-size: calc(13.25px * var(--rl-k, 0.92));
   font-weight: 500;
   fill: var(--c);
   paint-order: stroke;
   stroke: var(--surface);
-  stroke-width: 3px;
+  stroke-width: calc(3.2px * var(--rl-k, 0.92));
   stroke-linejoin: round;
 }
 .relabel__ld {
   fill: none;
   stroke: var(--c);
-  stroke-width: 0.8;
-  opacity: 0.7;
+  stroke-width: calc(0.75px * var(--rl-k, 0.92));
+  opacity: 0.65;
 }
 .relabel__dot {
   fill: var(--c);
+  opacity: 0.85;
 }
 .relabel--hl {
   --c: var(--text);
 }
 .relabel--hl text,
-.relabel--involved text {
+.relabel--involved text,
+.relabel--injured text {
   font-weight: 700;
+}
+.relabel--injured {
+  --c: var(--injured);
+}
+.relabel--injured :is(.relabel__ld, .relabel__dot),
+.relabel--involved :is(.relabel__ld, .relabel__dot) {
+  opacity: 1;
 }
 .relabel--involved {
   --c: color-mix(in srgb, var(--involved) 62%, var(--text));
@@ -2320,7 +2352,6 @@ a.involve:active {
 .relabel--involved .relabel__dot {
   stroke: var(--involved);
   fill: var(--involved);
-  opacity: 1;
 }
 .relabel--involved .relabel__ld {
   fill: none;
@@ -2330,6 +2361,18 @@ a.involve:active {
 }
 .relabel--ctx {
   --c: var(--text-3);
+}
+.relabel--ctx text {
+  font-weight: 400;
+}
+/* the kits' corner captions (.cap-t) and notes (.note-t) */
+.relabel--cap text,
+.relabel--note text {
+  font-weight: 600;
+}
+.relabel--cap text {
+  opacity: 0.85;
+  letter-spacing: 0.02em;
 }
 @media (prefers-reduced-motion: reduce) {
   .figure__relabels {

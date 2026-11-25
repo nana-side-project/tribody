@@ -14,28 +14,259 @@ interface Box {
   x1: number;
   y1: number;
 }
+type Pt = [number, number];
 
-/** A label the zoom would cut, drawn again at the frame edge (canvas px, unscaled). */
+/** The zoom onto the lesion: scale and shift of the drawing in canvas px (transform-origin 0 0). */
+interface ZoomT {
+  s: number;
+  tx: number;
+  ty: number;
+}
+const ZOOM_MAX = 2;
+/** below this the zoom is not worth a button */
+const ZOOM_MIN = 1.4;
+/** px kept free between the frame edge and a text / a lesion zone */
+const TEXT_M = 3;
+const ZONE_M = 3;
+
+/**
+ * A text drawn again in the zoomed frame (canvas px), at the size of the diagram's labels: the name of a part whose own
+ * label the frame edge would cut, a corner caption pinned to its corner, an inset title.
+ */
 interface Relabel {
   key: string;
-  /** colour of the original label: injured-zone rest, amber (involved), highlighted, plain or faded context */
-  tone: 'zrest' | 'involved' | 'hl' | 'plain' | 'ctx';
+  /** colour of the original: injured, injured-zone rest, amber (involved), highlighted, plain, faded context; caption */
+  tone: 'injured' | 'zrest' | 'involved' | 'hl' | 'plain' | 'ctx' | 'cap' | 'note';
   lines: string[];
-  /** text start (left) and first baseline */
+  /** text position (first baseline) and anchor */
   x: number;
   y: number;
+  a: 'start' | 'end' | 'middle';
+  fs: number;
+  lh: number;
   /** leader: from the anchor on the part to the text */
-  ax: number;
-  ay: number;
-  lx: number;
-  ly: number;
+  pts?: Pt[];
 }
 const RELABEL_MAX = 8;
-/** px: the diagrams' own labels are 13.25 user units ≈ 12.2 px on a 390 px phone */
-const RELABEL_FS = 12;
-const RELABEL_LH = 14;
-/** Width of a label line in px (full-width glyphs ≈ 1 em, ASCII ≈ 0.6 em). */
-const textWidth = (s: string) => [...s].reduce((n, c) => n + (c.charCodeAt(0) < 0x80 ? 0.6 : 1), 0) * RELABEL_FS;
+
+/** A diagram label (the kits' .thk-lab / .tbu-lab group) measured in unzoomed canvas px. */
+interface LabGeo {
+  g: SVGGElement;
+  t: SVGTextElement;
+  name: string;
+  lines: string[];
+  /** the text */
+  box: Box;
+  /** where the leader meets the text (canvas px and svg units): while zoomed the label keeps its size around it */
+  tip: Pt;
+  tipU: Pt;
+  /** leader: anchor on the part, (elbow), tip; just [tip] for a caption without one */
+  pts: Pt[];
+  /** first baseline below the top of the text box, line pitch, font size (px) */
+  base: number;
+  lh: number;
+  fs: number;
+  /** 4 injured, 3 highlighted / amber, 2 rest of an injured part, 1 plain, 0 faded context */
+  rank: number;
+}
+
+const squash = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, '');
+
+/** The diagrams' labels in unzoomed canvas px (`wr`: the zoom wrapper's rect, `cur`: its current scale). */
+function labelGeos(wrap: HTMLElement, wr: DOMRect, cur: number): LabGeo[] {
+  const out: LabGeo[] = [];
+  // labels sit outside the drawing's (mirroring) group: svg units map to canvas px by the svg's own scale
+  const maps = new Map<SVGSVGElement, { k: number; ox: number; oy: number } | null>();
+  const mapOf = (svg: SVGSVGElement) => {
+    if (!maps.has(svg)) {
+      const vb = svg.viewBox.baseVal;
+      const sr = svg.getBoundingClientRect();
+      const k = vb && vb.width && sr.width ? sr.width / cur / vb.width : 0;
+      maps.set(svg, k ? { k, ox: (sr.left - wr.left) / cur - vb.x * k, oy: (sr.top - wr.top) / cur - vb.y * k } : null);
+    }
+    return maps.get(svg);
+  };
+  for (const g of wrap.querySelectorAll<SVGGElement>('.thk-lab, .tbu-lab')) {
+    const t = g.querySelector('text');
+    const m = g.ownerSVGElement && mapOf(g.ownerSVGElement);
+    if (!t || !m) continue;
+    const { k, ox, oy } = m;
+    const C = (p: Pt): Pt => [ox + p[0] * k, oy + p[1] * k];
+    let bb: DOMRect;
+    try {
+      bb = t.getBBox();
+    } catch {
+      continue;
+    }
+    if (!bb.width) continue;
+    const ptsU: Pt[] = [];
+    const nums = g.querySelector('.ld')?.getAttribute('d')?.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi)?.map(Number) ?? [];
+    for (let i = 0; i + 1 < nums.length; i += 2) ptsU.push([nums[i], nums[i + 1]]);
+    const a = t.getAttribute('text-anchor');
+    const tipU: Pt =
+      ptsU.length >= 2 ? ptsU[ptsU.length - 1] : [a === 'end' ? bb.x + bb.width : a === 'middle' ? bb.x + bb.width / 2 : bb.x, bb.y + bb.height / 2];
+    const spans = [...t.querySelectorAll('tspan')];
+    const lines = spans.map((s) => s.textContent ?? '').filter(Boolean);
+    if (!lines.length) lines.push(t.textContent ?? '');
+    const fs = (parseFloat(getComputedStyle(t).fontSize) || 13.25) * k;
+    const dy = parseFloat(spans[1]?.getAttribute('dy') ?? '');
+    const c = g.classList;
+    out.push({
+      g,
+      t,
+      name: squash(t.textContent),
+      lines,
+      box: { x0: ox + bb.x * k, y0: oy + bb.y * k, x1: ox + (bb.x + bb.width) * k, y1: oy + (bb.y + bb.height) * k },
+      tip: C(tipU),
+      tipU,
+      pts: ptsU.length >= 2 ? ptsU.map(C) : [C(tipU)],
+      base: ((parseFloat(t.getAttribute('y') ?? '') || bb.y) - bb.y) * k,
+      lh: dy > 0 ? dy * k : fs * 1.15,
+      fs,
+      rank: c.contains('is-injured')
+        ? 4
+        : c.contains('is-involved') || (c.contains('is-hl') && !c.contains('is-zrest'))
+          ? 3
+          : c.contains('is-zrest')
+            ? 2
+            : c.contains('is-ctx') || c.contains('is-dim')
+              ? 0
+              : 1,
+    });
+  }
+  return out;
+}
+
+/** A label while zoomed: its leader zooms with the drawing, its text keeps its size at the leader's (zoomed) tip. */
+function zoomLab(l: LabGeo, z: ZoomT): { box: Box; pts: Pt[] } {
+  const dx = l.tip[0] * (z.s - 1) + z.tx;
+  const dy = l.tip[1] * (z.s - 1) + z.ty;
+  return {
+    box: { x0: l.box.x0 + dx, y0: l.box.y0 + dy, x1: l.box.x1 + dx, y1: l.box.y1 + dy },
+    pts: l.pts.length > 1 ? l.pts.map((p) => [p[0] * z.s + z.tx, p[1] * z.s + z.ty]) : [],
+  };
+}
+
+/** Is the text box inside the frame (`m` px from its edges, clear of its rounded corners)? */
+function inFrame(b: Box, cw: number, ch: number, rad: number, m = 2): boolean {
+  if (b.x0 < m || b.y0 < m || b.x1 > cw - m || b.y1 > ch - m) return false;
+  const r = rad;
+  for (const [x, y] of [
+    [b.x0, b.y0],
+    [b.x1, b.y0],
+    [b.x0, b.y1],
+    [b.x1, b.y1],
+  ]) {
+    const cx = x < r ? r : x > cw - r ? cw - r : x;
+    const cy = y < r ? r : y > ch - r ? ch - r : y;
+    if (cx !== x && cy !== y && Math.hypot(x - cx, y - cy) > r - 1) return false;
+  }
+  return true;
+}
+
+/** Does the polyline cross the box (Liang–Barsky per segment)? */
+function crossesBox(pts: Pt[], b: Box): boolean {
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const [ax, ay] = pts[i];
+    const dx = pts[i + 1][0] - ax;
+    const dy = pts[i + 1][1] - ay;
+    let t0 = 0;
+    let t1 = 1;
+    let hit = true;
+    for (const [p, q] of [
+      [-dx, ax - b.x0],
+      [dx, b.x1 - ax],
+      [-dy, ay - b.y0],
+      [dy, b.y1 - ay],
+    ]) {
+      if (p === 0) {
+        if (q < 0) hit = false;
+        continue;
+      }
+      const t = q / p;
+      if (p < 0) t0 = Math.max(t0, t);
+      else t1 = Math.min(t1, t);
+    }
+    if (hit && t1 - t0 > 1e-6) return true;
+  }
+  return false;
+}
+/** The glyphs of a text box (its box has some leading above and below them). */
+const glyphs = (b: Box): Box => {
+  const v = (b.y1 - b.y0) * 0.1;
+  return { x0: b.x0 + 1, y0: b.y0 + v, x1: b.x1 - 1, y1: b.y1 - v };
+};
+/** A text box for the leader tests: its glyphs, and 2 px more on each side (a redrawn text may start 1–2 px off its box). */
+const lineBox = (b: Box): Box => {
+  const v = (b.y1 - b.y0) * 0.1;
+  return { x0: b.x0 - 2, y0: b.y0 + v, x1: b.x1 + 2, y1: b.y1 - v };
+};
+const overlaps = (a: Box, b: Box, gx = 3, gy = 2) => a.x0 < b.x1 + gx && b.x0 < a.x1 + gx && a.y0 < b.y1 + gy && b.y0 < a.y1 + gy;
+
+/** The extent of something in the zoomed frame along one axis, before the shift, at scale s. */
+type Span = (s: number) => [number, number];
+
+/**
+ * The zoom (largest scale from `sHi` down to ZOOM_MIN) that keeps the lesion boxes `need` and the injured labels `labs`
+ * inside the frame, centred on them and, where possible, without an empty band at an edge of the drawing. First with
+ * every injured label in place (at its own size, see zoomLab); then, when that only fits a much smaller zoom (labels on
+ * both sides of a small lesion: the ischial tuberosity), letting a label move in beside its anchor (RegionFigure draws
+ * it again there, at the frame edge). Null when even ZOOM_MIN does not fit.
+ */
+function fitZoom(cw: number, ch: number, sHi: number, need: Box[], labs: LabGeo[], rad: number): ZoomT | null {
+  const spans = (move: boolean, ax: 0 | 1): Span[] => [
+    ...need.map((b): Span => {
+      const lo = ax ? b.y0 : b.x0;
+      const hi = ax ? b.y1 : b.x1;
+      return (s) => [lo * s - ZONE_M, hi * s + ZONE_M];
+    }),
+    ...labs.flatMap((l): Span[] => {
+      const lo = ax ? l.box.y0 : l.box.x0;
+      const hi = ax ? l.box.y1 : l.box.x1;
+      const tip = l.tip[ax];
+      const a = l.pts[0][ax];
+      if (!move)
+        return [(s) => [lo + tip * (s - 1) - TEXT_M, hi + tip * (s - 1) + TEXT_M], ...l.pts.map((p): Span => (s) => [p[ax] * s - 2, p[ax] * s + 2])];
+      // moved in: on its own side of the anchor, at the anchor's height
+      const size = hi - lo;
+      if (ax) return [(s) => [a * s - size / 2 - TEXT_M, a * s + size / 2 + TEXT_M]];
+      const left = (l.box.x0 + l.box.x1) / 2 < a;
+      return [left ? (s) => [a * s - 12 - size - 3 - TEXT_M, a * s + 2] : (s) => [a * s - 2, a * s + 12 + size + 3 + TEXT_M]];
+    }),
+  ];
+  const axis = (s: number, size: number, sp: Span[]) => {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const f of sp) {
+      const [a, b] = f(s);
+      lo = Math.min(lo, a);
+      hi = Math.max(hi, b);
+    }
+    const rLo = -lo;
+    const rHi = size - hi;
+    if (rLo > rHi) return null;
+    // centred on them; then as far on the drawing as they allow (a part cut off at the drawing's edge stays there)
+    const t = Math.min(0, Math.max(size - s * size, (rLo + rHi) / 2));
+    return Math.min(rHi, Math.max(rLo, t));
+  };
+  const sTop = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, sHi));
+  const best = (move: boolean): ZoomT | null => {
+    const sx = spans(move, 0);
+    const sy = spans(move, 1);
+    for (let s = sTop; s >= ZOOM_MIN - 1e-6; s -= 0.05) {
+      const tx = axis(s, cw, sx);
+      const ty = axis(s, ch, sy);
+      if (tx === null || ty === null) continue;
+      const z = { s, tx, ty };
+      if (move || labs.every((l) => inFrame(zoomLab(l, z).box, cw, ch, rad))) return z;
+    }
+    return null;
+  };
+  const inPlace = best(false);
+  if (inPlace && inPlace.s >= sTop - 0.3) return inPlace;
+  const moved = best(true);
+  return moved && (!inPlace || moved.s > inPlace.s + 0.3) ? moved : inPlace;
+}
 
 function safeDiagram(region: RegionId): RegionDiagram | undefined {
   try {
@@ -223,19 +454,8 @@ export function RegionFigure({
   const figRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef<HTMLDivElement>(null);
-  /** Box of the injured parts (x…h) and of the parts plus their labels (u*), in unzoomed canvas px. */
-  const [focusBox, setFocusBox] = useState<{
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    ux: number;
-    uy: number;
-    uw: number;
-    uh: number;
-    cw: number;
-    ch: number;
-  } | null>(null);
+  /** The zoom that frames the injured tissue (null: no zoom offered in this view). */
+  const [fit, setFit] = useState<ZoomT | null>(null);
   const [zoomed, setZoomed] = useState(false);
   const injuredIds = useMemo(
     () => Object.entries(highlights ?? {}).filter(([, r]) => r === 'injured').map(([id]) => id),
@@ -243,14 +463,18 @@ export function RegionFigure({
   );
   useEffect(() => setZoomed(false), [shown]);
   useLayoutEffect(() => {
-    if (!zoomable || !injuredIds.length) return setFocusBox(null);
+    if (!zoomable || !injuredIds.length) return setFit(null);
     const measure = () => {
       const wrap = zoomRef.current;
       const canvas = canvasRef.current;
       if (!wrap || !canvas) return;
       const wr = wrap.getBoundingClientRect();
-      const scale = wr.width / Math.max(1, canvas.clientWidth) || 1;
-      const box = (els: Element[]) => {
+      const cw = canvas.clientWidth;
+      const ch = canvas.clientHeight;
+      if (!cw || !ch) return setFit(null);
+      // current (possibly zoomed or mid-transition) scale: positions / scale = unzoomed canvas px
+      const scale = wr.width / cw || 1;
+      const box = (els: Element[]): Box => {
         let x0 = Infinity;
         let y0 = Infinity;
         let x1 = -Infinity;
@@ -265,10 +489,7 @@ export function RegionFigure({
         }
         return { x0, y0, x1, y1 };
       };
-      const cw = canvas.clientWidth;
-      const ch = canvas.clientHeight;
-      if (!cw || !ch) return setFocusBox(null);
-      const isSmall = (b: { x0: number; y0: number; x1: number; y1: number }) => {
+      const isSmall = (b: Box) => {
         const w = b.x1 - b.x0;
         const h = b.y1 - b.y0;
         return Number.isFinite(w) && w * h < 0.06 * cw * ch && Math.max(w / cw, h / ch) < 0.4;
@@ -281,52 +502,29 @@ export function RegionFigure({
           el.classList.contains('is-zoned') ? [...el.querySelectorAll(':scope > .thk-zone')] : [el],
         );
       const parts = injuredIds.flatMap(partsOf);
-      // the diagrams mark the labels of highlighted parts (…is-hl is-injured); keep them in the zoomed frame too
-      const labelGroups = [...wrap.querySelectorAll('.is-hl.is-injured')].filter((g) => g.querySelector('text'));
-      let b = box(parts);
-      let perPart = false;
-      let labels = labelGroups.flatMap((g) => [...g.querySelectorAll('text')]);
-      if (!isSmall(b)) {
-        // the injured tissue as a whole is large (a big muscle), but one injured part may be tiny (the pubic
-        // symphysis next to adductor longus): zoom onto the smallest such part and its own label
-        let best: { b: ReturnType<typeof box>; id: string } | null = null;
+      let focus = box(parts);
+      let need = [focus];
+      if (!isSmall(focus)) {
+        // the injured tissue as a whole is large (a big muscle, two lesion zones far apart), but one injured part may
+        // be tiny (the pubic symphysis next to adductor longus): zoom onto the smallest such part; every lesion zone
+        // stays in the frame all the same (calf strain: the medial-head zone and the soleus zone)
+        let best: Box | null = null;
         for (const id of injuredIds) {
           const pb = box(partsOf(id));
-          if (!isSmall(pb)) continue;
-          if (!best || (pb.x1 - pb.x0) * (pb.y1 - pb.y0) < (best.b.x1 - best.b.x0) * (best.b.y1 - best.b.y0)) best = { b: pb, id };
+          if (isSmall(pb) && (!best || (pb.x1 - pb.x0) * (pb.y1 - pb.y0) < (best.x1 - best.x0) * (best.y1 - best.y0))) best = pb;
         }
-        if (best) {
-          const pb = best.b;
-          b = pb;
-          perPart = true;
-          // its label: the injured label whose leader starts on (or next to) this part
-          labels = labelGroups
-            .filter((g) => {
-              const dot = g.querySelector('circle, .ldot');
-              if (!dot) return false;
-              const r = dot.getBoundingClientRect();
-              const x = (r.left + r.width / 2 - wr.left) / scale;
-              const y = (r.top + r.height / 2 - wr.top) / scale;
-              return x >= pb.x0 - 12 && x <= pb.x1 + 12 && y >= pb.y0 - 12 && y <= pb.y1 + 12;
-            })
-            .flatMap((g) => [...g.querySelectorAll('text')]);
-        }
+        if (!best) return setFit(null);
+        focus = best;
+        need = [best, ...parts.filter((el) => el.classList.contains('thk-zone')).map((el) => box([el]))];
       }
-      const u = box([...(perPart ? [] : parts), ...labels]);
-      const ub = Number.isFinite(u.x0) ? { x0: Math.min(u.x0, b.x0), y0: Math.min(u.y0, b.y0), x1: Math.max(u.x1, b.x1), y1: Math.max(u.y1, b.y1) } : b;
-      if (!Number.isFinite(b.x0)) return setFocusBox(null);
-      setFocusBox({
-        x: b.x0,
-        y: b.y0,
-        w: b.x1 - b.x0,
-        h: b.y1 - b.y0,
-        ux: Math.max(0, ub.x0),
-        uy: Math.max(0, ub.y0),
-        uw: Math.min(cw, ub.x1) - Math.max(0, ub.x0),
-        uh: Math.min(ch, ub.y1) - Math.max(0, ub.y0),
-        cw,
-        ch,
-      });
+      if (!Number.isFinite(focus.x0)) return setFit(null);
+      // the injured tissue fills ~40% of the frame (at most 2×); its labels (the diagrams mark them …is-hl is-injured)
+      // stay readable in the frame at their own size: zoom less if they would not fit, no zoom below ZOOM_MIN
+      const rad = parseFloat(getComputedStyle(canvas).borderTopLeftRadius) || 0;
+      const labs = labelGeos(wrap, wr, scale).filter((l) => l.rank === 4);
+      const sHi = Math.min((0.4 * cw) / Math.max(1, focus.x1 - focus.x0), (0.4 * ch) / Math.max(1, focus.y1 - focus.y0));
+      const z = fitZoom(cw, ch, sHi, need.filter((b) => Number.isFinite(b.x0)), labs, rad);
+      setFit((f) => (z && f && f.s === z.s && Math.abs(f.tx - z.tx) < 0.05 && Math.abs(f.ty - z.ty) < 0.05 ? f : z));
     };
     measure();
     const t = setTimeout(measure, 300); // diagrams may settle (fonts / labels) after the first paint
@@ -357,66 +555,67 @@ export function RegionFigure({
       if (raf) cancelAnimationFrame(raf);
     };
   }, [zoomable, injuredIds, shown, region, side, condition]);
-  // only worth it when the injured tissue covers a small part of the figure
-  const small = !!focusBox && focusBox.w * focusBox.h < 0.06 * focusBox.cw * focusBox.ch && Math.max(focusBox.w / focusBox.cw, focusBox.h / focusBox.ch) < 0.4;
-  let zoomStyle: CSSProperties | undefined;
-  let zoomT: { s: number; tx: number; ty: number } | null = null;
-  if (zoomed && focusBox && small) {
-    // the injured tissue fills ~40% of the frame; zoom less if that would cut off its labels (min 1.5×)
-    const f = focusBox;
-    const s = Math.max(
-      1.5,
-      Math.min(2, (0.4 * f.cw) / Math.max(1, f.w), (0.4 * f.ch) / Math.max(1, f.h), (0.96 * f.cw) / Math.max(1, f.uw), (0.96 * f.ch) / Math.max(1, f.uh)),
-    );
-    // centre on the parts + labels when they fit at this scale, otherwise on the parts
-    const fitsU = f.uw * s <= f.cw && f.uh * s <= f.ch;
-    const cx = fitsU ? f.ux + f.uw / 2 : f.x + f.w / 2;
-    const cy = fitsU ? f.uy + f.uh / 2 : f.y + f.h / 2;
-    const tx = Math.min(0, Math.max(focusBox.cw - s * focusBox.cw, focusBox.cw / 2 - s * cx));
-    const ty = Math.min(0, Math.max(focusBox.ch - s * focusBox.ch, focusBox.ch / 2 - s * cy));
-    zoomStyle = { transform: `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${s.toFixed(3)})` };
-    zoomT = { s, tx, ty };
-  }
-  // While zoomed, a label that the canvas edge would cut (「大腿四頭筋腱」 read as 「大腿四頭筋」) is hidden with its
-  // leader line; the labels of the injured parts always stay. A cut label whose part is still in the frame (its
-  // leader's anchor dot is visible: the faded amber vastus muscles next to the patellar tendon) is not lost: it is
-  // drawn again, unscaled, at the frame edge on its own side with a leader to the same anchor (`relabels`).
+  const zoomT = zoomed ? fit : null;
+  // the labels keep their size while the drawing zooms: CSS scales each one back by --zinv around the point where its
+  // leader meets it (its transform-origin, set below), so every text in the zoomed figure reads at one size
+  const zoomStyle: CSSProperties | undefined = zoomT
+    ? ({
+        transform: `translate(${zoomT.tx.toFixed(1)}px, ${zoomT.ty.toFixed(1)}px) scale(${zoomT.s.toFixed(3)})`,
+        '--zinv': (1 / zoomT.s).toFixed(4),
+      } as CSSProperties)
+    : undefined;
+  // While zoomed, a label that the canvas edge would cut (「大腿四頭筋腱」 read as 「大腿四頭筋」) or that a leader would
+  // cross is hidden with its leader line; the labels of the injured parts always stay (the zoom is chosen to frame them).
+  // A hidden label whose part is still in the frame (its leader's anchor dot is visible: the faded amber vastus muscles
+  // next to the patellar tendon) is not lost: it is drawn again at the frame edge on its own side, at the same size, with
+  // a leader to the same anchor (`relabels`). The corner captions (「← 内側」「右脚・後ろから」) stay at their corners.
   const zoomKey = zoomT ? `${zoomT.s}:${zoomT.tx}:${zoomT.ty}` : '';
-  const [relabels, setRelabels] = useState<Relabel[]>([]);
+  const [relabels, setRelabels] = useState<{ k: number; items: Relabel[] }>({ k: 1, items: [] });
+  /** the labels carry a transform-origin (set while zoomed, removed once they have scaled back) */
+  const originsSet = useRef(false);
   useLayoutEffect(() => {
     const wrap = zoomRef.current;
     const canvas = canvasRef.current;
     if (!wrap || !canvas) return;
-    const groups = [...wrap.querySelectorAll<SVGGElement>('.thk-lab, .tbu-lab')];
-    for (const g of groups) g.removeAttribute('data-cut');
+    for (const el of wrap.querySelectorAll('[data-cut]')) el.removeAttribute('data-cut');
+    const labelParts = () => wrap.querySelectorAll<SVGElement>(':is(.thk-lab, .tbu-lab) :is(text, .lhit)');
     if (!zoomT) {
-      setRelabels((r) => (r.length ? [] : r));
-      return;
+      setRelabels((r) => (r.items.length ? { k: 1, items: [] } : r));
+      if (!originsSet.current) return; // never zoomed: leave the drawing untouched
+      // the labels scale back around their origin (CSS transition); then the drawing is as it was
+      const t = setTimeout(() => {
+        originsSet.current = false;
+        for (const el of labelParts()) {
+          el.style.removeProperty('transform-origin');
+          if (el.getAttribute('style') === '') el.removeAttribute('style');
+        }
+      }, 320);
+      return () => clearTimeout(t);
     }
-    const { s: zs, tx, ty } = zoomT;
+    const z = zoomT;
     const cw = canvas.clientWidth;
     const ch = canvas.clientHeight;
+    const rad = parseFloat(getComputedStyle(canvas).borderTopLeftRadius) || 0;
     const wr = wrap.getBoundingClientRect();
     // current (possibly mid-transition) scale: positions / scale = unzoomed canvas px
     const cur = wr.width / Math.max(1, cw) || 1;
-    const zx = (px: number) => ((px - wr.left) / cur) * zs + tx;
-    const zy = (py: number) => ((py - wr.top) / cur) * zs + ty;
+    const zp = (p: Pt): Pt => [p[0] * z.s + z.tx, p[1] * z.s + z.ty];
     const zbox = (el: Element): Box => {
       const r = el.getBoundingClientRect();
-      return { x0: zx(r.left), y0: zy(r.top), x1: zx(r.right), y1: zy(r.bottom) };
+      const [x0, y0] = zp([(r.left - wr.left) / cur, (r.top - wr.top) / cur]);
+      const [x1, y1] = zp([(r.right - wr.left) / cur, (r.bottom - wr.top) / cur]);
+      return { x0, y0, x1, y1 };
     };
     /** a point of the zoomed frame (canvas px) → where it is on screen now (the drawing may still be mid-transition) */
-    const toScreen = (x: number, y: number): [number, number] => [wr.left + ((x - tx) / zs) * cur, wr.top + ((y - ty) / zs) * cur];
-    const squash = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, '');
+    const toScreen = (x: number, y: number): [number, number] => [wr.left + ((x - z.tx) / z.s) * cur, wr.top + ((y - z.ty) / z.s) * cur];
     // the parts by their name (each part group carries a <title>, its labels say the same name)
     const named = new Map<string, Element[]>();
     for (const p of wrap.querySelectorAll('[data-part]')) {
       const name = squash(p.querySelector(':scope > title')?.textContent);
       if (name) named.set(name, [...(named.get(name) ?? []), p]);
     }
-    const labelText = (t: SVGTextElement) => squash(t.textContent);
     /** The point of the named part inside the frame that is nearest to (ax, ay), if a good piece of it is visible. */
-    const visiblePointOf = (name: string, ax: number, ay: number): [number, number] | null => {
+    const visiblePointOf = (name: string, ax: number, ay: number): Pt | null => {
       const els = named.get(name);
       if (!els) return null;
       const bs = els.map(zbox);
@@ -426,7 +625,7 @@ export function RegionFigure({
       const y1 = Math.min(ch - 8, Math.max(...bs.map((q) => q.y1)));
       if (x1 - x0 < 16 || y1 - y0 < 16) return null;
       const N = 6;
-      const hits: [number, number][] = [];
+      const hits: Pt[] = [];
       for (let i = 0; i < N; i++)
         for (let j = 0; j < N; j++) {
           const x = x0 + ((i + 0.5) * (x1 - x0)) / N;
@@ -437,96 +636,246 @@ export function RegionFigure({
       if (hits.length < 2) return null;
       return hits.reduce((a, q) => (Math.hypot(q[0] - ax, q[1] - ay) < Math.hypot(a[0] - ax, a[1] - ay) ? q : a));
     };
-    /** labels that stay where they are and the injured tissue (the moved labels must not cover them) */
-    const kept: Box[] = injuredIds.flatMap((id) =>
+
+    const geos = labelGeos(wrap, wr, cur);
+    originsSet.current = true;
+    for (const l of geos) for (const el of l.g.querySelectorAll<SVGElement>('text, .lhit')) el.style.transformOrigin = `${l.tipU[0].toFixed(2)}px ${l.tipU[1].toFixed(2)}px`;
+    const labs = geos.map((l) => ({ ...l, z: zoomLab(l, z) }));
+    type ZLab = (typeof labs)[number];
+    /** the injured tissue (nothing may cover it) */
+    const zones: Box[] = injuredIds.flatMap((id) =>
       [...wrap.querySelectorAll(`[data-part="${CSS.escape(id)}"]`)].flatMap((el) =>
         (el.classList.contains('is-zoned') ? [...el.querySelectorAll(':scope > .thk-zone')] : [el]).map(zbox),
       ),
     );
-    /** names already readable in the frame (a part labelled twice is named once) */
-    const shownNames = new Set<string>();
-    const cut: { g: SVGGElement; t: SVGTextElement; ax: number; ay: number; textLeft: boolean; hl: boolean }[] = [];
-    for (const g of groups) {
-      const t = g.querySelector('text');
-      if (!t) continue;
-      const b = zbox(t);
-      // the injured tissue's own labels always stay (the zoom frames them); a cut amber one is as unreadable as a faded one
-      if (g.classList.contains('is-injured') || (b.x0 >= 1 && b.y0 >= 1 && b.x1 <= cw - 1 && b.y1 <= ch - 1)) {
-        kept.push(b);
-        shownNames.add(labelText(t));
-        continue;
+    /** what a new text must not cover, the texts its leader must not cross, the leaders that must not cross it */
+    const boxes: Box[] = [...zones];
+    const texts: Box[] = [];
+    const leaders: Pt[][] = [];
+    const free = (b: Box, lead?: Pt[], edge = true) =>
+      (!edge || inFrame(b, cw, ch, rad)) &&
+      !boxes.some((q) => overlaps(b, q)) &&
+      !leaders.some((p) => crossesBox(p, lineBox(b))) &&
+      !(lead && texts.some((t) => crossesBox(lead, t)));
+    const take = (b: Box, lead?: Pt[]) => {
+      boxes.push(glyphs(b));
+      texts.push(lineBox(b));
+      if (lead && lead.length > 1) leaders.push(lead);
+    };
+    const out: Relabel[] = [];
+    const tone = (l: ZLab): Relabel['tone'] => {
+      const c = l.g.classList;
+      if (c.contains('is-injured')) return 'injured';
+      if (c.contains('is-involved')) return 'involved';
+      if (c.contains('is-zrest')) return 'zrest';
+      if (c.contains('is-hl')) return 'hl';
+      return c.contains('is-ctx') || c.contains('is-dim') ? 'ctx' : 'plain';
+    };
+    /** do two leaders cross (not just touch at an end)? */
+    const crossLeads = (p: Pt[], q: Pt[]) => {
+      const side = (a: Pt, b: Pt, c: Pt) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+      for (let i = 0; i + 1 < p.length; i++)
+        for (let j = 0; j + 1 < q.length; j++) {
+          const [a, b, c, d] = [p[i], p[i + 1], q[j], q[j + 1]];
+          if (side(a, b, c) * side(a, b, d) < -1e-6 && side(c, d, a) * side(c, d, b) < -1e-6) return true;
+        }
+      return false;
+    };
+    /**
+     * Draw label `l` again in the frame, as near the anchor's height as a free place allows: at the frame edge on its
+     * own side (beside its anchor when the anchor itself is near that edge), else beside its anchor on its own side,
+     * else on the other side; first where its leader crosses no other leader and stays short, then anywhere free.
+     * `force`: an injured part's name, drawn at the first place in the frame when no place is free.
+     */
+    const place = (l: ZLab, ax: number, ay: number, force = false): boolean => {
+      const w = l.box.x1 - l.box.x0;
+      const h = l.box.y1 - l.box.y0;
+      const textLeft = (l.z.box.x0 + l.z.box.x1) / 2 < ax;
+      const clampX = (x: number) => Math.max(4, Math.min(cw - 4 - w, x));
+      const xs = [
+        clampX(textLeft ? (ax - 14 < 6 + w ? ax + 12 : 6) : ax + 14 > cw - 6 - w ? ax - 12 - w : cw - 6 - w),
+        clampX(textLeft ? ax - 12 - w : ax + 12),
+        clampX(textLeft ? ax + 12 : ax - 12 - w),
+      ].filter((x, i, all) => all.indexOf(x) === i);
+      const at = (x0: number, off: number) => {
+        const y0 = ay - h / 2 + off;
+        const b = { x0, y0, x1: x0 + w, y1: y0 + h };
+        const right = (b.x0 + b.x1) / 2 > ax;
+        const lead: Pt[] = [
+          [ax, ay],
+          [right ? b.x0 - 3 : b.x1 + 3, (b.y0 + b.y1) / 2],
+        ];
+        return { b, lead };
+      };
+      const OFFS = [0, -18, 18, -36, 36, -54, 54, -72, 72, -90, 90];
+      let spot: { b: Box; lead: Pt[] } | null = null;
+      for (const strict of [true, false]) {
+        for (const x0 of xs) {
+          for (const off of OFFS) {
+            const c = at(x0, off);
+            if (!free(c.b, c.lead)) continue;
+            if (strict && (Math.hypot(c.lead[1][0] - ax, c.lead[1][1] - ay) > 0.6 * cw || leaders.some((p) => crossLeads(p, c.lead)))) continue;
+            spot = c;
+            break;
+          }
+          if (spot) break;
+        }
+        if (spot) break;
       }
-      g.setAttribute('data-cut', '');
-      const dot = g.querySelector('.ldot');
-      if (!dot) continue;
-      const db = zbox(dot);
-      let ax = (db.x0 + db.x1) / 2;
-      let ay = (db.y0 + db.y1) / 2;
-      const textLeft = (b.x0 + b.x1) / 2 < ax;
+      if (!spot && force)
+        for (const off of OFFS) {
+          const c = at(xs[0], off);
+          if (inFrame(c.b, cw, ch, rad)) {
+            spot = c;
+            break;
+          }
+        }
+      if (!spot) return false;
+      const textRight = (spot.b.x0 + spot.b.x1) / 2 > ax;
+      // a faded context name is not worth a leader across the figure; the highlighted (amber) ones always are
+      if (!force && l.rank < 3 && Math.abs((textRight ? spot.b.x0 : spot.b.x1) - ax) > 0.45 * cw) return false;
+      take(spot.b, spot.lead);
+      out.push({
+        key: `${out.length}:${l.lines.join('')}`,
+        tone: tone(l),
+        lines: l.lines,
+        x: spot.b.x0,
+        y: spot.b.y0 + l.base,
+        a: 'start',
+        fs: l.fs,
+        lh: l.lh,
+        pts: spot.lead,
+      });
+      return true;
+    };
+
+    // 1. the injured parts' names: in place, at their own size (the zoom is chosen for it); one that the frame edge
+    //    would cut (labels on both sides of a small lesion) moves in to the frame edge beside its anchor
+    const kept: ZLab[] = [];
+    const cut: ZLab[] = [];
+    const movedIn: ZLab[] = [];
+    for (const l of labs) if (l.rank === 4) (inFrame(l.z.box, cw, ch, rad) ? kept : movedIn).push(l);
+    for (const l of kept) take(l.z.box, l.z.pts);
+    for (const l of movedIn) {
+      l.g.setAttribute('data-cut', '');
+      const [ax, ay] = l.z.pts[0] ?? zp(l.tip);
+      place(l, ax, ay, true);
+    }
+    // 2. the other labels stay where they are in the frame and clear of those; then no leader may cross another
+    //    label's name (the lower-ranked of the two goes, the leader's own label on a tie; injured ones always stay)
+    const movedTexts = texts.slice(kept.length);
+    for (const l of labs) {
+      if (l.rank === 4) continue;
+      const ok =
+        inFrame(l.z.box, cw, ch, rad) &&
+        !out.some((r) => r.pts && crossesBox(r.pts, lineBox(l.z.box))) &&
+        !movedTexts.some((t) => overlaps(glyphs(l.z.box), t, -1, -1) || crossesBox(l.z.pts, t));
+      (ok ? kept : cut).push(l);
+    }
+    for (;;) {
+      let victim: ZLab | null = null;
+      for (const a of kept) {
+        for (const b of kept) {
+          if (a === b) continue;
+          const hit = crossesBox(a.z.pts, glyphs(b.z.box)) || overlaps(glyphs(a.z.box), glyphs(b.z.box), -1, -1);
+          if (!hit) continue;
+          const v = a.rank < b.rank ? a : b.rank < a.rank ? b : a;
+          if (v.rank < 4) victim = v;
+          if (victim) break;
+        }
+        if (victim) break;
+      }
+      if (!victim) break;
+      kept.splice(kept.indexOf(victim), 1);
+      cut.push(victim);
+    }
+    for (const l of cut) l.g.setAttribute('data-cut', '');
+    for (const l of kept) if (l.rank < 4) take(l.z.box, l.z.pts);
+
+    // 3. the other texts of the drawing: the corner captions stay at their corners at their own size; a text inside
+    //    the drawing (an inset title) keeps its size at its zoomed place; either is left out where it does not fit
+    const root = wrap.querySelector('svg');
+    /** the drawing's px per svg unit (unzoomed): its texts are drawn again at their own size */
+    const k = root && root.viewBox.baseVal?.width ? root.getBoundingClientRect().width / cur / root.viewBox.baseVal.width : 1;
+    if (root)
+      for (const t of root.querySelectorAll<SVGTextElement>('text')) {
+        if (t.closest('.thk-lab, .tbu-lab') || !t.textContent?.trim()) continue;
+        t.setAttribute('data-cut', '');
+        const r = t.getBoundingClientRect();
+        if (!r.width) continue;
+        const b0: Box = { x0: (r.left - wr.left) / cur, y0: (r.top - wr.top) / cur, x1: (r.right - wr.left) / cur, y1: (r.bottom - wr.top) / cur };
+        const corner = t.parentNode?.parentNode === root && t.classList.contains('cap-t');
+        const fs = Math.round(parseFloat(getComputedStyle(t).fontSize) * k * 100) / 100;
+        let bb: DOMRect | null = null;
+        try {
+          bb = t.getBBox();
+        } catch {
+          /* ignore */
+        }
+        const base = bb && bb.height ? ((parseFloat(t.getAttribute('y') ?? '') - bb.y) / bb.height) * (b0.y1 - b0.y0) : fs * 0.88;
+        let b = b0;
+        let a: Relabel['a'] = 'start';
+        let x = b0.x0;
+        if (corner) {
+          a = t.getAttribute('text-anchor') === 'end' ? 'end' : 'start';
+          x = a === 'end' ? b0.x1 : b0.x0;
+        } else {
+          // an inset's title, only while most of its inset is in the frame
+          const host = t.parentNode instanceof Element ? zbox(t.parentNode) : null;
+          const iw = host ? Math.max(0, Math.min(cw, host.x1) - Math.max(0, host.x0)) : 0;
+          const ih = host ? Math.max(0, Math.min(ch, host.y1) - Math.max(0, host.y0)) : 0;
+          if (!host || iw * ih < 0.6 * (host.x1 - host.x0) * (host.y1 - host.y0)) continue;
+          // centred on its zoomed place
+          const zc = zp([(b0.x0 + b0.x1) / 2, (b0.y0 + b0.y1) / 2]);
+          const hw = (b0.x1 - b0.x0) / 2;
+          const hh = (b0.y1 - b0.y0) / 2;
+          b = { x0: zc[0] - hw, y0: zc[1] - hh, x1: zc[0] + hw, y1: zc[1] + hh };
+          a = 'middle';
+          x = zc[0];
+        }
+        // (a corner caption stays where the diagram put it, unzoomed)
+        if (!Number.isFinite(fs) || !Number.isFinite(base) || !free(b, undefined, !corner)) continue;
+        take(b);
+        out.push({
+          key: `t${out.length}:${t.textContent}`,
+          tone: t.classList.contains('note-t') ? 'note' : 'cap',
+          lines: [t.textContent ?? ''],
+          x,
+          y: b.y0 + base,
+          a,
+          fs,
+          lh: fs * 1.15,
+        });
+      }
+
+    // 4. the names of parts still in the frame whose own label is hidden
+    /** names already readable in the frame (a part labelled twice is named once) */
+    const shownNames = new Set([...kept, ...movedIn].map((l) => l.name));
+    const cand: { l: ZLab; ax: number; ay: number }[] = [];
+    for (const l of cut) {
+      if (l.z.pts.length < 2) continue;
+      let [ax, ay] = l.z.pts[0];
       // its part is in the frame: the anchor dot sits on the part, clear of the edges; or the anchor is out of the
       // frame but a good piece of the part is in it (the top of the vastus medialis above the patellar tendon): the
       // label points at the visible point of the part nearest to its own anchor
       if (ax < 6 || ay < 6 || ax > cw - 6 || ay > ch - 6) {
-        const p = visiblePointOf(labelText(t), ax, ay);
+        const p = visiblePointOf(l.name, ax, ay);
         if (!p) continue;
         [ax, ay] = p;
       }
-      cut.push({ g, t, ax, ay, textLeft, hl: g.classList.contains('is-hl') });
+      cand.push({ l, ax, ay });
     }
-    const placed: Box[] = [];
-    const out: Relabel[] = [];
-    const overlaps = (a: Box, b: Box) => a.x0 < b.x1 + 3 && b.x0 < a.x1 + 3 && a.y0 < b.y1 + 2 && b.y0 < a.y1 + 2;
     // the highlighted (amber) parts' names first, then the rest, top to bottom
-    cut.sort((a, b) => Number(b.hl) - Number(a.hl) || a.ay - b.ay);
-    for (const c of cut) {
-      if (out.length >= RELABEL_MAX) break;
-      const name = labelText(c.t);
-      if (shownNames.has(name)) continue;
-      const lines = [...c.t.querySelectorAll('tspan')].map((s) => s.textContent ?? '').filter(Boolean);
-      if (!lines.length) lines.push(c.t.textContent ?? '');
-      const w = Math.max(...lines.map(textWidth));
-      const h = lines.length * RELABEL_LH;
-      // at the frame edge on the label's own side; beside the anchor when the anchor itself is near that edge
-      let x0: number;
-      if (c.textLeft) x0 = c.ax - 14 < 6 + w ? c.ax + 12 : 6;
-      else x0 = c.ax + 14 > cw - 6 - w ? c.ax - 12 - w : cw - 6 - w;
-      x0 = Math.max(4, Math.min(cw - 4 - w, x0));
-      let spot: Box | null = null;
-      for (const off of [0, -18, 18, -36, 36, -54, 54, -72, 72]) {
-        const y0 = c.ay - h / 2 + off;
-        const b = { x0, y0, x1: x0 + w, y1: y0 + h };
-        if (y0 < 4 || b.y1 > ch - 4) continue;
-        if ([...kept, ...placed].some((k) => overlaps(b, k))) continue;
-        spot = b;
-        break;
-      }
-      if (!spot) continue;
-      const textRight = (spot.x0 + spot.x1) / 2 > c.ax;
-      // a faded context name is not worth a leader across the figure; the highlighted (amber) ones always are
-      if (!c.hl && Math.abs((textRight ? spot.x0 : spot.x1) - c.ax) > 0.45 * cw) continue;
-      placed.push(spot);
-      shownNames.add(name);
-      out.push({
-        key: `${out.length}:${lines.join('')}`,
-        tone: c.g.classList.contains('is-involved')
-          ? 'involved'
-          : c.g.classList.contains('is-zrest')
-            ? 'zrest'
-            : c.hl
-              ? 'hl'
-              : c.g.classList.contains('is-ctx') || c.g.classList.contains('is-dim')
-                ? 'ctx'
-                : 'plain',
-        lines,
-        x: spot.x0,
-        y: spot.y0 + RELABEL_FS - 1,
-        ax: c.ax,
-        ay: c.ay,
-        lx: textRight ? spot.x0 - 3 : spot.x1 + 3,
-        ly: spot.y0 + h / 2,
-      });
+    cand.sort((a, b) => b.l.rank - a.l.rank || a.ay - b.ay);
+    let moved = 0;
+    for (const c of cand) {
+      if (moved >= RELABEL_MAX) break;
+      if (shownNames.has(c.l.name)) continue;
+      if (!place(c.l, c.ax, c.ay)) continue;
+      shownNames.add(c.l.name);
+      moved++;
     }
-    setRelabels(out);
+    setRelabels({ k, items: out });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoomKey, shown, side]);
 
@@ -571,7 +920,7 @@ export function RegionFigure({
           />
         </div>
       )}
-      <div className={`figure__canvas${zoomed && zoomStyle ? ' is-zoomed' : ''}`} ref={canvasRef}>
+      <div className={`figure__canvas${zoomT ? ' is-zoomed' : ''}`} ref={canvasRef}>
         <div className="figure__zoom" ref={zoomRef} style={zoomStyle}>
           <ErrorBoundary resetKey={`${region}:${shown}:${side ?? ''}`}>
             <C
@@ -588,15 +937,19 @@ export function RegionFigure({
             />
           </ErrorBoundary>
         </div>
-        {zoomed && relabels.length > 0 && (
-          <svg className="figure__relabels" aria-hidden="true">
-            {relabels.map((l) => (
+        {zoomT && relabels.items.length > 0 && (
+          <svg className="figure__relabels" aria-hidden="true" style={{ '--rl-k': relabels.k.toFixed(4) } as CSSProperties}>
+            {relabels.items.map((l) => (
               <g key={l.key} className={`relabel relabel--${l.tone}`}>
-                <path className="relabel__ld" d={`M${l.ax.toFixed(1)} ${l.ay.toFixed(1)}L${l.lx.toFixed(1)} ${l.ly.toFixed(1)}`} />
-                <circle className="relabel__dot" cx={l.ax} cy={l.ay} r={1.8} />
-                <text x={l.x} y={l.y}>
+                {l.pts && (
+                  <>
+                    <path className="relabel__ld" d={`M${l.pts.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join('L')}`} />
+                    <circle className="relabel__dot" cx={l.pts[0][0]} cy={l.pts[0][1]} r={(1.6 * relabels.k).toFixed(2)} />
+                  </>
+                )}
+                <text x={l.x} y={l.y} textAnchor={l.a === 'start' ? undefined : l.a} style={{ fontSize: `${l.fs}px` }}>
                   {l.lines.map((s, i) => (
-                    <tspan key={i} x={l.x} dy={i ? RELABEL_LH : 0}>
+                    <tspan key={i} x={l.x} dy={i ? l.lh : 0}>
                       {s}
                     </tspan>
                   ))}
@@ -624,7 +977,7 @@ export function RegionFigure({
           </div>
         )}
       </div>
-      {zoomable && small && !emptyHere && (
+      {zoomable && fit && !emptyHere && (
         <div className="figure__tools">
           <button type="button" className="figure__zoom-btn" aria-pressed={zoomed} onClick={() => setZoomed((z) => !z)}>
             <IconSearch />
