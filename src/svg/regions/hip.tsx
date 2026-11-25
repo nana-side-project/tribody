@@ -785,6 +785,7 @@ function Label({ k, l, zoned }: { k: Ctx; l: Lab; zoned?: ReadonlySet<PartId> })
   );
 }
 
+/** A hotspot; without `onSel` only a marker of the picked place (not tappable, not focusable, aria-hidden). */
 function SpotMark({ s, sel, onSel }: { s: Spot; sel: boolean; onSel?: (id: PainSpotId) => void }) {
   const name = SPOT_NAME.get(s.id) ?? s.id;
   const act = onSel ? () => onSel(s.id) : undefined;
@@ -793,15 +794,17 @@ function SpotMark({ s, sel, onSel }: { s: Spot; sel: boolean; onSel?: (id: PainS
       data-spot={s.id}
       className={`thk-spot${sel ? ' is-sel' : ''}`}
       transform={`translate(${r1(s.at[0])} ${r1(s.at[1])})`}
-      role="button"
-      tabIndex={0}
-      aria-label={`痛む場所: ${name}`}
-      aria-pressed={sel}
+      role={act ? 'button' : undefined}
+      tabIndex={act ? 0 : undefined}
+      aria-label={act ? `痛む場所: ${name}` : undefined}
+      aria-pressed={act ? sel : undefined}
       onClick={act}
       onKeyDown={act ? keyAct(act) : undefined}
+      aria-hidden={act ? undefined : 'true'}
+      pointerEvents={act ? undefined : 'none'}
     >
-      <title>{name}</title>
-      <circle className="s-hit" r={24} />
+      {act && <title>{name}</title>}
+      {act && <circle className="s-hit" r={24} />}
       <circle className="s-ring" r={sel ? 15 : 12} />
       {sel && <circle className="s-sel" r={12.5} />}
       <circle className="s-sh" cx={0.6} cy={1.2} r={sel ? 8.6 : 7.6} />
@@ -852,7 +855,10 @@ export function Frame({ k, p, w, h, title: title0, cap: cap0, labels: labels0, s
   // left side: the corner captions swap corners (and say 左), labels and hotspots move to the mirrored places
   const cap: [string, string] | undefined = cap0 && mir ? [flipLR(cap0[1]), flipLR(cap0[0])] : cap0;
   const labels = mir ? labels0.map((l) => mirrorLab(l, w)) : labels0;
-  const spots = mir ? spots0.map((s) => ({ ...s, at: [w - s.at[0], s.at[1]] })) : spots0;
+  const placed = mir ? spots0.map((s) => ({ ...s, at: [w - s.at[0], s.at[1]] })) : spots0;
+  // nothing to tap (no onSpotSelect): only the selected spot, as a marker of the picked place. (The limbs drawn with
+  // this kit have no midline: RegionDiagramProps.spotSide leaves their hotspots in place.)
+  const spots = p.onSpotSelect ? placed : placed.filter((s) => s.id === p.selectedSpot);
   const zoned = zoned0?.some(Boolean) ? new Set(zoned0.filter((z): z is PartId => !!z)) : undefined;
   return (
     <svg

@@ -2,7 +2,7 @@
 // ?region=), so the harness always shows exactly what the pages show.
 import { CONDITIONS, getMuscle, type Condition, type ConditionId, type InvolvementRole, type MuscleId, type RegionId, type StructureId } from '../data';
 import type { Highlight3DRole } from '../three/contract';
-import type { Highlights } from '../svg/types';
+import type { Highlights, RegionDiagram } from '../svg/types';
 import { isPrimaryRole } from './labels';
 
 type PartId = MuscleId | StructureId;
@@ -56,6 +56,34 @@ export const BILATERAL_REGIONS: ReadonlySet<RegionId> = new Set<RegionId>(
 /** The side a region page draws its figure and 3D on (undefined = the default right side). */
 export const regionDrawnSide = (r: RegionId, side: 'left' | 'right' | null | undefined): 'left' | 'right' | undefined =>
   side && !BILATERAL_REGIONS.has(r) ? side : undefined;
+
+/**
+ * The side the hotspots / the selected-spot marker of a bilateral figure go to (RegionDiagramProps.spotSide): the
+ * drawing stays unmirrored, only the marker moves across the body's midline to the side the user tapped (a left tap
+ * marks the left half). Undefined where the whole figure is drawn on that side (drawnSide) or no side was tapped.
+ */
+export const spotSideOf = (c: ConditionId, side: 'left' | 'right' | null | undefined): 'left' | 'right' | undefined =>
+  side && BILATERAL_CONDITIONS.has(c) ? side : undefined;
+
+/** The same for a region page (central regions, BILATERAL_REGIONS; the others mirror the whole figure). */
+export const regionSpotSide = (r: RegionId, side: 'left' | 'right' | null | undefined): 'left' | 'right' | undefined =>
+  side && BILATERAL_REGIONS.has(r) ? side : undefined;
+
+/**
+ * A bilateral condition page opened from a tapped spot: the views of its figure that have a hotspot for that spot
+ * (where the page marks it, see spotSideOf), and the view to open on — the first of them (the view its region page
+ * shows the spot on), provided it draws some of the painful tissue `primary`; otherwise none (the usual view).
+ */
+export function spotMarkViews(
+  d: Pick<RegionDiagram, 'views' | 'spots' | 'parts'> | undefined,
+  spot: string,
+  primary: readonly string[],
+): { views: string[]; open: string | undefined } {
+  const views = (d?.views ?? []).map((v) => v.id).filter((v) => ((d?.spots[v] ?? []) as string[]).includes(spot));
+  const first = views[0];
+  const open = first && primary.some((id) => ((d?.parts[first] ?? []) as string[]).includes(id)) ? first : undefined;
+  return { views, open };
+}
 
 /** Key muscles listed for a region whose belly lies outside that region's 3D crop although their data names the
  *  region (大腿筋膜張筋 reaches the knee only through the iliotibial band): selecting one frames its first region. */

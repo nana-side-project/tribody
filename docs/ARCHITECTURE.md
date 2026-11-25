@@ -101,6 +101,16 @@ Contract: `src/svg/types.ts`.
 - Region diagrams — one module per region exporting a `RegionDiagram` (views, which parts appear in which view,
   which spots have hotspots, and the React component). Every muscle/structure shape carries `data-part="<id>"`
   so highlighting works by id. Hotspots carry `data-spot="<id>"`.
+- Sides: every diagram is drawn for the person's right side. `side: 'left'` mirrors the whole drawing (texts stay
+  readable and say 左; `src/svg/regions/mirror.tsx`). Central regions are drawn the same for both sides
+  (`BILATERAL_REGIONS` / `BILATERAL_CONDITIONS` in `src/lib/viewerHighlights.ts`: the low back, whose figure is split
+  左半身：表層／右半身：深層, and the neck): their pages pass no `side` but `spotSide` = the tapped side, which moves only
+  the hotspots / selected-spot marker across the body's midline (Frame `spotMid`: the low back from behind and its
+  cross-section, the neck from behind; the neck's side view has no midline and keeps them). The region page and the
+  bilateral condition pages (opened from a tapped spot) mark the spot on the tapped side; the condition page draws
+  it as a marker only (`showSpots` + `selectedSpot` without `onSpotSelect`: not tappable, `aria-hidden`) and opens
+  on the view its region page showed the spot on (`spotMarkViews`). `/dev/diagrams-review.html?check=1` checks
+  `spotSide` on every view.
 
 ## UI (`src/pages`, `src/components`)
 

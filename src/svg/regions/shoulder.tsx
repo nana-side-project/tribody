@@ -714,6 +714,7 @@ function Label({ k, l }: { k: Ctx; l: Lab }) {
   );
 }
 
+/** A hotspot; without `onSel` only a marker of the picked place (not tappable, not focusable, aria-hidden). */
 function SpotMark({ s, sel, onSel }: { s: Spot; sel: boolean; onSel?: (id: PainSpotId) => void }) {
   const name = SPOT_NAME.get(s.id) ?? s.id;
   const act = onSel ? () => onSel(s.id) : undefined;
@@ -722,15 +723,17 @@ function SpotMark({ s, sel, onSel }: { s: Spot; sel: boolean; onSel?: (id: PainS
       data-spot={s.id}
       className={`tbu-spot${sel ? ' is-sel' : ''}`}
       transform={`translate(${fmt(s.at[0])} ${fmt(s.at[1])})`}
-      role="button"
-      tabIndex={0}
-      aria-label={`痛む場所: ${name}`}
-      aria-pressed={sel}
+      role={act ? 'button' : undefined}
+      tabIndex={act ? 0 : undefined}
+      aria-label={act ? `痛む場所: ${name}` : undefined}
+      aria-pressed={act ? sel : undefined}
       onClick={act}
       onKeyDown={act ? keyAct(act) : undefined}
+      aria-hidden={act ? undefined : 'true'}
+      pointerEvents={act ? undefined : 'none'}
     >
-      <title>{name}</title>
-      <circle className="s-hit" r={24} />
+      {act && <title>{name}</title>}
+      {act && <circle className="s-hit" r={24} />}
       <circle className="s-ring" r={sel ? 15 : 12} />
       {sel && <circle className="s-sel" r={12.5} />}
       <circle className="s-sh" cx={0.6} cy={1.2} r={sel ? 8.6 : 7.6} />
@@ -761,13 +764,22 @@ export interface FrameProps {
   defs?: (uid: string) => ReactNode;
   /** 起始 / 停止 markers per muscle (drawn for the 'selected' one, with a legend strip under the drawing) */
   oi?: OIMap;
+  /**
+   * x of the body's midline in a view drawn across it (low back / neck from behind, the low back's cross-section):
+   * with `spotSide` 'left' on the unmirrored drawing the hotspots move to their mirror places across it. Views
+   * without a midline (a side view) leave it out and keep their hotspots in place.
+   */
+  spotMid?: number;
 }
+
+/** Hotspots of an unmirrored drawing moved across the body's midline `mid` (RegionDiagramProps.spotSide 'left'). */
+export const spotsAcross = (spots: Spot[], mid: number): Spot[] => spots.map((s) => ({ ...s, at: [2 * mid - s.at[0], s.at[1]] }));
 
 /**
  * Root <svg> of a region diagram: styles, glow filter, drawing, labels, hotspots. For the left side (`k.mir`) the
  * drawing is mirrored and the texts stay readable (see ./mirror).
  */
-export function Frame({ k, p, w, h, title: title0, cap: cap0, labels: labels0, spots: spots0, children, overlay, fade, fadeX, defs, oi }: FrameProps) {
+export function Frame({ k, p, w, h, title: title0, cap: cap0, labels: labels0, spots: spots0, children, overlay, fade, fadeX, defs, oi, spotMid }: FrameProps) {
   const showLabels = p.showLabels ?? true;
   const dots = oiDots(oi, k.hl);
   const mir = k.mir;
@@ -775,7 +787,10 @@ export function Frame({ k, p, w, h, title: title0, cap: cap0, labels: labels0, s
   // left side: the corner captions swap corners (and say 左), labels and hotspots move to the mirrored places
   const cap: [string, string] | undefined = cap0 && mir ? [flipLR(cap0[1]), flipLR(cap0[0])] : cap0;
   const labels = mir ? labels0.map((l) => mirrorLab(l, w)) : labels0;
-  const spots = mir ? spots0.map((s) => ({ ...s, at: [w - s.at[0], s.at[1]] })) : spots0;
+  // a central region drawn the same for both sides (unmirrored): only the hotspots go to the side the user tapped
+  const placed = mir ? spots0.map((s) => ({ ...s, at: [w - s.at[0], s.at[1]] })) : p.spotSide === 'left' && spotMid !== undefined ? spotsAcross(spots0, spotMid) : spots0;
+  // nothing to tap (no onSpotSelect): only the selected spot, as a marker of the picked place
+  const spots = p.onSpotSelect ? placed : placed.filter((s) => s.id === p.selectedSpot);
   return (
     <svg
       viewBox={`0 0 ${w} ${dots.length ? h + OI_LEG_H : h}`}

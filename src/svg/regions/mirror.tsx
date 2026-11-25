@@ -10,6 +10,10 @@
 //   • the few texts drawn inside the anatomy (inset titles, notes) use <MText>, which un-mirrors itself in place.
 // The legend strip of the 起始 / 停止 dots is not mirrored at all. Masks, clip paths, fades and gradients use
 // user-space coordinates, so they follow the mirrored drawing by themselves.
+//
+// Central regions (the low back, the neck) are drawn the same for both sides, so their drawing is never mirrored:
+// there RegionDiagramProps.spotSide = 'left' moves only the hotspots across the body's midline (the shoulder kit's
+// Frame `spotMid`, given by the views drawn across it), to the side the user tapped.
 import type { ReactNode } from 'react';
 
 export type Anchor = 'start' | 'end' | 'middle';

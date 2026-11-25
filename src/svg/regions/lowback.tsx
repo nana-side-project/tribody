@@ -608,6 +608,7 @@ function LowbackDiagram(p: RegionDiagramProps) {
         cap={['腰の輪切り（上から見た図）', '↑ おなか側']}
         labels={LABELS_SEC()}
         spots={SPOTS_SEC()}
+        spotMid={SEC_TF.cx}
         oi={OI_LB_SEC()}
         overlay={
           <MText mir={k.mir} className="cap-t" x={W - 8} y={H - 8} a="end">
@@ -631,6 +632,7 @@ function LowbackDiagram(p: RegionDiagramProps) {
       cap={['左半身：表層', '右半身：深層']}
       labels={LABELS_BACK}
       spots={SPOTS_BACK}
+      spotMid={MX}
       fade={[22, 44]}
       fadeX={[62, 60]}
       oi={OI_LB_BACK()}

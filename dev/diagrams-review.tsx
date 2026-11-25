@@ -7,6 +7,9 @@
 //   ?c=<conditionId>                                 one condition (best view, injured/involved highlights, dimOthers)
 //   ?bm=front|back|sole[&labels=1][&heat=1][&sides=1] body map (pain-log tint / active spots; &sides=1 per-side entries)
 //   &side=left                                       draw the left side (mirrored); with ?check=1 only that side is checked
+//   &spotSide=left                                   (with m=spots) unmirrored drawing, hotspots on the person's left (central
+//                                                    regions: low back, neck); &sel=<spot> marks that spot only, not tappable
+//                                                    (the condition page's selected-spot marker)
 //   ?check=1                                         automated contract checks (results in console + on page): parts, spots, taps,
 //                                                    label & caption size (≥ 11 px on a 360 px phone), clipping, text boxes closer
 //                                                    than 2 px (&gap=<px> to change), leader lines that cross / touch each other or
@@ -15,7 +18,11 @@
 //                                                    muscle-page (part selected) and condition-page state (bold labels are wider);
 //                                                    every view also for side=left: the same checks, plus the left drawing must be
 //                                                    the mirror image of the right one (parts, hotspots, label boxes), no text drawn
-//                                                    mirrored, and every 右 turned into 左 (and back)
+//                                                    mirrored, and every 右 turned into 左 (and back); and every view with
+//                                                    spotSide=left: the drawing, labels and texts unchanged, only the hotspots
+//                                                    mirrored across one midline (or left in place: views without one), still
+//                                                    clear of labels / captions and tappable; the marker-only mode (no
+//                                                    onSpotSelect) draws just the selected spot, not focusable
 //   &theme=dark|light                                force theme
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -29,6 +36,7 @@ import type { BodyMapProps, Highlights, RegionDiagram } from '../src/svg/types';
 import { getRegionDiagram } from '../src/svg/regions';
 import { bestView, findDiagramFor } from '../src/components/RegionFigure';
 import BodyMapView from '../src/svg/bodymap/BodyMapView';
+import { BILATERAL_REGIONS } from '../src/lib/viewerHighlights';
 
 const q = new URLSearchParams(location.search);
 if (q.get('theme')) document.documentElement.dataset.theme = q.get('theme')!;
@@ -58,6 +66,10 @@ const css = `
 
 /** &side=left: draw the left side (mirrored) in every gallery / single view */
 const SIDE = q.get('side') === 'left' ? 'left' : undefined;
+/** &spotSide=left: hotspots on the person's left of an unmirrored drawing (RegionDiagramProps.spotSide) */
+const SPOT_SIDE = q.get('spotSide') === 'left' ? 'left' : undefined;
+/** &sel=<spot>: the condition page's marker — only that spot, not tappable */
+const MARK = q.get('sel') as PainSpotId | null;
 
 function View({ d, view, hl, dim, mode, zoom, onPick, condition }: { d: RegionDiagram; view: string; hl?: Highlights; dim?: boolean; mode: string; zoom?: string; onPick?: (s: string) => void; condition?: string }) {
   const C = d.Component;
@@ -74,16 +86,21 @@ function View({ d, view, hl, dim, mode, zoom, onPick, condition }: { d: RegionDi
     <C
       view={view}
       side={SIDE}
+      spotSide={SPOT_SIDE}
       condition={condition as ConditionId | undefined}
       highlights={h}
       dimOthers={dim ?? !!picked}
       showLabels={mode !== 'nolabels'}
-      showSpots={mode === 'spots'}
-      selectedSpot={sel}
-      onSpotSelect={(id) => {
-        setSel((c) => (c === id ? null : id));
-        onPick?.(`spot ${id}`);
-      }}
+      showSpots={mode === 'spots' || !!MARK}
+      selectedSpot={MARK ?? sel}
+      onSpotSelect={
+        MARK
+          ? undefined
+          : (id) => {
+              setSel((c) => (c === id ? null : id));
+              onPick?.(`spot ${id}`);
+            }
+      }
       onPartSelect={(id) => {
         if (!hl) setPicked((c) => (c === id ? null : id));
         onPick?.(`part ${id}`);
@@ -490,6 +507,8 @@ function runChecks(): string[] {
   const root = createRoot(host);
   const render = (el: React.ReactNode) => flushSync(() => root.render(el));
   const rightGeom = new Map<string, Geom>();
+  /** regions with a view whose hotspots move with spotSide='left' */
+  const spotSideMoved = new Set<RegionId>();
 
   PHONES.forEach(({ phone, fig }, wi) => {
     host.style.width = `${fig}px`;
@@ -612,7 +631,61 @@ function runChecks(): string[] {
           }
         }
       }
+      // spotSide=left (central regions drawn unmirrored): only the hotspots move, across one midline
+      for (const v of d.views) {
+        const vtag = `${r}:${v.id}[spotSide 左]`;
+        const tag = `${vtag}@${phone}`;
+        let tapped: string[] = [];
+        const on = (id: PainSpotId) => tapped.push(id);
+        render(<C view={v.id} showSpots onSpotSelect={on} />);
+        const base = mirrorGeom(host);
+        render(<C view={v.id} showSpots onSpotSelect={on} spotSide="left" />);
+        const g = mirrorGeom(host);
+        const sEls = [...host.querySelectorAll<SVGGElement>('[data-spot]')];
+        note(layoutIssues(host, tag, phone, sEls), 'plain');
+        if (!first) continue;
+        const off = (a: Box, b: Box) => Math.max(...a.map((x, i) => Math.abs(x - b[i])));
+        for (const [id, b] of base.parts) if (!g.parts.has(id) || off(b, g.parts.get(id)!) > 0.5) out.push(`${vtag}: part ${id} moved`);
+        if (base.text !== g.text || JSON.stringify(base.labels) !== JSON.stringify(g.labels)) out.push(`${vtag}: labels / texts changed`);
+        const mids = [...base.spots].map(([id, c]) => ({ id, moved: Math.abs(g.spots.get(id)![0] - c[0]) > 0.5, mid: (g.spots.get(id)![0] + c[0]) / 2, dy: g.spots.get(id)![1] - c[1] }));
+        if (mids.some((m) => Math.abs(m.dy) > 0.5)) out.push(`${vtag}: hotspots moved vertically`);
+        const moved = mids.filter((m) => m.moved);
+        if (moved.length && moved.length !== mids.length) out.push(`${vtag}: only some hotspots moved (${moved.map((m) => m.id).join(',')})`);
+        if (moved.length && Math.max(...moved.map((m) => m.mid)) - Math.min(...moved.map((m) => m.mid)) > 0.5) out.push(`${vtag}: hotspots mirrored across different lines`);
+        if (moved.length && (moved[0].mid < 0.3 * g.w || moved[0].mid > 0.7 * g.w)) out.push(`${vtag}: hotspots mirrored across x ${moved[0].mid.toFixed(0)} (not the body's midline)`);
+        if (moved.length) spotSideMoved.add(r);
+        const svgR = host.querySelector('svg')!.getBoundingClientRect();
+        for (const [id, c] of g.spots) if (c[0] < 12 || c[0] > svgR.width - 12 || c[1] < 12 || c[1] > svgR.height - 12) out.push(`${vtag}: hotspot ${id} at the frame edge / outside it`);
+        // still tappable, each to its own spot
+        tapped = [];
+        for (const e of sEls) e.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        if (tapped.join() !== sEls.map((e) => e.getAttribute('data-spot')).join()) out.push(`${vtag}: onSpotSelect mismatch ${tapped.join()}`);
+        for (const e of sEls) {
+          const b = e.getBoundingClientRect();
+          if (b.width < 40 || b.height < 40) out.push(`${vtag}: hotspot ${e.getAttribute('data-spot')} touch target ${b.width.toFixed(0)}×${b.height.toFixed(0)} px (<40)`);
+        }
+        // side='left' mirrors the whole drawing: spotSide adds nothing then
+        render(<C view={v.id} showSpots onSpotSelect={on} side="left" />);
+        const l1 = host.innerHTML;
+        render(<C view={v.id} showSpots onSpotSelect={on} side="left" spotSide="left" />);
+        if (host.innerHTML !== l1) out.push(`${vtag}: spotSide changes a mirrored (side=left) drawing`);
+        // marker only (no onSpotSelect: the condition page): just the selected spot, at its spotSide place, not focusable
+        for (const s of (d.spots[v.id] ?? []) as PainSpotId[]) {
+          render(<C view={v.id} showSpots selectedSpot={s} spotSide="left" />);
+          const m = [...host.querySelectorAll<SVGGElement>('[data-spot]')];
+          const want = g.spots.get(s);
+          const got = m[0] && mirrorGeom(host).spots.get(s);
+          if (m.length !== 1 || m[0].getAttribute('data-spot') !== s) out.push(`${vtag}: marker for ${s} draws ${m.map((e) => e.getAttribute('data-spot')).join(',') || 'nothing'}`);
+          else if (m[0].getAttribute('role') || m[0].getAttribute('tabindex') || m[0].getAttribute('aria-hidden') !== 'true' || !m[0].classList.contains('is-sel'))
+            out.push(`${vtag}: marker for ${s} is tappable / focusable / not selected`);
+          else if (!want || !got || Math.hypot(want[0] - got[0], want[1] - got[1]) > 0.5) out.push(`${vtag}: marker for ${s} not where its hotspot is`);
+        }
+        render(<C view={v.id} showSpots />);
+        if (host.querySelectorAll('[data-spot]').length) out.push(`${vtag}: marker drawn with no selected spot`);
+      }
       if (!first) continue;
+      // spotSide works for the central regions (and only there)
+      if (BILATERAL_REGIONS.has(r) !== spotSideMoved.has(r)) out.push(`${r}: spotSide ${spotSideMoved.has(r) ? 'moves hotspots of a mirrored region' : 'moves no hotspot of a central region'}`);
       // region completeness
       for (const s of PAIN_SPOTS.filter((s) => s.region === r)) if (!allSpots.has(s.id)) out.push(`${r}: pain spot ${s.id} unreachable`);
       for (const s of structures.filter((s) => s.regions?.[0] === r)) if (!allDrawn.has(s.id)) out.push(`${r}: structure ${s.id} (${s.nameJa}) not drawn in any view`);

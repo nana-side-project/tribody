@@ -22,6 +22,10 @@ interface ZoomT {
   tx: number;
   ty: number;
 }
+/** A zoom fitted to a canvas size (`${width}x${height}`, canvas px). */
+interface Fit extends ZoomT {
+  size: string;
+}
 const ZOOM_MAX = 2;
 /** below this the zoom is not worth a button */
 const ZOOM_MIN = 1.4;
@@ -46,6 +50,8 @@ interface Relabel {
   lh: number;
   /** leader: from the anchor on the part to the text */
   pts?: Pt[];
+  /** a corner caption's plate (canvas px): the zoomed drawing may reach under the corner */
+  bg?: Box;
 }
 const RELABEL_MAX = 8;
 
@@ -72,8 +78,54 @@ interface LabGeo {
 
 const squash = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, '');
 
-/** The diagrams' labels in unzoomed canvas px (`wr`: the zoom wrapper's rect, `cur`: its current scale). */
-function labelGeos(wrap: HTMLElement, wr: DOMRect, cur: number): LabGeo[] {
+type TextBox = { x: number; y: number; width: number; height: number };
+/** each label text's box at its own size, with what it depends on (see textBoxes) */
+const unscaledBoxes = new WeakMap<SVGTextElement, { sig: string; box: TextBox }>();
+
+/**
+ * The texts' boxes in their user space as laid out at their own size, unzoomed. Chrome lays an SVG text out at its scale
+ * on screen, its own CSS transform included (not the zoom wrapper's): a label scaled back by --zinv while zoomed, or
+ * still scaling, measures a unit or two wider or narrower than unzoomed, by how far its transition has got. So a text at
+ * its own size is measured as it is (and its box kept); a scaled one takes the box kept for it if nothing it depends on
+ * has changed since (`sigs`: its canvas size, label classes, text and place), else is measured by a hidden copy of it
+ * without the transform, next to it (same styles, same svg scale), removed again before anything is drawn. Null for a
+ * text that cannot be measured or is empty.
+ */
+function textBoxes(texts: SVGTextElement[], sigs: string[]): (TextBox | null)[] {
+  const kept = texts.map((t, i) => {
+    const tf = getComputedStyle(t).transform;
+    if (tf === 'none' || tf === 'matrix(1, 0, 0, 1, 0, 0)') return null;
+    const k = unscaledBoxes.get(t);
+    return k && k.sig === sigs[i] ? k.box : undefined;
+  });
+  const copies = texts.map((t, i) => {
+    if (kept[i] !== undefined) return null;
+    const c = t.cloneNode(true) as SVGTextElement;
+    c.style.transform = 'none';
+    c.style.transition = 'none';
+    c.style.visibility = 'hidden';
+    t.after(c);
+    return c;
+  });
+  const out = texts.map((t, i) => {
+    const k = kept[i];
+    if (k) return k;
+    try {
+      const b = (copies[i] ?? t).getBBox();
+      if (!b.width) return null;
+      const box = { x: b.x, y: b.y, width: b.width, height: b.height };
+      unscaledBoxes.set(t, { sig: sigs[i], box });
+      return box;
+    } catch {
+      return null;
+    }
+  });
+  for (const c of copies) c?.remove();
+  return out;
+}
+
+/** The diagrams' labels in unzoomed canvas px (`wr`: the zoom wrapper's rect, `cur`: its current scale, `size`: the canvas size). */
+function labelGeos(wrap: HTMLElement, wr: DOMRect, cur: number, size: string): LabGeo[] {
   const out: LabGeo[] = [];
   // labels sit outside the drawing's (mirroring) group: svg units map to canvas px by the svg's own scale
   const maps = new Map<SVGSVGElement, { k: number; ox: number; oy: number } | null>();
@@ -86,19 +138,23 @@ function labelGeos(wrap: HTMLElement, wr: DOMRect, cur: number): LabGeo[] {
     }
     return maps.get(svg);
   };
+  const found: { g: SVGGElement; t: SVGTextElement; m: { k: number; ox: number; oy: number } }[] = [];
   for (const g of wrap.querySelectorAll<SVGGElement>('.thk-lab, .tbu-lab')) {
     const t = g.querySelector('text');
     const m = g.ownerSVGElement && mapOf(g.ownerSVGElement);
-    if (!t || !m) continue;
+    if (t && m) found.push({ g, t, m });
+  }
+  // (measured at their own size: the fit and the names drawn again are those of the unzoomed figure, however far the
+  // labels have scaled when the phone turns or the zoom is tapped)
+  const bbs = textBoxes(
+    found.map((f) => f.t),
+    found.map(({ g, t }) => `${size}|${g.getAttribute('class')}|${t.getAttribute('x')},${t.getAttribute('y')}|${t.textContent}`),
+  );
+  for (const [i, { g, t, m }] of found.entries()) {
     const { k, ox, oy } = m;
     const C = (p: Pt): Pt => [ox + p[0] * k, oy + p[1] * k];
-    let bb: DOMRect;
-    try {
-      bb = t.getBBox();
-    } catch {
-      continue;
-    }
-    if (!bb.width) continue;
+    const bb = bbs[i];
+    if (!bb) continue;
     const ptsU: Pt[] = [];
     const nums = g.querySelector('.ld')?.getAttribute('d')?.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi)?.map(Number) ?? [];
     for (let i = 0; i + 1 < nums.length; i += 2) ptsU.push([nums[i], nums[i + 1]]);
@@ -534,6 +590,7 @@ export function RegionFigure({
   diagram: diagramOverride,
   condition,
   side,
+  spotSide,
 }: {
   region: RegionId;
   /** Use this diagram instead of the registered one (dev harness / tests). */
@@ -562,6 +619,11 @@ export function RegionFigure({
   condition?: ConditionId;
   /** Condition page: the side the user tapped; 'left' draws the limb as the left side (mirrored, texts say 左). */
   side?: 'left' | 'right';
+  /**
+   * Central regions drawn unmirrored (low back, neck): the side the user tapped, for the hotspots / selected-spot
+   * marker only (RegionDiagramProps.spotSide; forwarded as is).
+   */
+  spotSide?: 'left' | 'right';
 }) {
   const diagram = useMemo(() => diagramOverride ?? safeDiagram(region), [region, diagramOverride]);
   const initial = useMemo(() => {
@@ -599,7 +661,7 @@ export function RegionFigure({
   const canvasRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef<HTMLDivElement>(null);
   /** The zoom that frames the injured tissue (null: no zoom offered in this view). */
-  const [fit, setFit] = useState<ZoomT | null>(null);
+  const [fit, setFit] = useState<Fit | null>(null);
   const [zoomed, setZoomed] = useState(false);
   const injuredIds = useMemo(
     () => Object.entries(highlights ?? {}).filter(([, r]) => r === 'injured').map(([id]) => id),
@@ -657,14 +719,14 @@ export function RegionFigure({
       // the injured tissue fills ~40% of the frame (at most 2×); its labels (the diagrams mark them …is-hl is-injured)
       // stay readable in the frame at their own size: zoom less if they would not fit, no zoom below ZOOM_MIN
       const rad = parseFloat(getComputedStyle(canvas).borderTopLeftRadius) || 0;
-      const labs = labelGeos(wrap, wr, scale).filter((l) => l.rank === 4);
+      const labs = labelGeos(wrap, wr, scale, `${cw}x${ch}`).filter((l) => l.rank === 4);
       const sHi = Math.min((0.4 * cw) / Math.max(1, focus.x1 - focus.x0), (0.4 * ch) / Math.max(1, focus.y1 - focus.y0));
       return fitZoom(cw, ch, sHi, need.filter((b) => Number.isFinite(b.x0)), labs, rad);
     };
-    // While zoomed the labels are scaled back (--zinv) and the browser lays a text out at its own scale, so they measure
-    // a unit or two differently: measured again while zoomed (the phone turned and back), a canvas size already measured
-    // unzoomed keeps the fit it had, and the zoom and the names drawn again are those of a fresh tap
-    const fits = new Map<string, ZoomT | null>();
+    // Measured again while zoomed (the phone turned and back), a canvas size already measured unzoomed keeps the fit it
+    // had (the labels measure at their own size either way, see textBoxes): the zoom is that of a fresh tap. A size first
+    // seen while zoomed (zoomed upright, then turned) is measured as it is, to the same fit as a fresh tap there.
+    const fits = new Map<string, Fit | null>();
     const measure = () => {
       const wrap = zoomRef.current;
       const canvas = canvasRef.current;
@@ -677,9 +739,16 @@ export function RegionFigure({
       const size = `${cw}x${ch}`;
       // (no zoom and no zoom transition: the labels are not scaled either)
       const unzoomed = getComputedStyle(wrap).transform === 'none';
-      const z = !unzoomed && fits.has(size) ? (fits.get(size) ?? null) : cw && ch ? fitNow(wrap, canvas, wr, scale, cw, ch) : null;
+      let z: Fit | null = null;
+      if (!unzoomed && fits.has(size)) z = fits.get(size) ?? null;
+      else if (cw && ch) {
+        const t = fitNow(wrap, canvas, wr, scale, cw, ch);
+        z = t && { ...t, size };
+      }
       if (unzoomed) fits.set(size, z);
-      setFit((f) => (z && f && f.s === z.s && Math.abs(f.tx - z.tx) < 0.05 && Math.abs(f.ty - z.ty) < 0.05 ? f : z));
+      // (the fit of another canvas size is another fit even where the zoom is the same: the names drawn again in the
+      // frame are placed for its size)
+      setFit((f) => (z && f && f.size === z.size && f.s === z.s && Math.abs(f.tx - z.tx) < 0.05 && Math.abs(f.ty - z.ty) < 0.05 ? f : z));
     };
     measure();
     const t = setTimeout(measure, 300); // diagrams may settle (fonts / labels) after the first paint
@@ -724,7 +793,7 @@ export function RegionFigure({
   // A hidden label whose part is still in the frame (its leader's anchor dot is visible: the faded amber vastus muscles
   // next to the patellar tendon) is not lost: it is drawn again at the frame edge on its own side, at the same size, with
   // a leader to the same anchor (`relabels`). The corner captions (「← 内側」「右脚・後ろから」) stay at their corners.
-  const zoomKey = zoomT ? `${zoomT.s}:${zoomT.tx}:${zoomT.ty}` : '';
+  const zoomKey = zoomT ? `${zoomT.s}:${zoomT.tx}:${zoomT.ty}:${zoomT.size}` : '';
   const [relabels, setRelabels] = useState<{ k: number; items: Relabel[] }>({ k: 1, items: [] });
   /** the labels carry a transform-origin (set while zoomed, removed once they have scaled back) */
   const originsSet = useRef(false);
@@ -772,18 +841,18 @@ export function RegionFigure({
     /** the hit test of the parts by name (built when first needed) */
     const hitOf = new Map<string, (x: number, y: number) => boolean>();
     /**
-     * The point of the named part inside the frame that is nearest to (ax, ay), if a good piece of it is visible: a
+     * The points of the named part inside the frame, nearest to (ax, ay) first, if a good piece of it is visible: a
      * 6 × 6 grid over its box in the frame, hit-tested as the browser would, wherever the figure is scrolled.
      */
-    const visiblePointOf = (name: string, ax: number, ay: number): Pt | null => {
+    const visiblePointsOf = (name: string, ax: number, ay: number): Pt[] => {
       const els = named.get(name);
-      if (!els) return null;
+      if (!els) return [];
       const bs = els.map(zbox);
       const x0 = Math.max(8, Math.min(...bs.map((q) => q.x0)));
       const y0 = Math.max(8, Math.min(...bs.map((q) => q.y0)));
       const x1 = Math.min(cw - 8, Math.max(...bs.map((q) => q.x1)));
       const y1 = Math.min(ch - 8, Math.max(...bs.map((q) => q.y1)));
-      if (x1 - x0 < 16 || y1 - y0 < 16) return null;
+      if (x1 - x0 < 16 || y1 - y0 < 16) return [];
       let hit = hitOf.get(name);
       if (!hit) hitOf.set(name, (hit = partHitTest(els)));
       const N = 6;
@@ -794,11 +863,12 @@ export function RegionFigure({
           const y = y0 + ((j + 0.5) * (y1 - y0)) / N;
           if (hit(...toScreen(x, y))) hits.push([x, y]);
         }
-      if (hits.length < 2) return null;
-      return hits.reduce((a, q) => (Math.hypot(q[0] - ax, q[1] - ay) < Math.hypot(a[0] - ax, a[1] - ay) ? q : a));
+      if (hits.length < 2) return [];
+      // (a stable sort: of points as near, the first in the grid)
+      return hits.sort((p, q) => Math.hypot(p[0] - ax, p[1] - ay) - Math.hypot(q[0] - ax, q[1] - ay));
     };
 
-    const geos = labelGeos(wrap, wr, cur);
+    const geos = labelGeos(wrap, wr, cur, `${cw}x${ch}`);
     originsSet.current = true;
     for (const l of geos) for (const el of l.g.querySelectorAll<SVGElement>('text, .lhit')) el.style.transformOrigin = `${l.tipU[0].toFixed(2)}px ${l.tipU[1].toFixed(2)}px`;
     const labs = geos.map((l) => ({ ...l, z: zoomLab(l, z) }));
@@ -842,13 +912,35 @@ export function RegionFigure({
         }
       return false;
     };
+    /** does one leader's anchor dot sit on the other leader (within `d` px)? */
+    const dotOnLead = (p: Pt[], q: Pt[], d = 2.5) => {
+      const near = (o: Pt, s: Pt[]) => {
+        for (let i = 0; i + 1 < s.length; i++) {
+          const [a, b] = [s[i], s[i + 1]];
+          const len2 = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2;
+          const t = len2 ? Math.max(0, Math.min(1, ((o[0] - a[0]) * (b[0] - a[0]) + (o[1] - a[1]) * (b[1] - a[1])) / len2)) : 0;
+          if (Math.hypot(o[0] - a[0] - t * (b[0] - a[0]), o[1] - a[1] - t * (b[1] - a[1])) < d) return true;
+        }
+        return false;
+      };
+      return near(q[0], p) || near(p[0], q);
+    };
     /**
      * Draw label `l` again in the frame, as near the anchor's height as a free place allows: at the frame edge on its
      * own side (beside its anchor when the anchor itself is near that edge), else beside its anchor on its own side,
-     * else on the other side; first where its leader crosses no other leader and stays short, then anywhere free.
+     * else on the other side; first where its leader crosses no other leader and stays short (`clean`; with `noTouch`,
+     * nor runs through another leader's dot or has its dot on another leader), then (unless `cleanOnly`) anywhere free.
+     * Null where it is not drawn. `touch`: the leader of the place found touches another leader's dot or line.
      * `force`: an injured part's name, drawn at the first place in the frame when no place is free.
      */
-    const place = (l: ZLab, ax: number, ay: number, force = false): boolean => {
+    const find = (
+      l: ZLab,
+      ax: number,
+      ay: number,
+      force = false,
+      cleanOnly = false,
+      noTouch = false,
+    ): { b: Box; lead: Pt[]; clean: boolean; touch: boolean } | null => {
       const w = l.box.x1 - l.box.x0;
       const h = l.box.y1 - l.box.y0;
       const textLeft = (l.z.box.x0 + l.z.box.x1) / 2 < ax;
@@ -869,14 +961,14 @@ export function RegionFigure({
         return { b, lead };
       };
       const OFFS = [0, -18, 18, -36, 36, -54, 54, -72, 72, -90, 90];
-      let spot: { b: Box; lead: Pt[] } | null = null;
-      for (const strict of [true, false]) {
+      let spot: { b: Box; lead: Pt[]; clean: boolean; touch?: boolean } | null = null;
+      for (const clean of cleanOnly ? [true] : [true, false]) {
         for (const x0 of xs) {
           for (const off of OFFS) {
             const c = at(x0, off);
             if (!free(c.b, c.lead)) continue;
-            if (strict && (Math.hypot(c.lead[1][0] - ax, c.lead[1][1] - ay) > 0.6 * cw || leaders.some((p) => crossLeads(p, c.lead)))) continue;
-            spot = c;
+            if (clean && (Math.hypot(c.lead[1][0] - ax, c.lead[1][1] - ay) > 0.6 * cw || leaders.some((p) => crossLeads(p, c.lead) || (noTouch && dotOnLead(p, c.lead))))) continue;
+            spot = { ...c, clean };
             break;
           }
           if (spot) break;
@@ -887,14 +979,19 @@ export function RegionFigure({
         for (const off of OFFS) {
           const c = at(xs[0], off);
           if (inFrame(c.b, cw, ch, rad)) {
-            spot = c;
+            spot = { ...c, clean: false };
             break;
           }
         }
-      if (!spot) return false;
+      if (!spot) return null;
       const textRight = (spot.b.x0 + spot.b.x1) / 2 > ax;
       // a faded context name is not worth a leader across the figure; the highlighted (amber) ones always are
-      if (!force && l.rank < 3 && Math.abs((textRight ? spot.b.x0 : spot.b.x1) - ax) > 0.45 * cw) return false;
+      if (!force && l.rank < 3 && Math.abs((textRight ? spot.b.x0 : spot.b.x1) - ax) > 0.45 * cw) return null;
+      const lead = spot.lead;
+      return { ...spot, touch: leaders.some((p) => dotOnLead(p, lead)) };
+    };
+    /** draw `l` again at `spot` */
+    const commit = (l: ZLab, spot: { b: Box; lead: Pt[] }) => {
       take(spot.b, spot.lead);
       out.push({
         key: `${out.length}:${l.lines.join('')}`,
@@ -907,7 +1004,11 @@ export function RegionFigure({
         lh: l.lh,
         pts: spot.lead,
       });
-      return true;
+    };
+    const place = (l: ZLab, ax: number, ay: number, force = false): boolean => {
+      const spot = find(l, ax, ay, force);
+      if (spot) commit(l, spot);
+      return !!spot;
     };
 
     // 1. the injured parts' names: in place, at their own size (the zoom is chosen for it); one that the frame edge
@@ -1006,25 +1107,28 @@ export function RegionFigure({
           a,
           fs,
           lh: fs * 1.15,
+          // (unzoomed the corner is empty; zoomed, the drawing may run under it: the caption sits on a plate of the
+          // card's colour, invisible where the corner is still empty. The plate is the box no leader crosses and no
+          // other text comes near, so it hides only drawing)
+          bg: corner ? lineBox(b) : undefined,
         });
       }
 
     // 4. the names of parts still in the frame whose own label is hidden
     /** names already readable in the frame (a part labelled twice is named once) */
     const shownNames = new Set([...kept, ...movedIn].map((l) => l.name));
-    const cand: { l: ZLab; ax: number; ay: number }[] = [];
+    const cand: { l: ZLab; ax: number; ay: number; alt: Pt[] }[] = [];
     for (const l of cut) {
       if (l.z.pts.length < 2) continue;
-      let [ax, ay] = l.z.pts[0];
+      const [ax, ay] = l.z.pts[0];
       // its part is in the frame: the anchor dot sits on the part, clear of the edges; or the anchor is out of the
       // frame but a good piece of the part is in it (the top of the vastus medialis above the patellar tendon): the
-      // label points at the visible point of the part nearest to its own anchor
+      // label points at the visible point of the part nearest to its own anchor (or, where a leader from there would
+      // cross another, at the next nearest)
       if (ax < 6 || ay < 6 || ax > cw - 6 || ay > ch - 6) {
-        const p = visiblePointOf(l.name, ax, ay);
-        if (!p) continue;
-        [ax, ay] = p;
-      }
-      cand.push({ l, ax, ay });
+        const ps = visiblePointsOf(l.name, ax, ay);
+        if (ps.length) cand.push({ l, ax: ps[0][0], ay: ps[0][1], alt: ps.slice(1, 8) });
+      } else cand.push({ l, ax, ay, alt: [] });
     }
     // the highlighted (amber) parts' names first, then the rest, top to bottom
     cand.sort((a, b) => b.l.rank - a.l.rank || a.ay - b.ay);
@@ -1032,7 +1136,18 @@ export function RegionFigure({
     for (const c of cand) {
       if (moved >= RELABEL_MAX) break;
       if (shownNames.has(c.l.name)) continue;
-      if (!place(c.l, c.ax, c.ay)) continue;
+      let spot = find(c.l, c.ax, c.ay);
+      if (!spot) continue;
+      // its leader from the nearest point would cross another, touch one, or run long: from another visible point of
+      // the part it may not
+      for (const [x, y] of spot.clean && !spot.touch ? [] : c.alt) {
+        const s = find(c.l, x, y, false, true, true);
+        if (s) {
+          spot = s;
+          break;
+        }
+      }
+      commit(c.l, spot);
       shownNames.add(c.l.name);
       moved++;
     }
@@ -1095,6 +1210,7 @@ export function RegionFigure({
               onPartSelect={onPartSelect}
               condition={condition}
               side={side}
+              spotSide={spotSide}
             />
           </ErrorBoundary>
         </div>
@@ -1102,6 +1218,16 @@ export function RegionFigure({
           <svg className="figure__relabels" aria-hidden="true" style={{ '--rl-k': relabels.k.toFixed(4) } as CSSProperties}>
             {relabels.items.map((l) => (
               <g key={l.key} className={`relabel relabel--${l.tone}`}>
+                {l.bg && (
+                  <rect
+                    className="relabel__bg"
+                    x={l.bg.x0.toFixed(1)}
+                    y={l.bg.y0.toFixed(1)}
+                    width={(l.bg.x1 - l.bg.x0).toFixed(1)}
+                    height={(l.bg.y1 - l.bg.y0).toFixed(1)}
+                    rx={((l.bg.y1 - l.bg.y0) / 2).toFixed(1)}
+                  />
+                )}
                 {l.pts && (
                   <>
                     <path className="relabel__ld" d={`M${l.pts.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join('L')}`} />

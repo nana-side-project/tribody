@@ -2330,6 +2330,11 @@ a.involve:active {
   fill: var(--c);
   opacity: 0.85;
 }
+/* a corner caption's plate: the card's colour, so it shows only where the zoomed drawing reaches into the corner */
+.relabel__bg {
+  fill: var(--surface);
+  opacity: 0.86;
+}
 .relabel--hl {
   --c: var(--text);
 }

@@ -30,7 +30,7 @@ import {
   IconTarget,
 } from '../components/icons';
 import { Page } from '../components/Layout';
-import { RegionFigure, drawnParts, viewForPart, viewForSpot } from '../components/RegionFigure';
+import { RegionFigure, bestView, drawnParts, viewForPart, viewForSpot } from '../components/RegionFigure';
 import { Bullets, Disclaimer, EmptyState, NameText, PainRuleCallout, Section, Tabs } from '../components/ui';
 import { Viewer3DToggle } from '../components/Viewer3D';
 import {
@@ -51,7 +51,7 @@ import {
   spotLabel,
 } from '../lib/labels';
 import { isFramed } from '../lib/framed';
-import { conditionHighlights2d, conditionHighlights3d, drawnSide } from '../lib/viewerHighlights';
+import { BILATERAL_CONDITIONS, conditionHighlights2d, conditionHighlights3d, drawnSide, spotMarkViews, spotSideOf } from '../lib/viewerHighlights';
 import { menuActions } from '../lib/useMenu';
 import { stepDose } from '../lib/dose';
 import { useRememberedView } from '../lib/useRememberedView';
@@ -274,9 +274,29 @@ function ConditionView({ c }: { c: Condition }) {
   const side: Side | null = sideParam === 'left' || sideParam === 'right' ? sideParam : null;
   // the side the figure and 3D are drawn on (central / bilateral problems stay unmirrored; the log still records side)
   const drawnOn = drawnSide(c.id, side);
-  const spotView = useMemo(() => (spot ? viewForSpot(figRegion, spot, refs, primaryRefs, figView) : undefined), [figRegion, spot]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Central / bilateral problems (low back, neck): the unmirrored figure marks the tapped spot itself, on the tapped
+  // side (the region page's selected-spot marker, not tappable here), and opens on the view the region page showed it on
+  const mark = useMemo(
+    () => (spot && BILATERAL_CONDITIONS.has(c.id) ? spotMarkViews(regionDiagrams[figRegion], spot, primaryRefs) : { views: [], open: undefined }),
+    [c.id, figRegion, spot], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const spotView = useMemo(() => (spot ? (mark.open ?? viewForSpot(figRegion, spot, refs, primaryRefs, figView)) : undefined), [figRegion, spot, mark]); // eslint-disable-line react-hooks/exhaustive-deps
   // 「図で見る」 from a structure's sheet: remount the figure on the view that draws it
   const [figForce, setFigForce] = useState<{ view: string; n: number } | null>(null);
+  const figInitial = figForce?.view ?? figMemo.initialView ?? spotView ?? figView;
+  // The view the figure shows (as RegionFigure resolves its initial view, then its tab changes): the marker is handed
+  // over only while that view has the spot, so the figure never switches views to show it (a remembered view or
+  // 「図で見る」 stays where it is).
+  const [figTab, setFigTab] = useState<{ n: number; view: string } | null>(null);
+  const figN = figForce?.n ?? 0;
+  const figDiagram = regionDiagrams[figRegion];
+  const figShown =
+    figTab?.n === figN
+      ? figTab.view
+      : figDiagram && figInitial && figDiagram.views.some((v) => v.id === figInitial)
+        ? figInitial
+        : figDiagram && (refs.length ? bestView(figDiagram, refs, primaryRefs) : figDiagram.views[0]?.id);
+  const marked = !!figShown && mark.views.includes(figShown);
   const [structureSheet, setStructureSheet] = useState<Involvement | null>(null);
   const logSpot = spot ?? c.painSpots[0];
   const logUrl = `/menu?tab=log${logSpot ? `&spot=${logSpot}` : ''}${side ? `&side=${side}` : ''}`;
@@ -363,12 +383,18 @@ function ConditionView({ c }: { c: Condition }) {
           dimOthers
           preferParts={refs}
           preferPrimary={primaryRefs}
-          initialView={figForce?.view ?? figMemo.initialView ?? spotView ?? figView}
-          onViewChange={figMemo.onViewChange}
+          initialView={figInitial}
+          onViewChange={(v) => {
+            figMemo.onViewChange(v);
+            setFigTab({ n: figN, view: v });
+          }}
           zoomable
           zoomLabel={red.zoom}
           condition={c.id}
           side={drawnOn}
+          showSpots={mark.views.length > 0 || undefined}
+          selectedSpot={marked ? spot : undefined}
+          spotSide={mark.views.length > 0 ? spotSideOf(c.id, side) : undefined}
         />
         <div className="legend" style={{ marginTop: 10, paddingLeft: 4 }}>
           <span className="legend__item">

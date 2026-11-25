@@ -70,14 +70,25 @@ const Crack = ({ c }: { c: { spot: string; crack: string } }) => (
  * stays at its depth in the light red of the rest of the part (Part `zoned`).
  */
 const CrackSeen = ({ c }: { c: { spot: string; crack: string } }) => (
-  <>
+  <g className="tib-seen">
     <path className="bone-x" d={c.spot} />
     <path className="crack" d={c.crack} />
-  </>
+  </g>
 );
-/** The deep crack's name in the posterior views (the red one; 脛骨（内果） takes the lighter style). */
-const tibCrackLab = (k: Ctx, y: number): Lab[] =>
-  k.les.has('tibia-stress') ? [{ id: 'tibia', t: '脛骨のひび\n（筋肉の奥）', at: [154, 343], x: 104, y, a: 'end', zone: true }] : [];
+/**
+ * The pulse of the see-through crack: the kit's glow copy (.thk-halo) force-fills every shape solid red (5 px strokes),
+ * which under the translucent spot made it look solid at the peak of the pulse. Here only a thinner outline glows, so
+ * the muscle fibres show through the spot all the time. (Added next to XRAY_CSS in the two posterior views, stress
+ * fracture only.)
+ */
+const TIB_SEEN_CSS = `
+.thk .thk-halo .tib-seen .bone-x { fill: none !important; stroke-width: 3px !important; }`;
+/**
+ * The deep crack's name in the posterior views (the red one; 脛骨（内果） takes the lighter style), level with the crack:
+ * its leader runs straight across to it (a leader zooms with the drawing, so a slanted one became a long diagonal).
+ */
+const tibCrackLab = (k: Ctx): Lab[] =>
+  k.les.has('tibia-stress') ? [{ id: 'tibia', t: '脛骨のひび\n（筋肉の奥）', at: [153, 341], x: 104, y: 338, a: 'end', zone: true }] : [];
 /** Parts the calf views draw with their lesion zone (Frame `zoned`): their other labels take the lighter style. */
 const zonedCalf = (k: Ctx) => [k.les.has('tibia-stress') && 'tibia', k.les.has('calf-strain') && 'gastrocnemius', k.les.has('calf-strain') && 'soleus'] as const;
 /** Calf strain: the stretch of a muscle sheet s ∈ [s0, s1] (the torn part, not the whole muscle). */
@@ -210,7 +221,7 @@ function CalfBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
           { id: 'soleus', t: 'ヒラメ筋', at: [134, 292], x: 104, y: 286, a: 'end' },
         ]) as Lab[]),
     // stress fracture: the crack point, seen through the soleus
-    ...tibCrackLab(k, 334),
+    ...tibCrackLab(k),
     { id: 'achilles-tendon', t: 'アキレス腱', at: [178, 408], x: 104, y: 394, a: 'end' },
     { id: 'tibia', t: '脛骨（内果）', at: [147, 430], x: 104, y: 432, a: 'end' },
     { id: 'calcaneus', t: '踵骨', at: [166, 488], x: 104, y: 486, a: 'end' },
@@ -249,7 +260,7 @@ function CalfBack({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       defs={
         <>
           <LfStyle />
-          {k.les.has('tibia-stress') && <style>{XRAY_CSS}</style>}
+          {k.les.has('tibia-stress') && <style>{XRAY_CSS + TIB_SEEN_CSS}</style>}
         </>
       }
       oi={OI_BACK()}
@@ -410,9 +421,12 @@ function CalfDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     // calf strain: the soleus is named once, at its torn lower half
     k.les.has('calf-strain')
       ? { id: 'soleus', t: 'ヒラメ筋\n（下半分）', at: [136, 318], x: 104, y: 324, a: 'end', zone: true }
-      : { id: 'soleus', t: 'ヒラメ筋', at: [136, 318], x: 104, y: 324, a: 'end' },
+      : k.les.has('tibia-stress')
+        ? // stress fracture: higher up (where the back view names it), clearing the crack's level for its label
+          { id: 'soleus', t: 'ヒラメ筋', at: [134, 292], x: 104, y: 286, a: 'end' }
+        : { id: 'soleus', t: 'ヒラメ筋', at: [136, 318], x: 104, y: 324, a: 'end' },
     // stress fracture: the crack point, seen through the soleus and the flexor digitorum longus
-    ...tibCrackLab(k, 366),
+    ...tibCrackLab(k),
     { id: 'tibia', t: '脛骨（内果）', at: [147, 430], x: 104, y: 420, a: 'end' },
     { id: 'achilles-tendon', t: 'アキレス腱', at: [178, 466], x: 104, y: 466, a: 'end' },
     { id: 'fibula', t: '腓骨（腓骨頭）', at: [242, 70], x: 266, y: 70 },
@@ -442,7 +456,7 @@ function CalfDeep({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       defs={
         <>
           <LfStyle />
-          {k.les.has('tibia-stress') && <style>{XRAY_CSS}</style>}
+          {k.les.has('tibia-stress') && <style>{XRAY_CSS + TIB_SEEN_CSS}</style>}
           <HoleMask id={hole} d={SOL_WIN()} w={W} h={H} />
         </>
       }

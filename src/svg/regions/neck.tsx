@@ -431,6 +431,7 @@ function NeckDiagram(p: RegionDiagramProps) {
       cap={['左半身：表層', '右半身：深層']}
       labels={LABELS_BACK()}
       spots={SPOTS_BACK}
+      spotMid={MX + BACK_DX}
       fade={[24, 64]}
       fadeX={[16, 74]}
       oi={OI_NECK_BACK()}

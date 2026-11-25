@@ -30,7 +30,7 @@ import {
   structureName,
 } from '../lib/labels';
 import { useRememberedView } from '../lib/useRememberedView';
-import { regionDrawnSide, regionViewer } from '../lib/viewerHighlights';
+import { regionDrawnSide, regionSpotSide, regionViewer } from '../lib/viewerHighlights';
 import NotFoundPage from './NotFoundPage';
 
 const STRUCTURES_PREVIEW = 4;
@@ -51,10 +51,12 @@ function RegionView({ id }: { id: RegionId }) {
   const spot = spots.some((s) => s.id === p) ? (p as PainSpotId) : null;
   // opened from a spot tapped on one side of the home body map (?side=): the figure and 3D show that side, and the
   // condition links carry it on. A central region (the low back, the neck: all its conditions are drawn unmirrored,
-  // BILATERAL_REGIONS) stays unmirrored here too, so the drawing does not flip on the way to its condition page.
+  // BILATERAL_REGIONS) stays unmirrored here too, so the drawing does not flip on the way to its condition page: only
+  // its hotspots move to the tapped side (spotSide), so the selected spot is marked where it was tapped.
   const sp = params.get('side');
   const side = sp === 'left' || sp === 'right' ? sp : undefined;
   const drawnOn = regionDrawnSide(id, side);
+  const spotSide = regionSpotSide(id, side);
   const conditionSearch = [spot && `spot=${spot}`, side && `side=${side}`].filter(Boolean).join('&');
   const setSpot = (next: PainSpotId | null) =>
     setParams(
@@ -112,6 +114,7 @@ function RegionView({ id }: { id: RegionId }) {
           showSpots
           selectedSpot={spot}
           side={drawnOn}
+          spotSide={spotSide}
           onSpotSelect={toggleSpot}
           caption="図の赤い点をタップすると、その場所に多い障害に絞り込めます。"
         />

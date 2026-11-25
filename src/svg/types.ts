@@ -14,7 +14,10 @@ export interface RegionDiagramProps {
   dimOthers?: boolean;
   /** Show name labels with leader lines (default true). */
   showLabels?: boolean;
-  /** Show tappable pain-spot hotspots (default false). */
+  /**
+   * Show tappable pain-spot hotspots (default false). Without `onSpotSelect` nothing is tappable: only the
+   * `selectedSpot` is drawn, as a marker of the place the user picked (not focusable, hidden from screen readers).
+   */
   showSpots?: boolean;
   selectedSpot?: PainSpotId | null;
   onSpotSelect?: (id: PainSpotId) => void;
@@ -30,6 +33,13 @@ export interface RegionDiagramProps {
    * captions and labels stay readable and say 左). Default 'right'.
    */
   side?: 'left' | 'right';
+  /**
+   * The side the hotspots mark on a drawing that is NOT mirrored (`side` unset): central regions drawn the same for
+   * both sides (low back, neck). 'left' moves only the hotspots to the mirror place across the body's midline (the
+   * drawing, labels and captions stay as they are); views without a midline (a side view) keep them in place.
+   * Ignored while `side` is 'left'. Default 'right'.
+   */
+  spotSide?: 'left' | 'right';
   className?: string;
 }
 
