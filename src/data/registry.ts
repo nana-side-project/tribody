@@ -151,6 +151,7 @@ export const CONDITIONS = [
   { id: 'deep-gluteal-syndrome', ja: '深殿部症候群（梨状筋症候群）', region: 'hip', owner: 'B' },
   { id: 'proximal-hamstring-tendinopathy', ja: '近位ハムストリング腱障害', region: 'hip', owner: 'B' },
   { id: 'adductor-groin-pain', ja: '内転筋関連の鼠径部痛', region: 'hip', owner: 'B' },
+  { id: 'hip-impingement', ja: '股関節のつまり（FAI・股関節唇損傷）', region: 'hip', owner: 'B' },
   // C
   { id: 'patellofemoral-pain', ja: '膝蓋大腿疼痛症候群', region: 'knee', owner: 'C' },
   { id: 'itb-syndrome', ja: '腸脛靱帯症候群（ITBS）', region: 'knee', owner: 'C' },
@@ -206,6 +207,7 @@ export const EXERCISES = [
   { id: 'ex-90-90', ja: '90/90 ヒップモビリティ', owner: 'B' },
   { id: 'ex-sciatic-nerve-glide', ja: '坐骨神経グライド', owner: 'B' },
   { id: 'ex-standing-knee-drive', ja: 'チューブ・ニードライブ（腸腰筋）', owner: 'B' },
+  { id: 'ex-quadruped-rockback', ja: '四つ這いロックバック', owner: 'B' },
   // ── C: knee / calf (15)
   { id: 'ex-wall-sit', ja: 'ウォールシット（空気椅子）', owner: 'C' },
   { id: 'ex-decline-squat', ja: '傾斜台スクワット', owner: 'C' },
@@ -237,6 +239,7 @@ export const EXERCISES = [
   { id: 'ex-bird-dog', ja: 'バードドッグ', owner: 'E' },
   { id: 'ex-side-plank', ja: 'サイドプランク', owner: 'E' },
   { id: 'ex-cat-cow', ja: 'キャット＆カウ', owner: 'E' },
+  { id: 'ex-pelvic-tilt', ja: '骨盤の前傾・後傾（ペルビックティルト）', owner: 'E' },
 ] as const;
 export type ExerciseId = (typeof EXERCISES)[number]['id'];
 
@@ -280,6 +283,7 @@ export const GUIDES = [
   { id: 'return-to-run', ja: 'ラン復帰プログラム' },
   { id: 'strength-basics', ja: '補強トレーニングの基本' },
   { id: 'bike-fit', ja: 'バイクポジションと痛み' },
+  { id: 'hip-pelvis-balance', ja: '股関節まわりを整えて鍛える（腸腰筋・お尻・骨盤と腰）' },
 ] as const;
 export type GuideId = (typeof GUIDES)[number]['id'];
 

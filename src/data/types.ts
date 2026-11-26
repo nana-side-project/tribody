@@ -187,10 +187,41 @@ export interface Exercise {
   benefit: Partial<Record<Discipline, string>>;
 }
 
-/** Short educational article (pain monitoring, load management, red flags...). */
+/**
+ * A highlight in a guide's teaching figure / 3D view: 'focus' = the parts the section is about, 'related' = their
+ * partners or the context they work against. Not the condition colours (no red "injured" in a teaching figure).
+ */
+export type GuideHighlight = 'focus' | 'related';
+export type GuideHighlights = Partial<Record<MuscleId | StructureId, GuideHighlight>>;
+
+/** Visual / interactive blocks shown after a guide section's text (in this order). */
+export type GuideBlock =
+  /** 2D region figure on one view; every highlighted id must be drawn in that view (checked by a test). */
+  | { kind: 'figure'; region: RegionId; view: string; highlights: GuideHighlights; caption?: string }
+  /**
+   * 3D viewer (tap to load). Exactly one source: `exercise` (its clip), `muscle` (its demo), `condition` (its scene),
+   * or `highlights` + `focus` (a region scene with these parts highlighted).
+   */
+  | {
+      kind: 'viewer3d';
+      sub?: string;
+      exercise?: ExerciseId;
+      muscle?: MuscleId;
+      condition?: ConditionId;
+      highlights?: GuideHighlights;
+      focus?: RegionId;
+    }
+  /** Exercise cards (default doses); `addToMenu` shows 「この〇種目をマイメニューに追加」. */
+  | { kind: 'exercises'; ids: ExerciseId[]; title?: string; addToMenu?: boolean }
+  | { kind: 'muscles'; ids: MuscleId[] }
+  | { kind: 'conditions'; ids: ConditionId[] };
+
+/** Short educational article (pain monitoring, load management, red flags...) or a visual learning guide. */
 export interface Guide {
   id: GuideId;
   title: string;
   summary: string;
-  sections: { heading: string; body: string[] }[];
+  sections: { heading: string; body: string[]; blocks?: GuideBlock[] }[];
+  /** Pages that show a link to this guide (region pages, condition pages, muscle pages). */
+  related?: { regions?: RegionId[]; conditions?: ConditionId[]; muscles?: MuscleId[] };
 }
