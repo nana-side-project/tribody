@@ -2979,3 +2979,117 @@ button.involve:active {
 .viewer-frame .viewer-fail--compact {
   padding: 14px 16px;
 }
+
+/* ───────────────────────── learning guides (GuidePage + GuideBlocks) ───────────────────────── */
+/* the visual blocks after a section's text: 2D figure, 3D view, exercise / muscle / condition cards */
+.guide-blocks {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+/* while the blocks' code arrives (it is usually prefetched): keep roughly their room */
+.guide-blocks--loading {
+  min-height: 160px;
+}
+.guide-blocks__label {
+  margin: 0 0 8px 2px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.guide-blocks__fail {
+  min-height: 120px;
+}
+.guide-fig {
+  margin: 0;
+}
+/* a figure not yet near the screen: about the room the region figure will take (tabs + drawing) */
+.guide-fig__ph {
+  aspect-ratio: 360 / 500;
+  max-height: 640px;
+}
+.guide-fig .guide-legend {
+  margin-top: 10px;
+  padding-left: 4px;
+}
+.guide-fig__cap {
+  margin-top: 6px;
+  padding: 0 4px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-2);
+}
+/* legend dots of the teaching colours: focus = the part drawn with a bold outline (2D 'selected'), soft = the light
+   muscle colour of 'secondary' in 3D */
+.guide-legend .dot--focus {
+  --c: transparent;
+  width: 12px;
+  height: 12px;
+  border: 2.4px solid var(--text);
+}
+/* the figure's view tabs mark the views that show the highlighted parts: neutral here, not the condition red */
+.guide-fig .seg__mark {
+  background: var(--text-2);
+}
+.guide-legend .dot--soft {
+  --c: var(--muscle-light);
+}
+.guide-ex__title {
+  font-size: 15.5px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+.guide-ex__note {
+  margin-top: 4px;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: var(--text-2);
+}
+/* よくある誤解: the belief, then what is known */
+.guide-myth {
+  padding: 14px 16px;
+}
+.guide-myth + .guide-myth {
+  border-top: 1px solid var(--border);
+}
+.guide-myth__q {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+.guide-myth__tag {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+.guide-myth__a {
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.8;
+}
+/* 「受診の目安」 named in the header's note: jumps to that section */
+.guide-jump {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-weight: 700;
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+/* a learning guide among the article cards */
+.guide-card--learn {
+  box-shadow:
+    var(--shadow),
+    inset 0 0 0 1px color-mix(in srgb, var(--muscle) 22%, transparent);
+}

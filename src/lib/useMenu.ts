@@ -1,6 +1,6 @@
 // マイメニュー: saved exercises + per-date checklist. Persisted with safe storage.
 import { useMemo } from 'react';
-import { EXERCISES, getExercise, type ConditionId, type ExerciseId, type PhaseId } from '../data';
+import { EXERCISES, GUIDES, getExercise, type ConditionId, type ExerciseId, type GuideId, type PhaseId } from '../data';
 import { createStore, useStore } from './storage';
 import { addDays, isISODate, todayISO, weekOf } from './date';
 import { effectiveDose, type Dose } from './dose';
@@ -8,8 +8,8 @@ import { effectiveDose, type Dose } from './dose';
 export interface MenuItem {
   id: ExerciseId;
   addedAt: number;
-  /** Where it was added from (e.g. a condition's phase). */
-  from?: { condition?: ConditionId; phase?: PhaseId };
+  /** Where it was added from: a condition's recovery-plan step, or a learning guide's exercise list. */
+  from?: { condition?: ConditionId; phase?: PhaseId; guide?: GuideId };
 }
 
 export interface MenuState {
@@ -19,7 +19,20 @@ export interface MenuState {
 }
 
 const VALID = new Set<string>(EXERCISES.map((e) => e.id));
+const GUIDE_IDS = new Set<string>(GUIDES.map((g) => g.id));
 const KEEP_DAYS = 120;
+
+/**
+ * The source of a saved item: kept as stored (a condition / step that the content no longer has still groups the
+ * item under its old name, see MenuPage), except a guide that is not in the registry, which is dropped.
+ */
+function sanitizeFrom(raw: unknown): MenuItem['from'] {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const f = raw as NonNullable<MenuItem['from']>;
+  if (f.guide === undefined || GUIDE_IDS.has(f.guide)) return f;
+  const { guide: _g, ...rest } = f;
+  return Object.keys(rest).length ? rest : undefined;
+}
 
 function sanitize(raw: unknown): MenuState {
   const out: MenuState = { items: [], done: {} };
@@ -33,7 +46,7 @@ function sanitize(raw: unknown): MenuState {
       out.items.push({
         id: it.id,
         addedAt: typeof it.addedAt === 'number' ? it.addedAt : Date.now(),
-        from: it.from && typeof it.from === 'object' ? it.from : undefined,
+        from: sanitizeFrom(it.from),
       });
     }
   }

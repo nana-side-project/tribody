@@ -508,8 +508,10 @@ export const partName = (id: PartId) => NAME.get(id) ?? id;
  *   'plantar-origin'      plantar fascia injured → its origin on the heel bone (plantar-heel-pain)
  *   'calf-strain'         gastrocnemius AND soleus injured → lower end of the medial head + lower half of the soleus
  *                         (calf-strain; muscle-cramps has only the gastrocnemius red: the whole muscle cramps)
+ *   'labrum-anterosuperior' hip labrum injured → its anterosuperior part, where FAI pinches it (hip-impingement); seen
+ *                         from the front it is the upper rim of the socket, deep to the hip flexors
  */
-export type Lesion = 'achilles-mid' | 'achilles-insertion' | 'tibia-stress' | 'metatarsal-stress' | 'plantar-origin' | 'calf-strain';
+export type Lesion = 'achilles-mid' | 'achilles-insertion' | 'tibia-stress' | 'metatarsal-stress' | 'plantar-origin' | 'calf-strain' | 'labrum-anterosuperior';
 
 /** The focal lesions of each condition that has one; any other condition draws its injured parts whole. */
 export const CONDITION_LESIONS: Partial<Record<ConditionId, readonly Lesion[]>> = {
@@ -519,6 +521,7 @@ export const CONDITION_LESIONS: Partial<Record<ConditionId, readonly Lesion[]>> 
   'metatarsal-stress-fracture': ['metatarsal-stress'],
   'plantar-heel-pain': ['plantar-origin'],
   'calf-strain': ['calf-strain'],
+  'hip-impingement': ['labrum-anterosuperior'],
 };
 
 /** Fallback when no condition is given: the lesion read from the highlight set. */
@@ -529,6 +532,7 @@ export function lesionsOf(hl: Highlights): ReadonlySet<Lesion> {
   if (hl.metatarsals === 'injured') s.add('metatarsal-stress');
   if (hl['plantar-fascia'] === 'injured') s.add('plantar-origin');
   if (hl.gastrocnemius === 'injured' && hl.soleus === 'injured') s.add('calf-strain');
+  if (hl['hip-labrum'] === 'injured') s.add('labrum-anterosuperior');
   return s;
 }
 
@@ -1010,6 +1014,8 @@ const FEMUR_F = once(() => sp([
 const HEAD_F = once(() => ell(HCF[0], HCF[1], 25, 25));
 const CAPSULE_F = once(() => sp([[186, 150], [168, 158], [150, 168], [144, 184], [152, 208], [176, 236], [196, 236], [222, 210], [236, 190], [238, 162], [228, 150], [210, 146]]));
 const LABRUM_F = once(() => crescent(HCF[0], HCF[1], 24.5, 29, 185, 300));
+/** its anterosuperior part (lesion 'labrum-anterosuperior'): the upper rim of the socket in this front view */
+const LABRUM_AS_F = once(() => crescent(HCF[0], HCF[1], 24.5, 29, 228, 298));
 
 const FM = once(() => ({
   gmed: muscle({
@@ -1188,10 +1194,28 @@ const OI_FRONT = once((): OIMap => {
   return m;
 });
 
+/**
+ * `on`: the inset and its title in a group of their own. The zoom (RegionFigure) draws a text of the drawing again in its
+ * frame as a corner caption when the text's grandparent is the <svg>, and an inset's title only while most of its
+ * parent is in the frame: nested two groups deep with its inset, the joint section's title is left out of the zoom onto
+ * the FAI labrum zone (the inset is out of that frame) on both sides. Without `on` they are drawn as they always were.
+ */
+const Grp = ({ on, children }: { on: boolean; children: ReactNode }) =>
+  on ? (
+    <g>
+      <g>{children}</g>
+    </g>
+  ) : (
+    <>{children}</>
+  );
+
 function HipFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
   const IC: XY = [54, 412];
   const IR = 46;
   const hs = hipSection(IC);
+  // FAI (hip-impingement): the pinched anterosuperior labrum lies deep to the hip flexors — drawn over them (Lesion), named
+  // beside the joint (the red name); the labrum in the inset section takes the lighter style of the rest of the part
+  const las = k.les.has('labrum-anterosuperior');
   const labels: Lab[] = [
     { id: 'asis', t: '上前腸骨棘', at: [175, 116], x: 100, y: 104, a: 'end' },
     { id: 'gluteus-medius', t: '中殿筋', at: [138, 134], x: 100, y: 142, a: 'end' },
@@ -1208,6 +1232,7 @@ function HipFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
     { id: 'gracilis', t: '薄筋', at: [289, 318], x: 306, y: 316 },
     { id: 'adductor-magnus', t: '大内転筋', at: [272, 384], x: 306, y: 364 },
     { id: 'sartorius', t: '縫工筋', at: [252, 410], x: 306, y: 412 },
+    ...(las ? [{ id: 'hip-labrum', t: '関節唇', at: [198.7, 153.8], x: 100, y: 166, a: 'end', zone: true } as const] : []),
   ];
   const spots: Spot[] = [
     { id: 'hip-front', at: [214, 196] },
@@ -1226,32 +1251,35 @@ function HipFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       spots={spots}
       fade={{ top: 28, bottom: 46 }}
       oi={OI_FRONT()}
+      zoned={[las && 'hip-labrum']}
       overlay={
         <>
           <Ctxt k={k}>
             <circle className="inset-ln" cx={HCF[0]} cy={HCF[1]} r={31} />
             <path className="inset-ln" d={`M${xy([IC[0] + 31, IC[1] - 31])}L${xy([188, 199])}`} />
           </Ctxt>
-          <Inset k={k} name="hj" cx={IC[0]} cy={IC[1]} r={IR}>
-            <Ctxt k={k}>
-              <path className="bone" d={hs.pelvis} />
-              <path className="bone-ln" d={hs.trab} />
-            </Ctxt>
-            <Part k={k} id="hip-joint">
-              <path className="cap" d={hs.capL} />
-              <path className="cap" d={hs.capM} />
-              <path className="bone" d={hs.femur} />
-              <path className="bone-ln" d={hs.femLn} />
-              <path className="cart" d={hs.cartH} />
-              <path className="cart" d={hs.cartA} />
-            </Part>
-            <Part k={k} id="hip-labrum">
-              <path className="labrum" d={hs.labrum} />
-            </Part>
-          </Inset>
-          <MText mir={k.mir} className="cap-t" x={IC[0]} y={IC[1] - IR - 7} a="middle" hidden>
-            股関節の断面
-          </MText>
+          <Grp on={las}>
+            <Inset k={k} name="hj" cx={IC[0]} cy={IC[1]} r={IR}>
+              <Ctxt k={k}>
+                <path className="bone" d={hs.pelvis} />
+                <path className="bone-ln" d={hs.trab} />
+              </Ctxt>
+              <Part k={k} id="hip-joint">
+                <path className="cap" d={hs.capL} />
+                <path className="cap" d={hs.capM} />
+                <path className="bone" d={hs.femur} />
+                <path className="bone-ln" d={hs.femLn} />
+                <path className="cart" d={hs.cartH} />
+                <path className="cart" d={hs.cartA} />
+              </Part>
+              <Part k={k} id="hip-labrum" zoned={las}>
+                <path className="labrum" d={hs.labrum} />
+              </Part>
+            </Inset>
+            <MText mir={k.mir} className="cap-t" x={IC[0]} y={IC[1] - IR - 7} a="middle" hidden>
+              股関節の断面
+            </MText>
+          </Grp>
         </>
       }
     >
@@ -1272,7 +1300,7 @@ function HipFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
         <path className="cap" d={CAPSULE_F()} />
         <path className="bone" d={HEAD_F()} />
       </Part>
-      <Part k={k} id="hip-labrum">
+      <Part k={k} id="hip-labrum" zoned={las}>
         <path className="labrum" d={LABRUM_F()} />
       </Part>
       <Part k={k} id="adductor-magnus">
@@ -1322,6 +1350,11 @@ function HipFront({ p, k }: { p: RegionDiagramProps; k: Ctx }) {
       <Part k={k} id="asis">
         <path className="bone" d={ell(176, 117, 4.2, 3.4, -30)} />
       </Part>
+      {las && (
+        <Lesion k={k} id="hip-labrum">
+          <path className="labrum" d={LABRUM_AS_F()} />
+        </Lesion>
+      )}
     </Frame>
   );
 }

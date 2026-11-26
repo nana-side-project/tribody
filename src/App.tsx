@@ -81,6 +81,8 @@ export function preloadInitialRoute(): Promise<unknown> {
  * only evaluates the page itself — every idle step evaluates one chunk and then yields to input.
  */
 const RegionDiagrams = { preload: () => import('./svg/regions') };
+/** The figures / 3D / exercise cards of a learning guide (GuidePage loads them only for a guide that has some). */
+const GuideBlocks = { preload: () => import('./components/GuideBlocks') };
 /** Idle-time prefetch order: where people usually go next from home and the tabs. */
 const IDLE_ORDER = [
   RegionDiagrams,
@@ -93,6 +95,7 @@ const IDLE_ORDER = [
   MenuPage,
   GuidesPage,
   GuidePage,
+  GuideBlocks,
   AboutPage,
   NotFoundPage,
 ];

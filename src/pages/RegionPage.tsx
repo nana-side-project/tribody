@@ -12,7 +12,7 @@ import {
   type RegionId,
 } from '../data';
 import { Wip } from '../components/badges';
-import { ConditionCard, MuscleCard } from '../components/cards';
+import { ConditionCard, GuideCard, MuscleCard } from '../components/cards';
 import { DISCIPLINE_ICON, IconChevron, IconClose, IconTarget } from '../components/icons';
 import { Page } from '../components/Layout';
 import { RegionFigure } from '../components/RegionFigure';
@@ -25,6 +25,7 @@ import {
   isKnownRegion,
   muscleName,
   regionName,
+  relatedGuides,
   spotConditions,
   spotLabel,
   structureName,
@@ -223,6 +224,16 @@ function RegionView({ id }: { id: RegionId }) {
           <EmptyState compact title="準備中です" />
         )}
       </Section>
+
+      {relatedGuides('regions', id).length > 0 && (
+        <Section kicker="Learn" title="しくみを学ぶ" desc="この部位の筋肉と骨のしくみを図と3Dで確かめ、整える・鍛える種目を選べるガイドです。">
+          <div className="stack">
+            {relatedGuides('regions', id).map((g) => (
+              <GuideCard key={g} id={g} features />
+            ))}
+          </div>
+        </Section>
+      )}
 
       {region && region.keyMuscles.length > 0 && (
         <Section kicker="Key muscles" title="主な筋肉" more={{ to: `/muscles?region=${id}`, label: '筋肉図鑑' }}>

@@ -1,13 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { conditions, exercisesForMuscle, getMuscle, type Muscle } from '../data';
-import { ConditionCard, ExerciseCard } from '../components/cards';
+import { ConditionCard, ExerciseCard, GuideLink } from '../components/cards';
 import { DISCIPLINE_ICON, IconHand } from '../components/icons';
 import { Page } from '../components/Layout';
 import { RegionFigure, findDiagramFor } from '../components/RegionFigure';
 import { EmptyState, NameText, Section } from '../components/ui';
 import { SafeViewer } from '../components/Viewer3D';
-import { DISCIPLINE_JA, DISCIPLINE_ORDER, isKnownMuscle, muscleName, regionName } from '../lib/labels';
+import { DISCIPLINE_JA, DISCIPLINE_ORDER, guideOffer, isKnownMuscle, muscleName, regionName, relatedGuides } from '../lib/labels';
 import { useRememberedView } from '../lib/useRememberedView';
 import NotFoundPage from './NotFoundPage';
 
@@ -77,6 +77,9 @@ function MuscleView({ m }: { m: Muscle }) {
   const others = exercisesForMuscle(m.id)
     .map((e) => e.id)
     .filter((e) => !strengthen.includes(e) && !stretch.includes(e));
+  // learning guides on this muscle (Guide.related.muscles): linked under 「硬いとき・弱いとき」, or on their own
+  const learn = relatedGuides('muscles', m.id);
+  const learnLinks = learn.map((g) => <GuideLink key={g} id={g} sub={guideOffer(g)} />);
 
   return (
     <Page title={m.nameJa} back="/muscles">
@@ -227,6 +230,12 @@ function MuscleView({ m }: { m: Muscle }) {
               </div>
             )}
           </div>
+          {learnLinks}
+        </Section>
+      )}
+      {!(m.whenTight || m.whenWeak) && learn.length > 0 && (
+        <Section kicker="Learn" title="しくみを学ぶ">
+          {learnLinks}
         </Section>
       )}
 

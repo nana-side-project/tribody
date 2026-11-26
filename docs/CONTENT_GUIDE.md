@@ -43,10 +43,40 @@ label format: `著者 et al. タイトル要約. 雑誌 年`):
 - Ankle sprain: Vuurberg G et al. BJSM 2018 guideline — functional rehab, balance training, early weight bearing; Ottawa ankle rules (can't bear weight 4 steps / bony tenderness → X-ray).
 - Acute soft-tissue injury: PEACE & LOVE (Dubois B & Esculier JF, BJSM 2020) — avoid anti-inflammatories / icing as default early on; relative rest, not total rest.
 - Low back pain: non-specific LBP — stay active, reassurance, exercise; red flags (cauda equina: saddle numbness, bladder/bowel; fever; trauma; unexplained weight loss; night pain). Cyclist: saddle height/reach, core endurance, hip flexor/hamstring mobility.
+- Hip-related groin pain / FAI syndrome / labrum (`hip-impingement`, the guide `hip-pelvis-balance`):
+  - Griffin DR et al. Warwick Agreement BJSM 2016 — **FAI syndrome = symptoms + clinical signs + imaging**; imaging alone is not a diagnosis.
+  - Reiman MP et al. Zurich 2018 classification BJSM 2020 — FAI syndrome / dysplasia–instability / no distinct bony shape; rule out serious causes
+    (stress fracture, infection, tumour) and lumbar referral first. In Japan, hip OA is mostly secondary to dysplasia (臼蓋形成不全), so
+    「付け根の詰まり＝FAI」 is not assumed.
+  - Frank JM et al. Arthroscopy 2015 — cam shape in about 37% of pain-free hips (about 55% of pain-free athletes), labral tears also common
+    without pain. Write 「カム形態・ピンサー形態」 (形態, not 変形) and say they are common without pain.
+  - Agricola R et al. Ann Rheum Dis 2013 — a large cam shape raises later hip OA risk, but few hips reached end-stage OA in 5 years: 「リスクの一つ」.
+  - Reiman MP et al. BJSM 2015 — FADIR / flexion–internal-rotation tests are screening tests only. A self-check may say a negative result
+    makes a hip-joint source less likely; it **never diagnoses** and is never pushed into pain.
+  - Kemp JL et al. Zurich consensus BJSM 2020 — **at least 3 months of exercise-based therapy first** (hip + trunk strength, education,
+    load modification); Griffin DR et al. UK FASHIoN Lancet 2018 — arthroscopy slightly better at 12 months, and many improve with
+    physiotherapy: surgery is discussed only after good conservative care.
+  - Lewis CL et al. J Biomech 2007 — weaker gluteal or iliopsoas force raises anterior hip joint force (a computer model: `limited`).
+  - Femoral neck stress fracture is always a prominent red flag on hip pages (pain that builds while running, pain on walking → stop running, see a doctor).
+- Posture, 「反り腰」, pelvic tilt, iliopsoas:
+  - Laird RA et al. BMC Musculoskelet Disord 2014; Christensen ST & Hartvigsen J. JMPT 2008; Swain CTV et al. J Biomech 2020 — standing
+    lordosis and pelvic tilt barely differ between people with and without LBP; posture is not shown to cause pain (`moderate`).
+  - Herrington L. Man Ther 2011 — anterior pelvic tilt is normal in standing (about 85% of men, 75% of women) and varies widely.
+  - Bogduk N et al. Clin Biomech 1992; Santaguida PL & McGill SM. J Biomech 1995 — psoas is mainly a hip flexor; its moments on the lumbar
+    spine are small and it cannot control lordosis much. Heino JG et al. JOSPT 1990 — hip extension range and abdominal performance are
+    not related to standing pelvic tilt or lordosis.
+  - Preece SJ et al. JMPT 2021; Warneke K et al. Sports Med Open 2024 — stretching barely changes posture (about 1°, short-lived): use it
+    for comfort and mobility. Strength training helps symptoms and lowers injury risk (Lauersen 2014).
+  - 「反り腰」 is a colloquial word for a posture habit, not a diagnosis: no separate condition for it (it is folded into `low-back-pain`
+    and the guide). 「下位交差症候群」 is an untested clinical idea, at most a teaching metaphor; the front–back "force couple" figure is
+    labelled as a 模式図 / 考え方.
 - Neck (cyclist): aero position → prolonged cervical extension; deep neck flexor endurance, thoracic extension mobility, bike fit (stack/reach, helmet).
 
 **Myths to avoid / correct gently**: 「膝はつま先より前に出してはいけない」(absolute rule), 「ストレッチで怪我が防げる」(limited evidence; mobility for performance is fine),
-「フォームローラーで癒着を剥がす」, 「腸脛靱帯を伸ばす」, 「痛みがあれば完全休養」(→ relative rest & load management), 「アイシングで早く治る」(no good evidence; fine for short-term pain relief).
+「フォームローラーで癒着を剥がす」, 「腸脛靱帯を伸ばす」, 「痛みがあれば完全休養」(→ relative rest & load management), 「アイシングで早く治る」(no good evidence; fine for short-term pain relief),
+「反り腰・骨盤前傾が腰痛の原因」, 「腸腰筋が硬いと反り腰になる」, 「反り腰は腹筋が弱いから」, 「ストレッチで骨盤のゆがみを矯正」,
+「画像でカム形態・関節唇の傷があれば手術」, 「FADIR陽性＝FAI」, 「詰まりはストレッチで押し込めば取れる」, 「お尻が弱いから痛くなる」
+(prospective support is weak and weakness can follow pain — but strength training still helps).
 
 Use `evidence` notes to tell the user how strong the support is (`strong` / `moderate` / `limited` / `expert` opinion).
 
@@ -117,6 +147,29 @@ Explain **why it happens in triathlon** per discipline, concretely:
   「1日おき」 (weekly). Put any remark in （）, which the counter ignores. A text without those words counts as daily.
 - Do not prescribe a tendon protocol (daily, pain up to 5/10) in a muscle-injury, bone or cramp plan. Bone (stress fracture) plans:
   bone pain 0–2/10 and stop at the first bony pain.
+
+## Guides with figures, 3D and exercise cards
+
+A guide section can carry `blocks` (types.ts `GuideBlock`) after its text: `figure` (2D region view), `viewer3d`, `exercises`
+(optionally `addToMenu`), `muscles`, `conditions`. `Guide.related` makes region / condition / muscle pages link to the guide.
+
+- Keep each section readable on a phone in about a minute (roughly 300–500 字 of body). Short paragraphs; one idea each.
+- `figure`: every id in `highlights` must be drawn in that `view` (`parts[view]` of the region diagram; a test checks it). Use `focus` for
+  what the section is about and `related` for partners or context. No red: a teaching figure is not a condition page. A figure that shows
+  a model (the front–back pull on the pelvis) says so in its caption (「模式図」「考え方の図」).
+- `viewer3d`: exactly one source — `exercise`, `muscle`, `condition`, or `highlights` + `focus` (a region scene).
+- `exercises` cards show each exercise's **default** dose (guides have no dose overrides). A number in the body text for an exercise must
+  equal that default, or leave the number out; name the exception (「サイドプランクは週3回」). Block titles carry no doses.
+- An exercise that appears only in a guide still needs a condition phase or a muscle list (validate warns otherwise).
+- Guide text has no link markup. Name another guide as 「ガイド「タイトル」」 (the full title, or the part before 「（」): GuidePage turns that
+  into a link. Name a condition page in plain text (「「股関節のつまり（FAI・股関節唇損傷）」のページ」) and add it to a `conditions` block.
+- Grade claims in plain words, matching `EvidenceLevel`: 研究のまとめ・比較試験 (strong–moderate), 小規模な研究・コンピューターモデルの
+  研究 (limited), 専門家の経験に基づく工夫 (expert). A consensus statement that defines or classifies (Warwick, Zurich, Doha) may be called
+  「国際的な合意」 in the text; in a condition's `evidence` it is graded `expert`, as the app does for Doha. Cite sparingly as （著者 年）.
+- Red flags stay prominent: a learning guide with a medical topic ends with 「受診の目安」 and points to it early (e.g. the stress fracture line
+  in the section where the symptom is explained, and before the exercise menu). Write each line as 「サイン：どうするか」 (GuidePage shows
+  them in a red box with the sign in bold); signs that need care today (cannot bear weight, fever or a hot swollen joint, saddle numbness or
+  bladder/bowel changes, pain that builds while running) say 「すぐに」, and a last line may point to ガイド「すぐに受診すべきサイン」.
 
 ## Cross-links you are responsible for
 

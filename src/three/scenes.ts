@@ -62,16 +62,22 @@ export interface Scene3D {
    *  replace the scene's own (a camera / crop that shows that part of the problem: 水泳肩 from 肩の後ろ → the back of the
    *  shoulder). Spots that the default camera already shows have no entry. */
   spots?: Partial<Record<PainSpotId, SceneVariant>>;
+  /** region scenes: the variant a learning guide's 3D block gets (highlights + focus without a condition, with
+   *  'primary' parts — the guide's focus parts; region pages only use 'secondary' / 'selected'). The guide teaches a
+   *  few parts at once (the hip's front, back and side muscles), where the region page shows all its key muscles. */
+  teaching?: SceneVariant;
 }
 
 /** A per-spot variant of a scene: any scene field (they replace the scene's, shallowly). */
-export type SceneVariant = Omit<Scene3D, 'spots' | 'bilateral'>;
+export type SceneVariant = Omit<Scene3D, 'spots' | 'bilateral' | 'teaching'>;
 
-/** The scene for a view: the scene itself, or with the tapped spot's variant merged in. */
-export function sceneFor(scene: Scene3D | undefined, spot?: PainSpotId): Scene3D | null {
+/** The scene for a view: the scene itself, or with the guide's teaching variant and / or the tapped spot's variant
+ *  merged in (in that order). */
+export function sceneFor(scene: Scene3D | undefined, spot?: PainSpotId, teaching = false): Scene3D | null {
   if (!scene) return null;
+  const t = teaching ? scene.teaching : undefined;
   const v = spot ? scene.spots?.[spot] : undefined;
-  return v ? { ...scene, ...v } : scene;
+  return t || v ? { ...scene, ...t, ...v } : scene;
 }
 
 export interface SceneZone extends Omit<ZoneSpec, 'key'> {
@@ -205,6 +211,33 @@ export const CONDITION_SCENES: Partial<Record<ConditionId, Scene3D>> = {
     camera: { dir: [0.3, 0.12, 1] },
     frame: ['pelvis:pubic_symphysis', 'pelvis:pubic_tubercle', 'pelvis:pubic_crest', 'pelvis:asis', 'pelvis:asis_L', 'femur:linea_aspera_mid', 'femur:adductor_tubercle'],
     minSize: 0.3,
+  },
+  'hip-impingement': {
+    // the pinch direction (engine3d): seated, the right thigh drawn up past 90° (hip flexion 108°), a little across the
+    // body and turned in (adduction 10°, internal rotation 18°) — putting on a sock, a low chair, the thigh near the
+    // chest at the top of the pedal stroke — which brings the femoral neck to the front-upper rim of the socket.
+    // Close-up from the right side, a little from the front: the red labrum ring around the femoral head with the neck
+    // leaving it toward the front-upper rim, the iliopsoas crossing in front of the joint (amber), the chair and the
+    // raised thigh for context. The gluteals (amber: weak) are see-through so they do not cover the joint; the right arm
+    // hangs a little behind the hip (holding the seat edge it stood between the camera and the joint).
+    base: 'SIT_CHAIR',
+    joints: { hip_R: { flex: 108, abd: -10, rot: -18 }, knee_R: { flex: 100 }, shoulder_R: { flex: -20, abd: 14 } },
+    camera: { dir: [-1, 0.12, 0.25] },
+    frame: ['femur:head', 'pelvis:asis', 'pelvis:aiis', 'femur:greater_trochanter', 'femur:lesser_trochanter', 'pelvis:acetabulum_rim_ant', 'pelvis:acetabulum_rim_sup'],
+    minSize: 0.24,
+    fade: { 'gluteus-maximus': 0.15, 'gluteus-medius': 0.2, 'gluteus-minimus': 0.3 },
+    spots: {
+      // 股関節の前: the same posture from the front-lateral: the front of the joint, the iliopsoas over it, the labrum's
+      // front part where the neck meets the rim
+      'hip-front': { camera: { dir: [-0.45, 0.05, 1] } },
+      // 鼠径部（内側）: from the front, framed down to the pubic symphysis: the iliopsoas running over the front of the
+      // joint toward the inner groin (the lesser trochanter) — a straight front view is blocked by the raised knee
+      'groin-inner': {
+        camera: { dir: [-0.35, 0.02, 1] },
+        frame: ['femur:head', 'pelvis:asis', 'pelvis:aiis', 'pelvis:pubic_symphysis', 'femur:lesser_trochanter', 'pelvis:acetabulum_rim_ant', 'femur:greater_trochanter'],
+        minSize: 0.26,
+      },
+    },
   },
 
   // ── knee
@@ -429,7 +462,33 @@ export const REGION_SCENES: Record<RegionId, Scene3D> = {
     frame: ['head:occiput', 'head:mastoid', 'neck:spinous_C2', 'neck:spinous_C7', 'thorax:spinous_T4', 'scapula:superior_angle', 'scapula_L:superior_angle', 'scapula:acromion'],
   },
   lowback: { base: 'STAND', camera: 'isoBack', frame: region('lowback') },
-  hip: { base: 'STAND', camera: { dir: [-1, 0.28, -0.62] }, frame: region('hip'), minSize: 0.5 },
+  hip: {
+    base: 'STAND',
+    camera: { dir: [-1, 0.28, -0.62] },
+    frame: region('hip'),
+    minSize: 0.5,
+    // learning guide (engine3d): 「前の腸腰筋、後ろの大殿筋、横の中殿筋・小殿筋」 in one view — straight from the right side
+    // (the back-oblique region view hid the iliopsoas and the joint behind the gluteus maximus): the iliopsoas coming
+    // down in front of the joint, the gluteus medius / minimus fan over the side of the pelvis, the gluteus maximus
+    // behind (a little see-through, so the fan under it reads). Crop from L3 to the lesser trochanter; the right forearm
+    // is lifted in front of the waist (hanging, it covered the hip in a side view).
+    teaching: {
+      joints: { shoulder_R: { flex: 40, abd: 8 }, elbow_R: { flex: 95 }, forearm_R: { sup: -60 } },
+      camera: { dir: [-1, 0.15, 0.1] },
+      frame: [
+        'pelvis:iliac_crest_mid',
+        'pelvis:asis',
+        'pelvis:psis',
+        'pelvis:coccyx',
+        'femur:greater_trochanter',
+        'pelvis:ischial_tuberosity',
+        'femur:lesser_trochanter',
+        'lumbar:body_L3',
+      ],
+      minSize: 0.36,
+      fade: { 'gluteus-maximus': 0.45 },
+    },
+  },
   // the knee's key muscles have their bellies in the thigh: framed from the top of the calf up to the upper thigh, so
   // their labels sit on the bellies instead of crowding the top edge at the tail ends of strands that run out of the
   // card. The tensor fasciae latae (its belly at the hip, it reaches the knee through the ITB) starts in 「+N」

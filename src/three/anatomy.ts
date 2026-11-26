@@ -142,6 +142,12 @@ export interface ScopeOptions {
    *  label anchor (Morton's neuroma: the 3rd / 4th metatarsals around the nerve; the `metatarsals` rig itself tints the
    *  stress-fracture rays 2–3) */
   structures?: Partial<Record<StructureId, StructureOverride>>;
+  /** highlights mode (condition / region / guide views): a 'primary' structure is tinted toward the muscle colour and
+   *  a 'secondary' one toward the light muscle colour — a learning guide's focus / related tissue (a labrum, a joint),
+   *  which in its own pale colour vanished against the bones — and a 'primary' structure gets a see-through copy like
+   *  an injured one. Exercise / muscle views keep structures in their own colour (the heel drop's 'primary' Achilles
+   *  tendon stays tendon-coloured). */
+  tintStructures?: boolean;
 }
 
 /** A structure rig as one view needs it (a rig cannot vary by condition). */
@@ -186,6 +192,8 @@ export class AnatomyLayer {
   private xraySelectedMat: MeshBasicMaterial;
   private pulse = 0;
   private zones: Zone[] = [];
+  /** ScopeOptions.tintStructures of the current scope */
+  private tintStructures = false;
   missing: PartId[] = [];
 
   constructor(
@@ -204,6 +212,7 @@ export class AnatomyLayer {
   setScope(scope: Partial<Record<PartId, Highlight3DRole>>, sides: Side[], opts: ScopeOptions) {
     this.clear();
     this.missing = [];
+    this.tintStructures = !!opts.tintStructures;
     const entries = (Object.entries(scope) as [PartId, Highlight3DRole][]).filter(([, r]) => !!r);
     // one pulse per view: the scene's / caller's choice, else the first injured part (content order)
     const pulseKey = opts.pulse === undefined ? (entries.find(([, r]) => r === 'injured')?.[0] ?? null) : opts.pulse;
@@ -227,7 +236,9 @@ export class AnatomyLayer {
           v.muted = mute;
           // see-through copies: nerves always; injured parts on condition pages; the selected muscle (a deep one would
           // otherwise be lost under the superficial muscles / bones)
-          if (v.partType === 'nerve' || (opts.xrayInjured && role === 'injured') || role === 'selected') this.addXray(v);
+          // (and a guide's 'primary' structure in highlights mode: the labrum inside the hip joint)
+          if (v.partType === 'nerve' || (opts.xrayInjured && role === 'injured') || role === 'selected' || (this.tintStructures && role === 'primary' && v.kind !== 'muscle'))
+            this.addXray(v);
           this.visuals.push(v);
           any = true;
         }
@@ -716,6 +727,8 @@ export class AnatomyLayer {
         if (role === 'injured') _col.copy(colorOf(base)).lerp(colorOf(this.pal.injured), type === 'spot' ? 1 : 0.78);
         else if (role === 'involved') _col.copy(colorOf(base)).lerp(colorOf(this.pal.involved), v.faded ? 0.95 : 0.72);
         else if (type === 'spot') _col.copy(colorOf(this.roleColor(role, base)));
+        else if (this.tintStructures && (role === 'primary' || role === 'selected')) _col.copy(colorOf(base)).lerp(colorOf(this.pal.muscle), 0.85);
+        else if (this.tintStructures && role === 'secondary') _col.copy(colorOf(base)).lerp(colorOf(this.pal.muscleLight), 0.5);
         else _col.copy(colorOf(base));
         v.belly.copy(_col);
         v.tendon.copy(_col);
@@ -739,6 +752,8 @@ export class AnatomyLayer {
             const cb = colorOf(this.structureColor(b.cushion));
             if (role === 'injured') cm.color.copy(cb).lerp(colorOf(this.pal.injured), 0.78);
             else if (role === 'involved') cm.color.copy(cb).lerp(colorOf(this.pal.involved), 0.72);
+            else if (this.tintStructures && (role === 'primary' || role === 'selected')) cm.color.copy(cb).lerp(colorOf(this.pal.muscle), 0.85);
+            else if (this.tintStructures && role === 'secondary') cm.color.copy(cb).lerp(colorOf(this.pal.muscleLight), 0.5);
             else cm.color.copy(cb);
             if (role === 'involved') {
               cm.emissive.copy(colorOf(this.pal.involved));

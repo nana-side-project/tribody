@@ -96,3 +96,51 @@ describe('search ranking', () => {
     expect(ex.every((id) => sprain?.phases.some((p) => p.exercises.includes(id as never)))).toBe(true);
   });
 });
+
+describe('hip and low back words, and guides', () => {
+  const guides = (q: string) => search(q, ['guide']).map((h) => h.id);
+
+  it('finds the hip pinch however it is written (股関節 つまり, 詰まり, つまり)', () => {
+    expect(top('股関節 つまり', 'condition', 1)).toEqual(['hip-impingement']);
+    for (const q of ['詰まり', 'つまり', '付け根 詰まる']) {
+      expect(top(q, 'condition', 1)).toEqual(['hip-impingement']);
+      expect(guides(q)[0]).toBe('hip-pelvis-balance');
+    }
+    // the guide comes right after the condition for the everyday word
+    const ids = search('股関節 つまり').map((h) => h.id);
+    expect(ids.indexOf('hip-pelvis-balance')).toBeLessThan(3);
+  });
+
+  it('answers 反り腰 / そりごし with the guide and the low back pain page, not a separate diagnosis', () => {
+    for (const q of ['反り腰', 'そりごし']) {
+      const ids = search(q).slice(0, 3).map((h) => h.id);
+      expect(ids).toContain('hip-pelvis-balance');
+      expect(ids).toContain('low-back-pain');
+      expect(top(q, 'condition', 1)).toEqual(['low-back-pain']);
+    }
+  });
+
+  it('finds the guide and the iliopsoas strengthening for 腸腰筋 鍛える', () => {
+    const hits = search('腸腰筋 鍛える');
+    expect(hits.slice(0, 3).map((h) => h.id)).toContain('hip-pelvis-balance');
+    expect(top('腸腰筋 鍛える', 'exercise', 3)).toContain('ex-standing-knee-drive');
+    expect(top('ちょうようきん', 'muscle', 1)).toEqual(['iliopsoas']);
+  });
+
+  it('reads 鼠径 / そけい / 鼠蹊 and 臀 / 殿 alike', () => {
+    expect(normalize('鼠蹊部')).toBe(normalize('鼠径部'));
+    expect(normalize('大臀筋')).toBe(normalize('大殿筋'));
+    for (const q of ['鼠径部', 'そけいぶ', '鼠蹊部']) {
+      const ids = top(q, 'condition', 3);
+      expect(ids).toContain('adductor-groin-pain');
+      expect(ids).toContain('hip-impingement');
+    }
+    expect(top('大臀筋', 'muscle', 1)).toEqual(['gluteus-maximus']);
+  });
+
+  it('indexes every guide by its title, headings and text', () => {
+    expect(guides('すぐに受診すべきサイン')[0]).toBe('red-flags');
+    expect(guides('サドル')[0]).toBe('bike-fit');
+    expect(search('アキレス 存在しない語', ['guide'])).toEqual([]);
+  });
+});

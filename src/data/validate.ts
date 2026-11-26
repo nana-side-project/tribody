@@ -19,6 +19,7 @@ import {
   STRUCTURES,
   type ContentOwner,
 } from './registry';
+import type { Guide } from './types';
 
 export interface Issue {
   owner: ContentOwner;
@@ -147,6 +148,13 @@ export function validate(): Issue[] {
   const used = new Set<string>();
   for (const c of conditions) for (const p of c.phases) p.exercises.forEach((e) => used.add(e));
   for (const m of muscles) [...m.strengthen, ...m.stretch].forEach((e) => used.add(e));
+  // an exercise a guide lists (its menu, a 3D view of its clip) is offered to the user there
+  for (const g of guides)
+    for (const s of g.sections)
+      for (const b of s.blocks ?? []) {
+        if (b.kind === 'exercises') b.ids.forEach((e) => used.add(e));
+        if (b.kind === 'viewer3d' && b.exercise) used.add(b.exercise);
+      }
   for (const e of exercises) {
     const o = ownerOf.exercise.get(e.id) ?? 'E';
     const w = `exercise:${e.id}`;
@@ -157,7 +165,7 @@ export function validate(): Issue[] {
     if (e.cues.length < 1) err(o, w, 'cues is empty');
     if (e.mistakes.length < 1) err(o, w, 'mistakes is empty');
     if (!nonEmpty(e.dose.frequency)) err(o, w, 'dose.frequency is empty');
-    if (!used.has(e.id)) warn(o, w, 'not referenced by any condition phase or muscle');
+    if (!used.has(e.id)) warn(o, w, 'not referenced by any condition phase, muscle or guide');
   }
 
   // ── structures / regions / guides
@@ -167,7 +175,81 @@ export function validate(): Issue[] {
     if (r.keyMuscles.length < 1) err('E', `region:${r.id}`, 'keyMuscles empty');
   }
   for (const g of guides) if (g.sections.length < 1) err('E', `guide:${g.id}`, 'no sections');
+  issues.push(...validateGuides());
 
+  return issues;
+}
+
+/**
+ * Guide blocks and links: every id a block or `related` names exists (registry) and has content where a card or a 3D
+ * view shows it; a 3D block has exactly one source. (Whether a figure's view draws its highlighted parts needs the
+ * diagrams: src/data/guides.test.ts.)
+ */
+export function validateGuides(list: readonly Guide[] = guides): Issue[] {
+  const issues: Issue[] = [];
+  const has = (list: readonly { id: string }[], id: string) => list.some((x) => x.id === id);
+  const part = (id: string) => has(MUSCLES, id) || has(STRUCTURES, id);
+  for (const g of list) {
+    const w = `guide:${g.id}`;
+    const err = (msg: string) => issues.push({ owner: 'E', level: 'error', where: w, msg });
+    const warn = (msg: string) => issues.push({ owner: 'E', level: 'warn', where: w, msg });
+    g.sections.forEach((s, si) => {
+      (s.blocks ?? []).forEach((b, bi) => {
+        const at = `section ${si + 1} block ${bi + 1} (${b.kind})`;
+        switch (b.kind) {
+          case 'figure': {
+            if (!has(REGIONS, b.region)) err(`${at}: unknown region ${b.region}`);
+            if (!b.view) err(`${at}: no view`);
+            const ids = Object.keys(b.highlights ?? {});
+            if (!ids.length) err(`${at}: no highlights`);
+            for (const id of ids) if (!part(id)) err(`${at}: highlight ${id} is not a muscle or structure`);
+            for (const [id, r] of Object.entries(b.highlights ?? {}))
+              if (r !== 'focus' && r !== 'related') err(`${at}: highlight ${id} has role ${String(r)} (focus | related)`);
+            break;
+          }
+          case 'viewer3d': {
+            const sources = [
+              b.exercise && 'exercise',
+              b.muscle && 'muscle',
+              b.condition && 'condition',
+              (b.highlights || b.focus) && 'highlights',
+            ].filter(Boolean);
+            if (sources.length !== 1) err(`${at}: needs exactly one source (exercise | muscle | condition | highlights+focus), got ${sources.join(', ') || 'none'}`);
+            if (b.exercise && !has(exercises, b.exercise)) err(`${at}: exercise ${b.exercise} has no object`);
+            if (b.muscle && !has(muscles, b.muscle)) err(`${at}: muscle ${b.muscle} has no object`);
+            if (b.condition && !has(conditions, b.condition)) err(`${at}: condition ${b.condition} has no object`);
+            if (b.highlights || b.focus) {
+              const ids = Object.keys(b.highlights ?? {});
+              if (!ids.length) err(`${at}: highlights source without highlights`);
+              if (!b.focus) err(`${at}: highlights source without focus (the region to frame)`);
+              else if (!has(REGIONS, b.focus)) err(`${at}: unknown focus region ${b.focus}`);
+              for (const id of ids) if (!part(id)) err(`${at}: highlight ${id} is not a muscle or structure`);
+            }
+            break;
+          }
+          case 'exercises':
+            if (!b.ids.length) err(`${at}: no exercises`);
+            if (new Set(b.ids).size !== b.ids.length) err(`${at}: an exercise is listed twice`);
+            for (const id of b.ids) if (!has(exercises, id)) err(`${at}: exercise ${id} has no object`);
+            break;
+          case 'muscles':
+            if (!b.ids.length) err(`${at}: no muscles`);
+            for (const id of b.ids) if (!has(muscles, id)) err(`${at}: muscle ${id} has no object`);
+            break;
+          case 'conditions':
+            if (!b.ids.length) err(`${at}: no conditions`);
+            for (const id of b.ids) if (!has(conditions, id)) warn(`${at}: condition ${id} has no object yet`);
+            break;
+          default:
+            err(`${at}: unknown block kind`);
+        }
+      });
+    });
+    const r = g.related;
+    for (const id of r?.regions ?? []) if (!has(REGIONS, id)) err(`related region ${id} is unknown`);
+    for (const id of r?.conditions ?? []) if (!has(CONDITIONS, id)) err(`related condition ${id} is unknown`);
+    for (const id of r?.muscles ?? []) if (!has(MUSCLES, id)) err(`related muscle ${id} is unknown`);
+  }
   return issues;
 }
 

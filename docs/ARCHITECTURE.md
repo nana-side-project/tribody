@@ -111,6 +111,25 @@ Contract: `src/svg/types.ts`.
   it as a marker only (`showSpots` + `selectedSpot` without `onSpotSelect`: not tappable, `aria-hidden`) and opens
   on the view its region page showed the spot on (`spotMarkViews`). `/dev/diagrams-review.html?check=1` checks
   `spotSide` on every view.
+- Views are appended, not reordered: the UI picks a default view by `bestView` (ties go to the earlier view),
+  `viewForPart` / `findDiagramFor` take the first view that draws a part, and `pickRegion` switches a condition's
+  figure to another region only for strictly more drawn parts — so a new view at the end of `views` leaves every
+  existing figure as it was unless it draws more of a condition's parts. With four views a region's tab labels must
+  fit a quarter of the 360 px tab row (≈ 5 characters, `.seg--sm`).
+- The low back's `sagittal` view (「横から」) is the one side-on drawing of the lumbar spine and pelvis: standing, seen
+  from the right, authored in cm around the hip-joint centre (sacral slope ≈ 40°, lordosis apex at L3, ASIS above
+  the pubic symphysis). The hip bone is drawn see-through over the spine and sacrum, and the muscles are layered for
+  their relations (multifidus on the arches, erector spinae behind, iliacus and psoas over the pelvis to the lesser
+  trochanter) — a teaching drawing, not a literal projection. It has no hotspots; guide figures use it to show
+  pelvic tilt, the lumbar curve and the path of the psoas.
+- Focal lesions (`Lesion` / `CONDITION_LESIONS` in `src/svg/regions/hip.tsx`, the lower-limb kit): a condition can
+  draw only the damaged stretch of a part in full red (the rest light red) and the zoom frames that zone; a zone
+  that lies under other parts is drawn over them (`<Lesion>`, e.g. the tibial crack under the soleus, the FAI
+  labrum zone under the hip flexors). Drawing changes for one condition stay inside its lesion state, so every
+  other figure renders exactly as before.
+- `/dev/diagrams-review.html?check=1` also lays out every guide figure block (`Guide.sections[].blocks`, focus →
+  'selected', related → 'involved') and every view with all its parts highlighted at once; `&hl=<id>:<role>,…`
+  draws one view with any highlight set.
 
 ## UI (`src/pages`, `src/components`)
 

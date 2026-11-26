@@ -171,6 +171,26 @@ const BIRD_L: Pose = {
 // dead bug: opposite arm overhead + leg straight just above the floor (on top of the hook position in the clip)
 const DEADBUG_R: Pose = { joints: { shoulder_R: { flex: 180, abd: 0, rot: 0 }, hip_L: { flex: 0, abd: 3, rot: 0 }, knee_L: { flex: 0 } } };
 const DEADBUG_L: Pose = { joints: { shoulder_L: { flex: 180, abd: 0, rot: 0 }, hip_R: { flex: 0, abd: 3, rot: 0 }, knee_R: { flex: 0 } } };
+// supine pelvic tilt (engine3d), hook-lying with the bridge's foot spot (heels ~2 fists from the buttocks). The pelvis
+// rocks about its contact with the mat: posterior tilt −10° (low back onto the mat: the lumbar gap 20 → 4 mm, the pubis
+// rises ~3 mm and moves 2 cm toward the head) and a slight anterior tilt +6° (gap 27 mm: a flat hand fits under it).
+// Solved with FK + grounding (shots/engine3d/probe/pt-solve.ts): the heels and forefeet keep their heights and spots
+// (heel anchored), sacrum, upper back and head stay on the mat with T7 / the occiput within 2 mm of their spots, so only
+// the pelvis and the lumbar curve move; the hips / knees follow the pelvis (knees ~7 mm toward the head in the
+// posterior tilt). Arms ~37° out from the sides, palms on the mat at the same spot in every key (pt-arms.ts, < 1 mm):
+// along the sides they lay between the side camera and the pelvis.
+const PT_NEUTRAL: Pose = {
+  root: { rot: [-90, 0, 0] },
+  joints: { lumbar: { flex: 0.44 }, thorax: { flex: -0.5 }, neck: { flex: -9.48 }, hip: { flex: 51.45, abd: 4 }, knee: { flex: 120.27 }, ankle: { dorsi: -22.01 }, shoulder: { flex: -17.42, abd: 36.8 }, elbow: { flex: 4.99 }, wrist: { flex: -2.36 } },
+};
+const PT_POST: Pose = {
+  root: { rot: [-100, 0, 0] },
+  joints: { lumbar: { flex: 16.81 }, thorax: { flex: -6.51 }, neck: { flex: -10.03 }, hip: { flex: 41.23, abd: 4 }, knee: { flex: 118.96 }, ankle: { dorsi: -23.09 }, shoulder: { flex: -17.2, abd: 36.8 }, elbow: { flex: 5.09 }, wrist: { flex: -2.35 } },
+};
+const PT_ANT: Pose = {
+  root: { rot: [-84, 0, 0] },
+  joints: { lumbar: { flex: -8.52 }, thorax: { flex: 1.56 }, neck: { flex: -8.56 }, hip: { flex: 57.37, abd: 4 }, knee: { flex: 120.67 }, ankle: { dorsi: -21.53 }, shoulder: { flex: -18.15, abd: 36.72 }, elbow: { flex: 4.74 }, wrist: { flex: -2.53 } },
+};
 // side plank (knees bent 90°) on the RIGHT forearm (right side down, head toward −X): hips down (start) / lifted
 // to a straight line. Exact mirror of the solved left-forearm version (root rot [x, −y, −z], axial lat negated,
 // R ⇄ L), so the working bottom side is the clip's 'R' side (the engine labels the clip's R side).
@@ -836,6 +856,41 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     frame: ['head:vertex', 'hand:fingertips', 'hand_L:fingertips', 'toes:toe_tips', 'toes_L:toe_tips', 'femur:lateral_epicondyle'],
     sides: 'both',
     highlights: { 'transversus-abdominis': 'primary', 'rectus-abdominis': 'primary', obliques: 'primary', iliopsoas: 'secondary', 'rectus-femoris': 'secondary' },
+  },
+  // supine pelvic tilt (engine3d): hook-lying, exhale and tilt the pelvis back (low back onto the mat, ~1.5 s), hold
+  // 1.2 s, inhale and tilt it slightly forward (a flat hand fits under the low back, ~1.8 s, through neutral without a
+  // stop), then relax back to neutral — one breath ≈ 6 s (the dose's 「1往復4〜6秒」). Only the pelvis and the lumbar
+  // curve move (poses above). Close-up from the right side, a little above: pelvis, lumbar spine and thighs
+  // (focus 'hip' + the lumbar spine), the abdominal wall on top, the gluteus maximus and the low back muscles below.
+  'ex-pelvic-tilt': {
+    id: 'ex-pelvic-tilt',
+    duration: 6,
+    base: 'SUPINE',
+    pose: PT_NEUTRAL,
+    keys: [
+      { t: 0, label: '息を吐きながら、腰を床に近づける' },
+      { t: 0.25, pose: PT_POST, label: '1〜2秒キープ' },
+      { t: 0.45, pose: PT_POST, label: '息を吸いながら、腰を軽く反らす' },
+      { t: 0.6, pose: PT_NEUTRAL, pass: true },
+      { t: 0.75, pose: PT_ANT },
+      { t: 0.8, pose: PT_ANT, label: '力を抜いて真ん中に戻す' },
+    ],
+    loop: 'loop',
+    anchor: { point: 'foot:calcaneus_plantar', axes: 'xz' },
+    ground: true,
+    props: [{ kind: 'mat' }],
+    camera: { dir: [-1, 0.22, 0.05] },
+    focus: 'lowback',
+    frame: ['pelvis:asis', 'pelvis:pubic_symphysis', 'femur:greater_trochanter', 'femur:shaft_ant_mid'],
+    sides: 'both',
+    highlights: {
+      'rectus-abdominis': 'primary',
+      obliques: 'primary',
+      'gluteus-maximus': 'primary',
+      'transversus-abdominis': 'secondary',
+      'erector-spinae': 'secondary',
+      multifidus: 'secondary',
+    },
   },
   // side plank, basic (knee) version, on the right forearm: elbow directly under the shoulder, knees bent 90° and
   // stacked, the top arm resting along the body. From lying on the side (hip on the mat, trunk propped on the

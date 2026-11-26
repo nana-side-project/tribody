@@ -6,6 +6,10 @@
 //   AnatomyViewerProps.side / spot — e.g. ?condition=swimmers-shoulder&spot=shoulder-back&side=left)
 //   &scene=<json> (with ?condition / ?region: merge these fields into that teaching scene for this page only, to try a
 //   camera / frame / ghost before editing scenes.ts, e.g. &scene={"ghost":{"patella":0.4},"minSize":0.2})
+//   &teach=1 (with ?condition: the learning guide's 3D block for that condition — same scene, the painful tissue
+//   'primary' and the contributing parts 'secondary' instead of red / amber)
+//   ?hl=…&focus=<region> without a condition = a region's teaching scene (REGION_SCENES), as the guide's highlights
+//   blocks use it (guide 'focus' → primary, 'related' → secondary), e.g. ?hl=iliopsoas:primary,hip-joint:secondary&focus=hip
 //   ?t=0..1 (freeze) ?cam=front|back|left|right|top|iso|isoBack|isoLeft ?focus=<region>
 //   ?j=shoulder_R.flex:170,elbow_R.flex:90 (joint overrides)  ?labels=0 ?skin=0.25 ?all=1 ?debug=1 [&lm=<bone>] ?coverage=1 ?card=1 (320px card) ?controls=0 ?theme=dark
 // Robustness tests: ?multi=1 (several viewers on one page, one below the fold) · ?remount=<n> (mount/unmount n times)
@@ -46,12 +50,13 @@ if (q.get('theme')) document.documentElement.dataset.theme = q.get('theme')!;
 
 /** &scene=<json>: tuning overrides merged into the page's teaching scene (this page load only; a field set to null is
  *  removed). Unknown condition / region ids or bad JSON only warn. */
-if (q.get('scene') && (q.get('condition') || q.get('region'))) {
+if (q.get('scene') && (q.get('condition') || q.get('region') || q.get('focus'))) {
   try {
     const patch = JSON.parse(q.get('scene')!) as Record<string, unknown>;
     const cid = q.get('condition') as ConditionId | null;
     const table = (cid ? CONDITION_SCENES : REGION_SCENES) as Partial<Record<string, Scene3D>>;
-    const key = cid ?? q.get('region')!;
+    // (?hl=…&focus=<region>: the region's scene, e.g. &scene={"teaching":{…}} for a guide block)
+    const key = cid ?? q.get('region') ?? q.get('focus')!;
     const sc: Record<string, unknown> = { ...(table[key] ?? {}) };
     for (const [k, v] of Object.entries(patch)) {
       if (v === null) delete sc[k];
@@ -106,7 +111,11 @@ function conditionView(id: string) {
     console.warn('unknown condition', id, '— ids:', CONDITIONS.map((x) => x.id).join(' '));
     return null;
   }
-  return { title: c.nameJa, condition: c.id as ConditionId, focus: c.region as RegionId, highlights: conditionHighlights3d(c) };
+  const hl = conditionHighlights3d(c);
+  // &teach=1: the guide's teaching view of the condition (src/components/GuideBlocks.tsx conditionTeachingHighlights):
+  // the same scene, the painful tissue 'primary' (muscle colour, no red, no pulse), the contributing parts 'secondary'
+  if (q.get('teach') === '1') for (const k of Object.keys(hl) as (keyof typeof hl)[]) hl[k] = hl[k] === 'injured' ? 'primary' : 'secondary';
+  return { title: c.nameJa, condition: c.id as ConditionId, focus: c.region as RegionId, highlights: hl };
 }
 
 /** ?region=<id>[&sel=<muscle>]: the region page's 3D props (src/pages/RegionPage.tsx, via the shared

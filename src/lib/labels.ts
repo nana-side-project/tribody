@@ -21,6 +21,7 @@ import {
   type EvidenceLevel,
   type Exercise,
   type ExerciseType,
+  type GuideId,
   type InvolvementRole,
   type PainSpot,
   type RegionId,
@@ -117,6 +118,32 @@ export const partName = (id: string) => {
   return n !== id ? n : (regMus.get(id)?.ja ?? regStruct.get(id)?.ja ?? id);
 };
 export const guideTitle = (id: string) => getGuide(id)?.title ?? regGuide.get(id)?.ja ?? id;
+
+/** What a guide offers besides text (its sections' typed blocks): 2D figures, 3D views, exercises for My Menu. */
+export function guideFeatures(id: string): { figure: boolean; viewer: boolean; exercises: boolean; menu: boolean } {
+  const blocks = (getGuide(id)?.sections ?? []).flatMap((s) => s.blocks ?? []);
+  return {
+    figure: blocks.some((b) => b.kind === 'figure'),
+    viewer: blocks.some((b) => b.kind === 'viewer3d'),
+    exercises: blocks.some((b) => b.kind === 'exercises'),
+    menu: blocks.some((b) => b.kind === 'exercises' && !!b.addToMenu),
+  };
+}
+/** A visual learning guide (figures / 3D / exercise cards in its sections), as opposed to a text-only article. */
+export const isLearnGuide = (id: string) => (getGuide(id)?.sections ?? []).some((s) => (s.blocks?.length ?? 0) > 0);
+
+/** Guides that name this region / condition / muscle in `related` (shown as a link on that page), registry order. */
+export function relatedGuides(kind: 'regions' | 'conditions' | 'muscles', id: string): GuideId[] {
+  return GUIDES.map((g) => g.id).filter((g) => (getGuide(g)?.related?.[kind] as readonly string[] | undefined)?.includes(id));
+}
+
+/** One line on what a learning guide offers, for a link to it: 「図と3Dでしくみを確認・種目をまとめてマイメニューに追加」. */
+export function guideOffer(id: string): string {
+  const f = guideFeatures(id);
+  const look = f.figure && f.viewer ? '図と3Dでしくみを確認' : f.figure ? '図でしくみを確認' : f.viewer ? '3Dでしくみを確認' : '';
+  const act = f.menu ? '種目をまとめてマイメニューに追加' : f.exercises ? 'おすすめの種目' : '';
+  return [look, act].filter(Boolean).join('・') || (getGuide(id)?.summary ?? '');
+}
 
 export const isKnownCondition = (id: string) => regCond.has(id);
 export const isKnownMuscle = (id: string) => regMus.has(id);

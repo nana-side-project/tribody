@@ -15,7 +15,8 @@
 //                                                    than 2 px (&gap=<px> to change), leader lines that cross / touch each other or
 //                                                    run through another label or caption — rendered at the real figure widths of
 //                                                    360 / 390 / 430 px phones (302 / 332 / 372 px), in the plain state and in every
-//                                                    muscle-page (part selected) and condition-page state (bold labels are wider);
+//                                                    muscle-page (part selected), condition-page and guide-figure state (bold labels
+//                                                    are wider; also every part highlighted at once);
 //                                                    every view also for side=left: the same checks, plus the left drawing must be
 //                                                    the mirror image of the right one (parts, hotspots, label boxes), no text drawn
 //                                                    mirrored, and every 右 turned into 左 (and back); and every view with
@@ -23,6 +24,8 @@
 //                                                    mirrored across one midline (or left in place: views without one), still
 //                                                    clear of labels / captions and tappable; the marker-only mode (no
 //                                                    onSpotSelect) draws just the selected spot, not focusable
+//   &hl=<id>:<role>,…                                (with v=) any highlight set, dimOthers (e.g. a guide figure's focus →
+//                                                    selected, related → involved)
 //   &theme=dark|light                                force theme
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -31,7 +34,7 @@ import '../src/styles/tokens.css';
 import '../src/styles/base.css';
 import '../src/styles/components.css';
 import { MUSCLES, PAIN_SPOTS, STRUCTURES, type ConditionId, type MuscleId, type PainSpotId, type RegionId, type StructureId } from '../src/data/registry';
-import { conditions, muscles, structures } from '../src/data';
+import { conditions, guides, muscles, structures } from '../src/data';
 import type { BodyMapProps, Highlights, RegionDiagram } from '../src/svg/types';
 import { getRegionDiagram } from '../src/svg/regions';
 import { bestView, findDiagramFor } from '../src/components/RegionFigure';
@@ -70,6 +73,10 @@ const SIDE = q.get('side') === 'left' ? 'left' : undefined;
 const SPOT_SIDE = q.get('spotSide') === 'left' ? 'left' : undefined;
 /** &sel=<spot>: the condition page's marker — only that spot, not tappable */
 const MARK = q.get('sel') as PainSpotId | null;
+/** &hl=<id>:<role>,…: any highlight set, with dimOthers (e.g. a guide figure: focus → selected, related → involved) */
+const HL: Highlights | undefined = q.get('hl')
+  ? (Object.fromEntries(q.get('hl')!.split(',').map((x) => x.split(':'))) as Highlights)
+  : undefined;
 
 function View({ d, view, hl, dim, mode, zoom, onPick, condition }: { d: RegionDiagram; view: string; hl?: Highlights; dim?: boolean; mode: string; zoom?: string; onPick?: (s: string) => void; condition?: string }) {
   const C = d.Component;
@@ -81,7 +88,7 @@ function View({ d, view, hl, dim, mode, zoom, onPick, condition }: { d: RegionDi
       if (s.closest('.cardx')) s.setAttribute('viewBox', zoom.replace(/,/g, ' '));
     });
   });
-  const h: Highlights | undefined = hl ?? (picked ? { [picked]: 'selected' } : undefined);
+  const h: Highlights | undefined = hl ?? HL ?? (picked ? { [picked]: 'selected' } : undefined);
   return (
     <C
       view={view}
@@ -89,7 +96,7 @@ function View({ d, view, hl, dim, mode, zoom, onPick, condition }: { d: RegionDi
       spotSide={SPOT_SIDE}
       condition={condition as ConditionId | undefined}
       highlights={h}
-      dimOthers={dim ?? !!picked}
+      dimOthers={dim ?? (!!HL || !!picked)}
       showLabels={mode !== 'nolabels'}
       showSpots={mode === 'spots' || !!MARK}
       selectedSpot={MARK ?? sel}
@@ -481,6 +488,23 @@ function mirrorIssues(tag: string, R: Geom, L: Geom): string[] {
   return out;
 }
 
+/**
+ * The figure blocks of the guides on one view, with the highlights the guide page draws (src/components/GuideBlocks.tsx
+ * FIGURE_ROLE: focus → 'selected', related → 'involved'; with dimOthers).
+ */
+function guideFigureStates(r: RegionId, view: string): [string, Highlights][] {
+  const out: [string, Highlights][] = [];
+  for (const g of guides)
+    g.sections.forEach((s, i) =>
+      (s.blocks ?? []).forEach((b) => {
+        if (b.kind !== 'figure' || b.region !== r || b.view !== view) return;
+        const hl = Object.fromEntries(Object.entries(b.highlights).map(([id, role]) => [id, role === 'focus' ? 'selected' : 'involved'])) as Highlights;
+        out.push([`guide ${g.id} §${i + 1}`, hl]);
+      }),
+    );
+  return out;
+}
+
 /** Texts and emphasis (bold labels are wider) of the labels and captions currently drawn. */
 const textKey = (host: HTMLElement) =>
   [...host.querySelectorAll('[class*="-lab"] text, .cap-t, .note-t')]
@@ -608,6 +632,10 @@ function runChecks(): string[] {
         const seen = new Map<string, string[]>([[textKey(host), layoutIssues(host, tag, phone)]]);
         const states: [string, Highlights, ConditionId?][] = [...drawn].map((id) => [`${id} selected`, { [id]: 'selected' } as Highlights]);
         for (const c of conditions.filter((c) => c.region === r)) states.push([`condition ${c.id}`, conditionHighlights(c.id)!.hl, c.id as ConditionId]);
+        // a guide's teaching figure highlights several parts at once (every name bold): all of them, and each figure
+        // block of the guides on this view as the guide page draws it
+        if (drawn.size > 1) states.push(['every part highlighted', Object.fromEntries([...drawn].map((id) => [id, 'selected'])) as Highlights]);
+        for (const [name, hl] of guideFigureStates(r, v.id)) states.push([name, hl]);
         for (const [name, hl, cid] of states) {
           render(<C view={v.id} {...sx} highlights={hl} condition={cid} dimOthers />);
           const key = textKey(host);

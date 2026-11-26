@@ -521,7 +521,9 @@ export class Engine {
       scope = { ...spec.highlights };
       // teaching scene: the condition's own; on a region page (highlights + focus, no condition) the region's — with
       // the variant for the pain spot the user tapped (its camera / crop shows that part of the problem)
-      scene = sceneFor(spec.condition ? CONDITION_SCENES[spec.condition] : spec.focus ? REGION_SCENES[spec.focus] : undefined, spec.spot);
+      // A learning guide's highlights block (focus parts 'primary', no condition) gets the region scene's teaching variant
+      const teaching = !spec.condition && Object.values(spec.highlights).includes('primary');
+      scene = sceneFor(spec.condition ? CONDITION_SCENES[spec.condition] : spec.focus ? REGION_SCENES[spec.focus] : undefined, spec.spot, teaching);
       for (const [id, r] of Object.entries(scene?.roles ?? {}) as [PartId, Highlight3DRole][]) if (scope[id]) scope[id] = r;
       const ids = Object.keys(scope) as PartId[];
       const injured = ids.filter((id) => scope[id] === 'injured');
@@ -599,6 +601,7 @@ export class Engine {
       ghosts: !!spec.all,
       fade: scene?.fade,
       xrayInjured: this.mode === 'highlights',
+      tintStructures: this.mode === 'highlights',
       sidesOf,
       pulse,
       zones,

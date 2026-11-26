@@ -13,9 +13,9 @@ Both sides must agree: `PainSpot.conditions` (owner E, in this order with this l
 | neck-back | cyclist-neck-pain (common) |
 | lowback-center | low-back-pain (common) |
 | hip-outer | gluteal-tendinopathy (common) |
-| hip-front | hip-flexor-pain (common), adductor-groin-pain (possible) |
-| groin-inner | adductor-groin-pain (common), hip-flexor-pain (possible) |
-| buttock-deep | deep-gluteal-syndrome (common), proximal-hamstring-tendinopathy (possible), low-back-pain (possible) |
+| hip-front | hip-flexor-pain (common), hip-impingement (possible), adductor-groin-pain (possible) |
+| groin-inner | adductor-groin-pain (common), hip-flexor-pain (possible), hip-impingement (possible) |
+| buttock-deep | low-back-pain (common), deep-gluteal-syndrome (possible), proximal-hamstring-tendinopathy (possible) |
 | sit-bone | proximal-hamstring-tendinopathy (common), deep-gluteal-syndrome (possible) |
 | knee-front | patellofemoral-pain (common), patellar-tendinopathy (possible) |
 | knee-below | patellar-tendinopathy (common), patellofemoral-pain (possible) |
@@ -47,6 +47,7 @@ Resulting `Condition.painSpots`:
 | deep-gluteal-syndrome | buttock-deep, sit-bone |
 | proximal-hamstring-tendinopathy | sit-bone, buttock-deep |
 | adductor-groin-pain | groin-inner, hip-front |
+| hip-impingement | hip-front, groin-inner |
 | patellofemoral-pain | knee-front, knee-below |
 | itb-syndrome | knee-outer |
 | patellar-tendinopathy | knee-below, knee-front |

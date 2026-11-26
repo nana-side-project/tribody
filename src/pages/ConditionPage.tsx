@@ -6,7 +6,6 @@ import {
   getStructure,
   type Condition,
   type ConditionId,
-  type GuideId,
   type Involvement,
   type PainSpotId,
   type PhaseId,
@@ -16,11 +15,10 @@ import {
 import { regionDiagrams } from '../svg/regions';
 import { BottomSheet } from '../components/BottomSheet';
 import { DisciplineBadges, EvidenceBadge, RoleBadge } from '../components/badges';
-import { ExerciseCard } from '../components/cards';
+import { ExerciseCard, GuideLink } from '../components/cards';
 import {
   DISCIPLINE_ICON,
   IconAlert,
-  IconBook,
   IconBulb,
   IconChevron,
   IconFlag,
@@ -40,7 +38,7 @@ import {
   SIDE_JA,
   STRUCTURE_KIND_JA,
   conditionName,
-  guideTitle,
+  guideOffer,
   isKnownCondition,
   isKnownMuscle,
   isKnownSpot,
@@ -48,6 +46,7 @@ import {
   partName,
   registryConditionRegion,
   regionName,
+  relatedGuides,
   spotLabel,
 } from '../lib/labels';
 import { isFramed } from '../lib/framed';
@@ -115,6 +114,8 @@ const CONDITION_VIEW: Partial<Record<ConditionId, { region: RegionId; view: stri
   'achilles-insertional': { region: 'ankle', view: 'lateral' },
   'metatarsal-stress-fracture': { region: 'foot', view: 'top' },
   'low-back-pain': { region: 'lowback', view: 'back' },
+  // the only view that draws the labrum and the joint (its section inset)
+  'hip-impingement': { region: 'hip', view: 'front' },
   'patellofemoral-pain': { region: 'knee', view: 'front' },
   'cyclist-neck-pain': { region: 'neck', view: 'side' },
 };
@@ -488,6 +489,10 @@ function ConditionView({ c }: { c: Condition }) {
               <p key={i}>{p}</p>
             ))}
           </div>
+          {/* a learning guide on this problem's anatomy and how to train around it (Guide.related.conditions) */}
+          {relatedGuides('conditions', c.id).map((g) => (
+            <GuideLink key={g} id={g} sub={guideOffer(g)} />
+          ))}
         </Section>
       )}
 
@@ -801,20 +806,6 @@ function StructureSheetBody({
         </p>
       )}
     </div>
-  );
-}
-
-/** A guide that explains how to do what the plan asks (walk-run restart, bike position, strength dosing). */
-function GuideLink({ id, sub }: { id: GuideId; sub: string }) {
-  return (
-    <Link to={`/guide/${id}`} className="guide-link">
-      <IconBook />
-      <span className="grow">
-        <span className="guide-link__title">{guideTitle(id)}</span>
-        <span className="guide-link__sub">{sub}</span>
-      </span>
-      <IconChevron className="chev" />
-    </Link>
   );
 }
 

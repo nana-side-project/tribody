@@ -13,7 +13,7 @@ import {
   type GuideId,
   type MuscleId,
 } from '../data';
-import { conditionName, doseShort, exerciseName, guideTitle, muscleName } from '../lib/labels';
+import { conditionName, doseShort, exerciseName, guideFeatures, guideTitle, muscleName } from '../lib/labels';
 import { DisciplineBadges, LevelBadge, LikelihoodBadge, TypeBadge, Wip } from './badges';
 import { IconBalance, IconBolt, IconBook, IconChevron, IconDumbbell, IconPulse, IconStretch } from './icons';
 import { prefetchViewer } from './Viewer3D';
@@ -160,20 +160,48 @@ export function ExerciseCard({
   );
 }
 
-export function GuideCard({ id }: { id: GuideId }) {
+export function GuideCard({ id, features = false }: { id: GuideId; /** a learning guide: say what it offers (図解・3D・メニュー) */ features?: boolean }) {
   const g = getGuide(id);
+  const f = features ? guideFeatures(id) : null;
+  const tags = f ? [f.figure && '図解', f.viewer && '3D', f.menu ? 'マイメニューに追加できる種目' : f.exercises && '種目'].filter(Boolean) : [];
   return (
-    <Link to={`/guide/${id}`} className="card">
+    <Link to={`/guide/${id}`} className={`card${features ? ' guide-card--learn' : ''}`}>
       <div className="card__row">
-        <span className="ex-card__icon" aria-hidden="true">
+        <span className={`ex-card__icon${features ? ' ex-card__icon--strength' : ''}`} aria-hidden="true">
           <IconBook />
         </span>
         <div className="grow">
           <p className="card__title">{guideTitle(id)}</p>
           {g ? <p className="card__text clamp-2" style={{ marginTop: 4 }}>{g.summary}</p> : <div className="card__foot" style={{ marginTop: 4 }}><Wip /></div>}
+          {g && tags.length > 0 && (
+            <div className="card__foot">
+              {tags.map((t) => (
+                <span key={t as string} className="badge badge--neutral">
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <IconChevron className="chev" />
       </div>
+    </Link>
+  );
+}
+
+/**
+ * A compact link to a guide inside another page's section (a recovery-plan step, the bike tips, a muscle's 「硬いとき・
+ * 弱いとき」): its title and one line on why to open it.
+ */
+export function GuideLink({ id, sub }: { id: GuideId; sub: string }) {
+  return (
+    <Link to={`/guide/${id}`} className="guide-link">
+      <IconBook />
+      <span className="grow">
+        <span className="guide-link__title">{guideTitle(id)}</span>
+        <span className="guide-link__sub">{sub}</span>
+      </span>
+      <IconChevron className="chev" />
     </Link>
   );
 }

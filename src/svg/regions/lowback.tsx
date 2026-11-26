@@ -8,6 +8,10 @@
 //   front: the abdominal wall from the front — person's RIGHT half (viewer's left) superficial (external
 //         oblique, rectus abdominis with its tendinous intersections; anterior rectus sheath left out),
 //         LEFT half deep (external oblique removed: internal oblique, with a window onto transversus abdominis).
+//   sagittal: lumbar spine and pelvis from the right side (front at the viewer's right), standing — the lumbar curve,
+//         the tilt of the sacrum and pelvis, the psoas from the T12–L4 bodies in front of the hip joint to the lesser
+//         trochanter (iliacus joining it), erector spinae and multifidus behind, rectus abdominis in front, gluteus
+//         maximus, rectus femoris from the AIIS. No hotspots (no midline: spotSide does not apply).
 // Drawing kit lives in ./shoulder.tsx. All artwork is original.
 import type { RegionDiagram, RegionDiagramProps } from '../types';
 import {
@@ -20,6 +24,7 @@ import {
   att,
   band,
   fpt,
+  lerp,
   muscle,
   pl,
   sp,
@@ -35,6 +40,7 @@ import {
   type Lab,
   type P,
   type Spot,
+  type XY,
 } from './shoulder';
 import { once } from './lazy';
 import { MText } from './mirror';
@@ -532,12 +538,382 @@ const LABELS_FRONT: Lab[] = [
   { id: 'pubic-symphysis', t: '恥骨結合', at: [MX, 344], x: MX, y: 375, a: 'middle' },
 ];
 
+/* ═════════════════════════ sagittal view: lumbar spine & pelvis from the right side ═════════════════════════ */
+// Standing, seen from the person's right (front at the viewer's right, as the hip and neck side views). Authored in cm
+// around the right hip-joint centre (x forward, y down) and drawn at 8 units / cm. Proportions from standard sagittal
+// parameters of standing adults: sacral slope ≈ 40°, pelvic tilt ≈ 12° (the S1 endplate centre 11.5 cm from the hip
+// axis), lumbar lordosis L1–S1 ≈ 55° with most of it at L4–S1 and its apex at L3; ASIS ≈ 4.6 cm in front of and 8.3 cm
+// above the hip centre (hip-joint-centre regressions), so that the ASIS sits roughly above the pubic symphysis (anterior
+// pelvic plane about vertical). Midline structures (spine, sacrum, symphysis) are drawn over the hip bone and the
+// muscles are layered from the bone outwards (multifidus on the arches, erector spinae behind, psoas in front of the
+// spine), so their relations read — a see-through drawing, not a literal lateral projection.
+const SG = { x: 176, y: 278, s: 8 };
+const cm = (x: number, y: number): XY => [SG.x + SG.s * x, SG.y + SG.s * y];
+const CM = (s: string): P[] => PS(s).map((q) => (q[2] ? [...cm(q[0], q[1]), 1] : cm(q[0], q[1])) as unknown as P);
+const rad = (d: number) => (d * Math.PI) / 180;
+/** unit vectors of a vertebra tilted `a`° forward from vertical: forward (anterior) and up along its axis */
+const fwd = (a: number): XY => [Math.cos(rad(a)), Math.sin(rad(a))];
+const upw = (a: number): XY => [Math.sin(rad(a)), -Math.cos(rad(a))];
+/** S1 endplate centre (cm) and its tilt: the sacral slope */
+const S1C: XY = [-2.39, -11.25];
+const SS = 40;
+
+interface SegG {
+  kind: 'disc' | 'body';
+  name: string;
+  d: number;
+  h: number;
+  /** tilt of the lower / upper endplate (° forward from vertical of the axis) */
+  a0: number;
+  a1: number;
+  b: XY;
+  t: XY;
+}
+/** Discs and bodies from the S1 endplate up to T12 (cm): depth, mid height, wedge (° anterior taller). */
+const SPINE_S = once((): SegG[] => {
+  const defs: [SegG['kind'], string, number, number, number][] = [
+    ['disc', 'L5/S1', 3.9, 1.2, 14],
+    ['body', 'L5', 3.9, 2.7, 3],
+    ['disc', 'L4/5', 3.8, 1.2, 11],
+    ['body', 'L4', 3.75, 2.7, 2],
+    ['disc', 'L3/4', 3.7, 1.1, 11],
+    ['body', 'L3', 3.65, 2.65, 1],
+    ['disc', 'L2/3', 3.55, 1.0, 9],
+    ['body', 'L2', 3.5, 2.6, 0],
+    ['disc', 'L1/2', 3.45, 0.9, 6],
+    ['body', 'L1', 3.4, 2.5, -2],
+    ['disc', 'T12/L1', 3.3, 0.8, 1],
+    ['body', 'T12', 3.2, 2.4, -3],
+  ];
+  let b = S1C;
+  let a = SS;
+  return defs.map(([kind, name, d, h, w]) => {
+    const a1 = a - w;
+    const m = (a + a1) / 2;
+    const u = upw(m);
+    const t: XY = [b[0] + h * u[0], b[1] + h * u[1]];
+    const s: SegG = { kind, name, d, h, a0: a, a1, b, t };
+    b = t;
+    a = a1;
+    return s;
+  });
+});
+/** point of a segment (cm): s 0 → 1 back → front, v 0 → 1 lower → upper endplate */
+function segAt(g: SegG, s: number, v: number): XY {
+  const f0 = fwd(g.a0);
+  const f1 = fwd(g.a1);
+  const lo: XY = [g.b[0] + (s - 0.5) * g.d * f0[0], g.b[1] + (s - 0.5) * g.d * f0[1]];
+  const hi: XY = [g.t[0] + (s - 0.5) * g.d * f1[0], g.t[1] + (s - 0.5) * g.d * f1[1]];
+  return lerp(lo, hi, v);
+}
+const bodyOf = (name: string) => SPINE_S().find((g) => g.name === name)!;
+/** local frame of a body (cm): u forward from its centre, v up from its centre */
+function local(g: SegG) {
+  const c = segAt(g, 0.5, 0.5);
+  const m = (g.a0 + g.a1) / 2;
+  const f = fwd(m);
+  const up = upw(m);
+  return (u: number, v: number): XY => [c[0] + u * f[0] + v * up[0], c[1] + u * f[1] + v * up[1]];
+}
+/** vertebral body outline: slightly concave walls and endplates, rounded corners */
+const bodyPath = (g: SegG) =>
+  sp(
+    (
+      [
+        [0.07, 0], [0.5, 0.03], [0.93, 0], [1, 0.08], [0.975, 0.5], [1, 0.92], [0.93, 1], [0.5, 0.97], [0.07, 1], [0, 0.92], [0.02, 0.5], [0, 0.08],
+      ] as const
+    ).map(([s, v]) => cm(...segAt(g, s, v))),
+  );
+/** disc: reaches a little into the bodies (drawn over it), bulges a little front and back */
+const discPath = (g: SegG) =>
+  sp(([[0.03, -0.25], [0.97, -0.25], [1.035, 0.5], [0.97, 1.25], [0.03, 1.25], [-0.03, 0.5]] as const).map(([s, v]) => cm(...segAt(g, s, v))));
+const nucleusPath = (g: SegG) =>
+  sp(([[0.3, 0.5], [0.44, 0.2], [0.6, 0.24], [0.66, 0.5], [0.6, 0.78], [0.44, 0.8]] as const).map(([s, v]) => cm(...segAt(g, s, v))));
+/**
+ * Posterior arch of a lumbar vertebra (pedicle, articular processes, lamina, spinous process) in its local frame, cm from
+ * the body centre: the spinous process ≈ 3 cm beyond the lamina, ≈ 9 cm from the front of the body to its tip.
+ */
+function archPts(g: SegG): P[] {
+  const L = local(g);
+  const p = -g.d / 2;
+  const h = g.h / 2;
+  return (
+    [
+      [p + 0.1, 0.78 * h], [p - 1.0, 0.8 * h], [p - 1.35, h + 0.2], [p - 1.5, h + 0.72, 1], [p - 2.05, h + 0.5], [p - 2.4, h - 0.25], [p - 2.6, 0.45 * h],
+      [p - 4.8, 0.42 * h], [p - 5.5, 0.3 * h, 1], [p - 5.65, -0.4 * h], [p - 5.3, -0.95 * h, 1], [p - 4.3, -0.95 * h], [p - 3.0, -0.75 * h],
+      [p - 2.75, -h - 0.35], [p - 2.45, -h - 0.85, 1], [p - 1.85, -h - 0.55], [p - 1.6, -0.3 * h], [p - 1.0, 0], [p + 0.1, 0, 1],
+    ] as const
+  ).map(([u, v, c]) => (c ? [...cm(...L(u, v)), 1] : cm(...L(u, v))) as unknown as P);
+}
+/** the spinous process alone (drawn again over the multifidus, which fills the gaps between them) */
+function spinousPts(g: SegG): P[] {
+  const L = local(g);
+  const p = -g.d / 2;
+  const h = g.h / 2;
+  return (
+    [
+      [p - 3.2, 0.44 * h], [p - 4.8, 0.42 * h], [p - 5.5, 0.3 * h, 1], [p - 5.65, -0.4 * h], [p - 5.3, -0.95 * h, 1], [p - 4.3, -0.95 * h], [p - 3.2, -0.8 * h],
+    ] as const
+  ).map(([u, v, c]) => (c ? [...cm(...L(u, v)), 1] : cm(...L(u, v))) as unknown as P);
+}
+const LUMBAR = ['L5', 'L4', 'L3', 'L2', 'L1'];
+
+const SAG = once(() => {
+  const segs = SPINE_S();
+  const bodies = segs.filter((g) => g.kind === 'body');
+  const lum = LUMBAR.map(bodyOf);
+  const t12 = bodyOf('T12');
+  return {
+    discs: segs.filter((g) => g.kind === 'disc').map(discPath),
+    nuclei: segs.filter((g) => g.kind === 'disc').map(nucleusPath),
+    lumbar: lum.map((g) => bodyPath(g)),
+    arches: lum.map((g) => sp(archPts(g))),
+    spinous: lum.map((g) => sp(spinousPts(g))).join(''),
+    t12: bodyPath(t12) + sp(archPts(t12)),
+    t12spinous: sp(spinousPts(t12)),
+    bodies,
+  };
+});
+
+/** Sacrum (S1 endplate, SAP of S1, concave pelvic surface, dorsal surface) and coccyx, cm. */
+const SACRUM = once(() => ({
+  bone: sp(
+    CM(
+      '-4.11,-12.7,1 -4.4,-12.95 -4.67,-14.13 -5.1,-14.5 -5.47,-14.42 -6.2,-12.6 -7.07,-10.92 -7.75,-9.2 -8.1,-7.8 -8.2,-6.3 -8.17,-5.15 -7.95,-3.9 -7.68,-2.97 -6.7,-1.28,1 ' +
+        '-5.03,-2.19,1 -5.1,-3.28 -4.85,-4.69 -4.14,-6.17 -2.78,-7.85 -1.6,-9.0 -0.67,-9.8,1',
+    ),
+  ),
+  // transverse ridges (fused S1–S5 bodies) and the sacral canal behind them
+  ridges: [
+    '-3.33,-8.36 -5.1,-10.6',
+    '-4.45,-5.9 -6.3,-7.0',
+    '-4.95,-4.15 -6.75,-4.4',
+    '-5.08,-3.0 -6.6,-2.6',
+  ]
+    .map((s) => sp(CM(s), false))
+    .join(''),
+  canal: sp(CM('-5.1,-13.0 -5.9,-11.0 -6.7,-8.8 -7.05,-6.6 -7.1,-4.6 -6.85,-3.0'), false),
+  coccyx: sp(CM('-6.7,-1.28,1 -6.15,-0.55 -5.35,0.1 -4.6,0.55 -4.0,0.66 -3.95,0.35 -4.35,-0.25 -4.75,-1.05 -5.03,-2.19,1')),
+  coccyxLn: sp(CM('-5.85,-1.55 -5.15,-1.1'), false) + sp(CM('-5.1,-0.45 -4.55,-0.2'), false),
+}));
+
+/** Right hip bone seen from the outside (ilium, ischium, pubis) with the obturator foramen, cm. */
+const HIPBONE = once(() => ({
+  bone: sp(
+    CM(
+      '4.6,-8.3,1 3.6,-10.4 2.0,-12.6 -0.2,-14.4 -2.6,-15.4 -4.8,-15.55 -6.8,-14.7 -8.3,-13.0 -9.1,-11.1 -8.65,-9.9 -8.75,-8.6,1 -7.6,-7.1 -6.1,-5.8 -5.1,-4.4 ' +
+        '-5.0,-2.8 -5.5,-1.3 -6.0,-0.3,1 -5.2,1.0 -4.95,2.6 -4.95,4.0 -4.5,5.6 -3.6,6.9 -2.4,7.3 -1.4,6.8 -0.3,6.1 1.2,5.3 2.6,4.8 3.7,4.5 4.6,3.7 5.15,2.1 5.25,0.6 ' +
+        '4.7,-0.1 3.6,-0.6 2.75,-1.6 2.75,-2.9 3.15,-3.9 3.45,-4.8,1 3.6,-6.0 3.75,-6.9',
+    ),
+  ),
+  obturator: sp(CM('0.0,2.4 0.9,1.4 2.4,1.05 3.6,1.4 4.15,2.3 3.7,3.5 2.5,4.05 1.0,4.0 0.1,3.4')),
+  // acetabular fossa (shadow) and rim
+  fossa: `M${cm(0, 0)[0] - 2.9 * SG.s} ${cm(0, 0)[1]}a${2.9 * SG.s} ${2.9 * SG.s} 0 1 0 ${5.8 * SG.s} 0a${2.9 * SG.s} ${2.9 * SG.s} 0 1 0 ${-5.8 * SG.s} 0Z`,
+  // pelvic brim (arcuate line → pecten pubis), on the inner side
+  brim: sp(CM('-3.4,-10.6 -1.2,-7.6 1.2,-4.9 3.0,-2.5 4.2,-0.9 5.0,0.3'), false),
+  crestLn: sp(CM('3.9,-9.6 2.2,-12.0 -0.2,-13.7 -2.6,-14.7 -4.8,-14.85 -6.7,-14.0'), false),
+}));
+/** Proximal right femur (shaft, neck, greater trochanter, lesser trochanter behind), cm; the head is drawn by hip-joint. */
+const FEMUR_S = once(() =>
+  sp(
+    CM(
+      '-0.4,-1.3 -1.6,-1.55 -2.55,-0.9 -2.95,0.5 -2.75,2.1 -2.5,3.5 -2.55,4.4 -3.25,4.85 -3.45,5.4 -3.15,5.95 -2.45,6.35 -2.35,8.0 -2.3,10.5 -2.3,13.2 0.5,13.2 ' +
+        '0.55,10.5 0.62,8.0 0.75,5.6 1.0,3.8 1.6,2.5 2.1,1.3',
+    ),
+  ),
+);
+const LT_S: XY = [-3.4, 5.35];
+/** hip joint: femoral head and the cartilage of the socket (lunate surface) */
+const HJ_S = once(() => ({
+  head: `M${cm(0, 0)[0] - 2.35 * SG.s} ${cm(0, 0)[1]}a${2.35 * SG.s} ${2.35 * SG.s} 0 1 0 ${4.7 * SG.s} 0a${2.35 * SG.s} ${2.35 * SG.s} 0 1 0 ${-4.7 * SG.s} 0Z`,
+  socket: tube(
+    Array.from({ length: 13 }, (_, j) => {
+      const a = rad(150 + (j / 12) * 250);
+      return cm(2.62 * Math.cos(a), 2.62 * Math.sin(a));
+    }),
+    0.42 * SG.s,
+  ),
+}));
+
+/** Muscles of the sagittal view (cm landmarks; geometry in units). */
+const SGM = once(() => {
+  const lum = LUMBAR.map(bodyOf);
+  const t12 = bodyOf('T12');
+  const behind = (g: SegG, back: number, v = 0) => cm(...local(g)(-g.d / 2 - back, v));
+  // erector spinae: a long column behind the spinous processes, from its aponeurosis on the sacrum / iliac crest up
+  const esC: P[] = [cm(-8.95, -9.2), ...lum.map((g) => behind(g, 5.95)), behind(t12, 5.95), behind(t12, 5.95, 3.6)];
+  const es = strap({ c: esC, w: [1.9, 2.7, 3.05, 3.25, 3.3, 3.25, 3.2, 3.2].map((w) => w * SG.s), n: 9 });
+  // multifidus: on the laminae and between the spinous processes, from the dorsal sacrum / mammillary processes up to
+  // spinous processes two to four levels higher (fibres running up and back)
+  const mam = (g: SegG) => cm(...local(g)(-g.d / 2 - 2.05, g.h / 2 + 0.35));
+  const spi = (g: SegG) => cm(...local(g)(-g.d / 2 - 4.85, -g.h / 2 + 0.1));
+  const [L5, L4, L3, L2, L1] = lum;
+  const mo: XY[] = [cm(-7.55, -3.9), cm(-7.8, -6.6), cm(-7.1, -9.9), mam(L5), mam(L4), mam(L3), mam(L2), mam(L1)];
+  const mi: XY[] = [spi(L5), cm(...local(L5)(-L5.d / 2 - 4.9, 0.35)), spi(L4), spi(L3), spi(L2), spi(L1), spi(t12), cm(...local(t12)(-t12.d / 2 - 4.6, 1.6))];
+  const mf = muscle({ o: mo, i: mi, c: mo.map((q, j) => lerp(q, mi[j], 0.5)), n: 16 });
+  // psoas major: along the front of the T12–L4 bodies, over the pelvic brim, in front of the hip joint, its tendon
+  // turning back to the lesser trochanter
+  const psoas = strap({
+    c: CM('-0.5,-31.0 0.9,-28.2 1.9,-24.8 2.4,-21.0 2.05,-16.9 1.2,-13.2 0.95,-10.2 1.5,-7.1 2.35,-4.3 2.9,-1.7 3.05,0.4 2.5,2.3 1.05,3.85 -1.0,4.85 -2.9,5.3'),
+    w: [1.1, 1.7, 2.2, 2.6, 2.9, 2.9, 2.6, 2.25, 1.8, 1.45, 1.2, 1.0, 0.9, 0.85, 0.75].map((w) => w * SG.s),
+    t1: 0.74,
+    n: 7,
+  });
+  // iliacus: from the iliac fossa / inner lip of the crest, converging on the psoas tendon in front of the hip
+  const iliacus = muscle({
+    o: CM('4.05,-9.35 2.9,-11.3 1.9,-12.5 0.9,-13.4'),
+    i: CM('3.75,-1.6 3.55,-0.9 3.35,-0.2 3.1,0.5'),
+    c: CM('4.3,-5.4 3.55,-6.5 2.7,-7.3 1.9,-7.9'),
+    t1: 0.9,
+    n: 9,
+  });
+  // gluteus maximus: from the posterior iliac crest, sacrum and coccyx down and forward to the iliotibial band and the
+  // gluteal tuberosity; its free border is the buttock
+  const gmax = muscle({
+    o: CM('-9.75,-12.4 -10.4,-9.8 -11.2,-6.8 -11.8,-3.8 -11.9,-0.8 -11.2,2.2 -9.6,4.9'),
+    i: CM('-1.95,-0.6 -2.35,0.9 -2.55,2.4 -2.5,3.9 -2.4,5.4 -2.35,6.9 -2.3,8.4'),
+    c: CM('-6.4,-6.0 -6.9,-4.0 -7.4,-2.0 -7.7,0.4 -7.4,2.8 -6.6,5.0 -5.4,7.4'),
+    n: 12,
+  });
+  // rectus femoris: from the AIIS (straight head), down the front of the thigh
+  const rf = strap({
+    c: CM('3.5,-4.8 3.8,-2.4 3.95,0.4 3.9,3.5 3.95,7.0 4.0,10.5 4.05,14.0'),
+    w: [0.7, 0.75, 0.9, 1.45, 2.05, 2.35, 2.35].map((w) => w * SG.s),
+    t0: 0.06,
+    n: 8,
+  });
+  // rectus abdominis: a flat band down the front of the belly, from the ribs (above this crop) to the pubic crest
+  const ra = strap({
+    c: CM('4.95,0.25 5.6,-1.4 6.75,-4.6 8.05,-9.0 9.2,-14.0 9.75,-19.2 9.7,-24.2 9.15,-29.4 8.4,-34.6'),
+    w: [0.62, 0.8, 0.95, 1.05, 1.1, 1.1, 1.05, 1.0, 1.0].map((w) => w * SG.s),
+    t0: 0.04,
+    n: 4,
+  });
+  return { es, mf, psoas, iliacus, gmax, rf, ra };
+});
+const SKIN_SAG = once(() =>
+  sp(CM('-11.6,-35 -11.9,-31 -11.3,-27.5 -10.6,-24 -10.25,-20.5 -10.4,-17 -11.0,-13.5 -11.8,-9.6 -12.5,-6.0 -12.85,-2.0 -12.4,1.8 -10.8,5.0 -9.0,6.9 -8.4,9.0 -8.3,13.5'), false) +
+  sp(CM('9.6,-35 10.4,-29 10.95,-23 11.0,-18 10.4,-13.0 9.3,-8.8 7.9,-5.0 6.7,-2.2 6.4,0.2 6.7,3.5 6.95,8.0 7.0,13.5'), false),
+);
+const ASIS_S = once(() => sp(CM('4.15,-8.75 4.75,-8.85 5.05,-8.35 4.8,-7.8 4.2,-7.85')));
+/** pubic body at the symphysis (where the rectus abdominis attaches) */
+const PUBIS_S = once(() => sp(CM('3.75,-0.35 4.75,-0.2 5.3,0.5 5.25,2.2 4.65,3.85 3.7,4.5 3.05,3.85 3.2,2.0 3.35,0.5')));
+
+function SagittalView({ k }: { k: Ctx }) {
+  const s = SAG();
+  const m = SGM();
+  return (
+    <>
+      <Ctxt k={k}>
+        <path className="skin" d={SKIN_SAG()} />
+      </Ctxt>
+      <Ctxt k={k}>
+        <path className="bone" d={SACRUM().bone} />
+        <path className="bone-ln" d={SACRUM().ridges + SACRUM().canal} />
+        <path className="bone" d={SACRUM().coccyx} />
+        <path className="bone-ln" d={SACRUM().coccyxLn} />
+      </Ctxt>
+      <Part k={k} id="intervertebral-disc">
+        {s.discs.slice(0, 5).map((d, i) => (
+          <path key={i} className="cart" d={d} />
+        ))}
+        {s.nuclei.slice(0, 5).map((d, i) => (
+          <path key={`n${i}`} className="nucleus" d={d} />
+        ))}
+      </Part>
+      <Ctxt k={k}>
+        <path className="cart" d={s.discs[5]} />
+        <path className="bone" d={s.t12} />
+      </Ctxt>
+      <Part k={k} id="lumbar-spine">
+        {s.lumbar.map((d, i) => (
+          <g key={i}>
+            <path className="bone" d={s.arches[i]} />
+            <path className="bone" d={d} />
+          </g>
+        ))}
+      </Part>
+      <Part k={k} id="multifidus">
+        <M g={m.mf} deep />
+      </Part>
+      <Ctxt k={k}>
+        <path className="bone" d={s.t12spinous} />
+      </Ctxt>
+      <Part k={k} id="lumbar-spine">
+        <path className="bone" d={s.spinous} />
+      </Part>
+      <Part k={k} id="erector-spinae">
+        <M g={m.es} />
+      </Part>
+      {/* the right hip bone is the nearest bone: drawn see-through over the midline structures behind it */}
+      <Ctxt k={k}>
+        <path className="bone" d={HIPBONE().bone + HIPBONE().obturator} fillRule="evenodd" style={{ fillOpacity: 0.5 }} />
+        <path className="bone-sh" d={HIPBONE().fossa} />
+        <path className="bone-ln" d={HIPBONE().brim} />
+      </Ctxt>
+      <Part k={k} id="gluteus-maximus">
+        <M g={m.gmax} />
+      </Part>
+      <Ctxt k={k}>
+        <path className="bone" d={FEMUR_S()} />
+      </Ctxt>
+      <Part k={k} id="hip-joint">
+        <path className="bone" d={HJ_S().head} />
+        <path className="cart" d={HJ_S().socket} />
+      </Part>
+      <Ctxt k={k}>
+        <path className="bone" d={PUBIS_S()} />
+      </Ctxt>
+      {/* iliopsoas over the see-through hip bone: iliacus (lining the inside of the iliac wing), then rectus femoris from
+          the AIIS in front of it, then the psoas on top, so its tendon shows all the way to the lesser trochanter */}
+      <Part k={k} id="iliopsoas">
+        <M g={m.iliacus} deep />
+      </Part>
+      <Part k={k} id="rectus-femoris">
+        <M g={m.rf} />
+      </Part>
+      <Part k={k} id="iliopsoas">
+        <M g={m.psoas} />
+      </Part>
+      <Ctxt k={k}>
+        {/* the outline of the hip bone, seen through the muscles in front of it */}
+        <path className="ghost" d={HIPBONE().bone} />
+      </Ctxt>
+      <Part k={k} id="rectus-abdominis">
+        <M g={m.ra} />
+      </Part>
+      <Part k={k} id="asis">
+        <path className="bone" d={ASIS_S()} />
+      </Part>
+    </>
+  );
+}
+
+const LABELS_SAG = once((): Lab[] => [
+  { id: 'erector-spinae', t: '脊柱\n起立筋', at: cm(-9.6, -24), x: 62, y: 70, a: 'end' },
+  { id: 'multifidus', t: '多裂筋', at: cm(-6.8, -15.5), x: 62, y: 150, a: 'end' },
+  { id: 'lumbar-spine', t: '腰椎', at: cm(-2.5, -21.5), x: 62, y: 112, a: 'end' },
+  { t: '仙骨', at: cm(-4.9, -7.6), x: 62, y: 214, a: 'end' },
+  { id: 'gluteus-maximus', t: '大殿筋', at: cm(-10.2, 0.5), x: 62, y: 290, a: 'end' },
+  { t: '小転子', at: cm(...LT_S), x: 62, y: 338, a: 'end' },
+  { id: 'intervertebral-disc', t: '椎間板', at: cm(0.1, -15.8), x: 290, y: 150 },
+  { id: 'rectus-abdominis', t: '腹直筋', at: cm(9.7, -21), x: 290, y: 108 },
+  { id: 'iliopsoas', t: '大腰筋', at: cm(2.1, -24.6), x: 290, y: 66 },
+  { id: 'iliopsoas', t: '腸骨筋', at: cm(2.85, -8.4), x: 290, y: 190 },
+  { id: 'asis', t: '上前\n腸骨棘', at: cm(4.9, -8.3), x: 290, y: 220 },
+  { id: 'hip-joint', t: '股関節', at: cm(1.2, -0.8), x: 290, y: 262 },
+  { t: '恥骨', at: cm(4.7, 1.6), x: 290, y: 300 },
+  { id: 'rectus-femoris', t: '大腿直筋', at: cm(4.4, 8), x: 290, y: 340 },
+]);
+
 /* ═════════════════════════ component & export ═════════════════════════ */
 
+// (tab labels: with four views each fits a quarter of the 360 px phone's tab row, ≈ 5 characters — see .seg--sm)
 const VIEWS = [
   { id: 'back', label: '後ろから' },
-  { id: 'side', label: '輪切り（断面）' },
+  { id: 'side', label: '輪切り' },
   { id: 'front', label: 'おなか側' },
+  { id: 'sagittal', label: '横から' },
 ];
 
 /**
@@ -564,9 +940,47 @@ const OI_LB_SEC = once((): OIMap => ({
   },
 }));
 
+/**
+ * Sagittal view: psoas from the T12–L1 bodies (iliacus from the iliac crest / fossa) to the lesser trochanter; erector
+ * spinae from its aponeurosis on the sacrum (insertion above this crop); multifidus from the dorsal sacrum / mammillary
+ * processes to the spinous processes; gluteus maximus from the posterior crest, sacrum and coccyx to the iliotibial band
+ * and gluteal tuberosity; rectus femoris from the AIIS (insertion below the crop); rectus abdominis from the pubic crest
+ * (insertion on the ribs above the crop).
+ */
+const OI_LB_SAG = once((): OIMap => {
+  const m = SGM();
+  const box = [4, 30, 356, 344] as const;
+  const o = oiFrom({ 'erector-spinae': m.es, 'rectus-femoris': m.rf, 'rectus-abdominis': m.ra }, box);
+  return {
+    ...o,
+    // psoas from the T12–L4 bodies (three dots down its origin), iliacus from the iliac crest / fossa
+    iliopsoas: { o: [0, 0.14, 0.28].flatMap((t) => att(m.psoas, 'o', 0.15, t)).concat(att(m.iliacus, 'o', 0.12)), i: att(m.psoas, 'i', 0.5) },
+    multifidus: { o: att(m.mf, 'o', [0.1, 0.6]), i: att(m.mf, 'i', [0.3, 0.85]) },
+    'gluteus-maximus': { o: [cm(-9.6, -11.6), cm(-8.6, -6.4), cm(-6.3, -1.0)], i: att(m.gmax, 'i', [0.15, 0.7]) },
+  };
+});
+
 function LowbackDiagram(p: RegionDiagramProps) {
   const k = useCtx(p);
-  const view = p.view === 'side' || p.view === 'front' ? p.view : 'back';
+  const view = p.view === 'side' || p.view === 'front' || p.view === 'sagittal' ? p.view : 'back';
+  if (view === 'sagittal') {
+    return (
+      <Frame
+        k={k}
+        p={p}
+        w={W}
+        h={H}
+        title="腰と骨盤を右横から見た図（立った姿勢。腰椎はゆるく前へカーブし、骨盤はやや前に傾いています。腸腰筋は腰椎から股関節の前を通り、太ももの骨の内側の小転子に付きます。筋肉は重なりがわかるように描いています）"
+        cap={['← 背中側', '右横から・おなか側 →']}
+        labels={LABELS_SAG()}
+        spots={[]}
+        fade={[28, 34]}
+        oi={OI_LB_SAG()}
+      >
+        <SagittalView k={k} />
+      </Frame>
+    );
+  }
   if (view === 'front') {
     return (
       <Frame
@@ -676,11 +1090,24 @@ const diagram: RegionDiagram = {
       'iliopsoas',
     ],
     front: ['rectus-abdominis', 'obliques', 'transversus-abdominis', 'pubic-symphysis', 'asis'],
+    sagittal: [
+      'lumbar-spine',
+      'intervertebral-disc',
+      'iliopsoas',
+      'erector-spinae',
+      'multifidus',
+      'rectus-abdominis',
+      'gluteus-maximus',
+      'rectus-femoris',
+      'asis',
+      'hip-joint',
+    ],
   },
   spots: {
     back: ['lowback-center'],
     side: ['lowback-center'],
     front: [],
+    sagittal: [],
   },
   Component: LowbackDiagram,
 };

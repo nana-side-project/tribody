@@ -32,8 +32,8 @@ You describe anatomy declaratively (TypeScript data, fully typed); the engine do
 | `src/three/rig-data/r2-trunk-thigh.ts` | rigging r2 | trunk / neck muscles (deep-neck-flexors, erector-spinae, multifidus, transversus-abdominis, obliques, rectus-abdominis, quadratus-lumborum) + thigh muscles (rectus-femoris, vasti, hamstrings) + spine structures (thoracic/cervical/lumbar spine, disc, SI joint, thoracolumbar fascia) + knee structures |
 | `src/three/rig-data/r3-hip.ts` | rigging r3 | hip muscles (gluteals, piriformis, iliopsoas, TFL, adductors, gracilis, sartorius) + hip structures |
 | `src/three/rig-data/r4-leg-foot.ts` | rigging r4 | leg / foot muscles (gastrocnemius, soleus, tibialis anterior/posterior, fibularis, FHL, abductor hallucis, FDB) + calf / ankle / foot structures |
-| `src/three/clips/k1-upper-core.ts` | clip k1 | shoulder / neck / core exercises (owner A + E in the registry) |
-| `src/three/clips/k2-hip.ts` | clip k2 | hip exercises (owner B) |
+| `src/three/clips/k1-upper-core.ts` | clip k1 | shoulder / neck / core exercises (owner A + E in the registry; incl. the supine `ex-pelvic-tilt`) |
+| `src/three/clips/k2-hip.ts` | clip k2 | hip exercises (owner B; incl. `ex-quadruped-rockback`) |
 | `src/three/clips/k3-knee-foot.ts` | clip k3 | knee exercises (owner C except calf ones) + foot exercises (`ex-short-foot`, `ex-plantar-fascia-stretch`, `ex-towel-heel-raise`) |
 | `src/three/clips/k4-calf-ankle.ts` | clip k4 | calf exercises (`ex-calf-raise-*`, `ex-isometric-calf-hold`, `ex-gastroc-stretch`, `ex-soleus-stretch`, `ex-tibialis-raise`, `ex-pogo-hops`) + ankle exercises (owner D except the 3 foot ones; incl. `ex-eccentric-heel-drop` and the floor-level `ex-heel-drop-floor`) |
 | `rig-data/index.ts`, `clips/index.ts`, `rig-data/types.ts`, `clips/types.ts` | engine | merge files & types — don't edit |
@@ -842,6 +842,18 @@ single `setTime()` frame. Flat strands (`flat: {…}`) are shaded with a gently 
 sheet at rest looks like the round strands next to it (not uniformly dark = "contracted").
 Non-scope muscles are hidden (`?all=1` shows every rigged muscle faintly).
 
+**Structures in the learning guide's roles** (`ScopeOptions.tintStructures`, highlights mode only): a learning guide
+shows a condition's painful tissue as `primary` and the contributing parts as `secondary` (no red: it is a lesson, not
+a diagnosis — `src/components/GuideBlocks.tsx`), and its own 3D blocks mark parts `primary` (「注目」) / `secondary`
+(「関係」). A structure in its own pale colour (the labrum's cartilage, a tendon) vanished against the bones there, so
+in highlights mode a `primary` (or `selected`) structure is tinted toward `--muscle` (85 %), a `secondary` one toward
+`--muscle-light` (50 %), cushions included, and a `primary` structure gets the see-through copy an injured one gets
+(the labrum inside the hip joint shows through the femoral head). Muscles are unchanged; condition and region pages
+never pass these roles for structures (they pass injured / involved, and secondary / selected muscles), so they are
+pixel-identical (region=hip compared before / after: 0 differing pixels); exercise and muscle views keep structures in
+their own colour (the heel drop's `primary` Achilles tendon stays tendon-coloured).
+Check: `/dev/engine.html?condition=hip-impingement&teach=1`.
+
 ---
 
 ## 7. Structures (`StructureRig`)
@@ -876,6 +888,19 @@ scene, or a scene with `camera: 'rig'` — see below). Flat `normal` is a bone-f
 Condition pages pass `condition={id}` with their `highlights`; region pages pass `focus` + their key muscles. In
 highlights mode the engine then uses a **scene** from `src/three/scenes.ts` (`CONDITION_SCENES[id]`, else
 `REGION_SCENES[focus]` when there is no condition). Exercise and muscle pages never use scenes.
+
+The learning guide (`/guide/hip-pelvis-balance`, `GuideBlocks.tsx`) reuses them: a 3D block with `condition` shows
+that condition's scene with its painful tissue `primary` and the rest `secondary` (harness: `&teach=1`); a block with
+`highlights` + `focus` (guide 「注目」 → `primary`, 「関係」 → `secondary`, no condition) shows `REGION_SCENES[focus]`
+merged with its **`teaching`** variant, if it has one (`sceneFor(scene, spot, teaching)`: base scene ⊕ `teaching` ⊕ the
+spot's variant). The engine takes a view as a guide block when it has no condition and at least one `primary` part —
+region pages only pass `secondary` / `selected`, so they never get the variant. `REGION_SCENES.hip.teaching` (engine3d):
+straight from the right side (`dir [-1, 0.15, 0.1]`, crop L3 → lesser trochanter, `minSize` 0.36), so 「前の腸腰筋、
+後ろの大殿筋、横の中殿筋・小殿筋」 are in one view: the iliopsoas coming down in front of the joint, the gluteus medius /
+minimus fan on the side, the gluteus maximus behind at 0.45 opacity; the right forearm is lifted in front of the waist
+(`shoulder_R` flex 40, `elbow_R` 95) because the hanging arm covered the hip in a side view. The region page's own
+back-oblique view hid the iliopsoas and the joint behind the gluteus maximus. Try one:
+`?hl=iliopsoas:primary,gluteus-medius:primary,hip-joint:secondary&focus=hip&card=1&h=340&scene={"teaching":{…}}`.
 
 What the app passes (src/pages): a condition page maps each `involved` part to `injured` (roles injured / irritated /
 compressed) or `involved` (the rest), in that order — the part whose role is `injured` comes first in the object, so it
@@ -929,6 +954,7 @@ applies to a part the page marks `injured`).
 | `sensitive` | non-damage condition (low back, cyclist's neck, cramps — the content's `anatomyNote` says nothing is damaged and the page's legend reads 「痛みやすい場所」): the red parts are steady, nothing pulses. Default: derived from the content (a condition with an `anatomyNote`), the same rule as the page |
 | `bilateral` | central / bilateral problem drawn on both sides (`low-back-pain`, `cyclist-neck-pain`): `side: 'left'` does not change the view. Every other scene is mirrored for the left side |
 | `spots` | per pain-spot variants: `{ [PainSpotId]: SceneVariant }` — when the user tapped that spot (`AnatomyViewerProps.spot`), these fields replace the scene's own (shallow merge, `sceneFor()`), e.g. a camera / crop that shows that part of the problem. Only spots the default camera does not show well have one (list below) |
+| `teaching` | region scenes only: the variant a learning guide's highlights block gets (a view without a condition that has `primary` parts — region pages never do), merged before the spot's variant. `hip` has one (see above) |
 | `zones` | **lesion zones** (applied only when the page marks the part `injured`): where in a part the problem sits. `{ on, range: [a, b], label }` draws an injured-red cuff over the arc-length fractions a…b of the part's strand (`strand`, default 0; `grow` radius × 1.45) — it follows the strand in every pose; `{ on, at, radius, label }` a spot at a point; neither on a structure with a `spot` part = that spot (the zone then replaces it). The zone carries the part's label (`label`) and the pulse; the rest of the part is drawn `partRole`: `'plain'` (its own colour, default), `'involved'` or `'injured'` (steady) |
 
 Zones in use: `achilles-midportion` `{ on: 'achilles-tendon', range: [0.655, 0.845], label: 'アキレス腱の中央部' }`
@@ -956,6 +982,19 @@ are shown well by the default view and have no entry):
 | `achilles-midportion` · `calf-lower` ふくらはぎの下のほう | the crop reaches up to the middle of the shin (`tibia:medial_border_mid`, `interosseous_mid`, `minSize` 0.26): the lower calf muscles above the tendon in view, their labels on the bellies |
 | `metatarsal-stress-fracture` · `forefoot-ball` 足指の付け根 | the sole of the forefoot (`LONG_SIT`, toes up 20°, `dir [-0.15, 0.1, 1]`, like Morton's neuroma): the fracture spot at the 2nd metatarsal neck through the ball of the foot (the default is the top of the foot) |
 | `low-back-pain` · `buttock-deep` お尻の奥 | crop from T12 down to the sit bone / greater trochanter, a little more from the side (`dir [-0.8, 0.2, -1]`); the gluteus maximus is labelled (not in 「+N」) |
+| `hip-impingement` · `hip-front` 股関節の前 | the same seated posture from the front-lateral (`dir [-0.45, 0.05, 1]`): the front of the joint with the iliopsoas over it and the labrum's front part where the femoral neck meets the rim |
+| `hip-impingement` · `groin-inner` 鼠径部（内側） | from the front, framed down to the pubic symphysis (`dir [-0.35, 0.02, 1]`, `minSize` 0.26): the iliopsoas running over the front of the joint toward the inner groin. A straight front view is blocked by the raised knee |
+
+`hip-impingement` (engine3d) itself: `SIT_CHAIR` with the right thigh drawn up past 90° (`hip_R` flex 108, adduction 10°,
+internal rotation 18°, knee 100°) — putting on a sock, a low chair, the thigh near the chest at the top of the pedal
+stroke — the direction that brings the femoral neck to the front-upper rim. From the right side, a little from the front
+(`dir [-1, 0.12, 0.25]`, crop femoral head / ASIS / AIIS / trochanters / anterior + superior rim, `minSize` 0.24): the
+red labrum ring (the only injured part, so the one pulse) round the femoral head with the neck leaving it toward the
+front-upper rim, the iliopsoas (amber) crossing in front; the gluteals (amber, weak) faded 0.15 / 0.2 / 0.3 so they do
+not cover the joint; the right arm hangs a little behind the hip (`shoulder_R` flex −20 / abd 14 — holding the seat edge
+it stood between the camera and the joint). Not bilateral (mirrored for `side: 'left'`). Tried and dropped: the
+standing knee-to-chest posture (in every lateral view the gluteus maximus strands crossed the joint) and the bike base
+(a different hip angle would detach the fitted pedals).
 
 Checked and kept on the default view (spot → why): swimmers-shoulder top / front (front-lateral close-up shows both),
 biceps front, scapular-dyskinesis medial / back / neck-base (the back view already reaches the skull base: a C3 crop only
@@ -975,7 +1014,8 @@ is the same red, steady. `ghost` bone pieces are ghosted on the view's side (`cc
 
 On top of the scene, every **injured** part in highlights mode gets a see-through copy wherever other anatomy hides
 it (same technique as nerves: drawn after the opaque anatomy with depth test GREATER, so only the hidden stretches
-show, at ~55 % opacity) — an injured tendon or bursa under a superficial muscle is never lost.
+show, at ~55 % opacity) — an injured tendon or bursa under a superficial muscle is never lost. So does a `primary`
+structure (a learning guide's teaching view, §6).
 
 ---
 
@@ -1038,7 +1078,11 @@ show, at ~55 % opacity) — an injured tendon or bursa under a superficial muscl
   visible skin are in `shots/qa3-fix-clips/probe/` — `lib.ts` (patch a key, compile the whole clip, Nelder–Mead), e.g.
   `wallslide-solve.ts`, `hands-wall.ts`, `pup-solve.ts`, `row-solve.ts`, `gastroc-solve.ts`, `side-clip.ts`, and
   `variant.ts` / `keygaps.ts` / `series-gap.ts` / `ratio-series.ts` to check contacts and belly ratios), insert the results as pass
-  keys (the same poses in reverse order on the way back), then re-check the whole cycle with
+  keys (the same poses in reverse order on the way back). engine3d's whole-key solvers for the supine pelvic tilt and
+  the quadruped rock-back are in `shots/engine3d/probe/` (`pt-solve.ts` / `pt-arms.ts`: pelvis pitch given; lumbar,
+  thorax, neck and legs solved so the feet, sacrum, upper back and head keep their spots; `rb-solve.ts`: hip flexion
+  given; pelvis pitch, knees, shoulders and wrists solved with the knees anchored and the palms pinned; `track.ts <clip>
+  <refs> [N] [segs]`: horizontal drift of body points from t = 0 plus contact-gap series). Then re-check the whole cycle with
   `node shots/eng-verify-motion/probe/run.mjs sweep.ts <id…|changed|all>`: visible skin (loft + hands / feet / head)
   against the floor and every prop, joint limits, overshoot, speed at each pass key relative to its run, and every
   body-part ↔ prop contact (min / max gap over the cycle).
@@ -1228,7 +1272,8 @@ Dev server (your own port): `VITE_CACHE_DIR=node_modules/.vite-<PORT> npx vite -
 | `?condition=<id>` | exactly what `/#/condition/<id>` shows in its 3D card (340 px): the condition's scene, its content highlights (roles injured / irritated / compressed → `injured`, the 'injured' tissue first; the rest `involved`, the page's own order — `conditionView()` mirrors `ConditionPage.tsx`), `focus` = its region; the card has the app's 1 px `.viewer-frame` border, so on a 390 px phone the viewer is 356 × 340 like the page's and a screenshot matches `/#/condition/<id>` pixel for pixel (checked on 10 views incl. two `&sel`, ≤ 0.1 % differing pixels). `&card=0` full page, `&h=` card height |
 | `&side=left\|right` `&spot=<pain spot>` | with `?condition` / `?region`: the side / spot the user tapped on the body map (`AnatomyViewerProps.side` / `spot`), e.g. `?condition=swimmers-shoulder&spot=shoulder-back&side=left` |
 | `?region=<id>[&sel=<muscle>]` | the region page's 3D card: key muscles `secondary`, `sel` = the tapped chip (`selected`), framed like the page (a selected muscle whose belly lies outside the crop frames its own first region — `regionView()` mirrors `RegionPage.tsx`) |
-| `&scene=<json>` | with `?condition` / `?region`: merge these fields into that teaching scene for this page load (a field set to `null` is removed) — try a camera, crop, ghost or override before editing `scenes.ts`, e.g. `?condition=patellofemoral-pain&scene={"ghost":{"patella":0.55},"minSize":0.1}` (URL-encode it in scripts) |
+| `&scene=<json>` | with `?condition` / `?region` (or `?hl=…&focus=<region>`): merge these fields into that teaching scene for this page load (a field set to `null` is removed) — try a camera, crop, ghost or override before editing `scenes.ts`, e.g. `?condition=patellofemoral-pain&scene={"ghost":{"patella":0.55},"minSize":0.1}`, or a region's guide variant with `&scene={"teaching":{…}}` (URL-encode it in scripts) |
+| `&teach=1` | with `?condition`: the learning guide's 3D block for that condition — the same scene, the painful tissue `primary` and the contributing parts `secondary` (`conditionTeachingHighlights` in `GuideBlocks.tsx`) instead of red / amber |
 | `?pose=<BASE_POSE>` | static base pose |
 | `?j=shoulder_R.flex:170,elbow_R.flex:90` | joint overrides on top of `?pose` (pose / highlights mode) — great for testing DOFs |
 | `?t=0..1` | **freeze** at a normalised time (deterministic screenshots) |

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { PAIN_SPOTS, REGIONS, getCondition, getExercise, type ExerciseId, type PainSpotId } from '../data';
+import { PAIN_SPOTS, REGIONS, getCondition, getExercise, getGuide, type ExerciseId, type PainSpotId } from '../data';
 import { SafeBodyMap } from '../components/SafeBodyMap';
 import {
   IconAlert,
@@ -26,6 +26,7 @@ import {
   conditionName,
   doseShort,
   exerciseName,
+  guideTitle,
   regionName,
   spotLabel,
   spotViews,
@@ -88,11 +89,18 @@ export default function MenuPage() {
 
 /* ───────────────────────── メニュー ───────────────────────── */
 
-const sourceKey = (it: MenuItem) => (it.from?.condition ? `${it.from.condition}:${it.from.phase ?? ''}` : '');
+/** The group a menu item is shown in: the recovery-plan step or the learning guide it was added from ('' = neither). */
+const sourceKey = (it: MenuItem) =>
+  it.from?.condition ? `${it.from.condition}:${it.from.phase ?? ''}` : it.from?.guide ? `guide:${it.from.guide}` : '';
 
 /** Is the item still part of the recovery-plan step it was added from? (plans change: e.g. the step heel drop left
- * the insertional Achilles plan for the floor-level one) */
+ * the insertional Achilles plan for the floor-level one) Added from a guide: is it still in that guide's lists? */
 function inPlan(it: MenuItem): boolean {
+  if (!it.from?.condition && it.from?.guide) {
+    const g = getGuide(it.from.guide);
+    if (!g) return true;
+    return g.sections.some((s) => s.blocks?.some((b) => b.kind === 'exercises' && b.ids.includes(it.id)));
+  }
   const c = it.from?.condition ? getCondition(it.from.condition) : undefined;
   if (!c) return true; // content not loaded / not from a plan: nothing to contradict
   if (!it.from?.phase) return c.phases.some((p) => p.exercises.includes(it.id));
@@ -105,7 +113,11 @@ function inPlan(it: MenuItem): boolean {
  */
 function sourceLabel(it: MenuItem, note = false): string {
   const c = it.from?.condition;
-  if (!c) return '';
+  if (!c) {
+    const g = it.from?.guide;
+    if (!g) return '';
+    return note && !inPlan(it) ? `${guideTitle(g)}（いまのガイドには含まれていません）` : guideTitle(g);
+  }
   const ph = it.from?.phase;
   const label = `${conditionName(c)}${ph ? `・${PHASE_JA[ph].split(' ')[0]}` : ''}`;
   return note && !inPlan(it) ? `${label}（いまのプランには含まれていません）` : label;
@@ -122,6 +134,7 @@ function exerciseLink(it: MenuItem): string {
  * as a checklist, and a shortcut to log today's pain at that condition's spot.
  */
 function PlanGroupHead({ it }: { it: MenuItem }) {
+  if (!it.from?.condition && it.from?.guide) return <GuideGroupHead it={it} />;
   const c = it.from?.condition ? getCondition(it.from.condition) : undefined;
   const ph = c?.phases.find((p) => p.id === it.from?.phase);
   const label = sourceLabel(it);
@@ -155,7 +168,32 @@ function PlanGroupHead({ it }: { it: MenuItem }) {
   );
 }
 
-/** Menu items grouped by the recovery-plan step they were added from (in menu order); items from elsewhere last. */
+/** Header of the exercises added from a learning guide: a link back to the guide (its menu section, ?section=). */
+function GuideGroupHead({ it }: { it: MenuItem }) {
+  const id = it.from?.guide;
+  if (!id) return null;
+  const g = getGuide(id);
+  // the section whose exercise lists hold this item: the link opens the guide there — the list it can be added from
+  // (「この〇種目をマイメニューに追加」) first, since an exercise can also be shown earlier in the guide (the iliopsoas
+  // stretch in the iliopsoas section and in the menu section)
+  const holds = (addable: boolean) =>
+    g?.sections.findIndex((s) => s.blocks?.some((b) => b.kind === 'exercises' && (!addable || !!b.addToMenu) && b.ids.includes(it.id))) ?? -1;
+  const at = holds(true) >= 0 ? holds(true) : holds(false);
+  return (
+    <div className="menu-group__head">
+      <Link to={`/guide/${id}${at >= 0 ? `?section=${at + 1}` : ''}`} className="menu-group__plan">
+        <span className="grow">
+          <span className="menu-group__kicker">ガイド</span>
+          <span className="menu-group__title">{guideTitle(id)}</span>
+        </span>
+        <IconChevron className="chev" />
+      </Link>
+    </div>
+  );
+}
+
+/** Menu items grouped by the recovery-plan step or the guide they were added from (in menu order); items from elsewhere
+ * last. */
 function groupBySource(items: MenuItem[]) {
   const groups: { key: string; item?: MenuItem; rows: { it: MenuItem; index: number }[] }[] = [];
   items.forEach((it, index) => {
@@ -223,7 +261,7 @@ function MenuTab() {
     toast(`「${exerciseName(it.id)}」を削除しました`, 5000, { label: '元に戻す', onClick: () => menu.restore([{ item: it, index: i }]) });
   };
 
-  // recovery-plan steps the menu was built from (for 「まとめて外す」 in edit mode)
+  // recovery-plan steps and guides the menu was built from (for 「まとめて外す」 in edit mode)
   const sources = useMemo(() => {
     const m = new Map<string, { label: string; items: { item: MenuItem; index: number }[] }>();
     menu.items.forEach((it, index) => {
@@ -247,7 +285,7 @@ function MenuTab() {
         <EmptyState
           icon={<IconChecklist />}
           title="まだメニューがありません"
-          text="障害ページの回復プランや、エクササイズのページから「マイメニューに追加」すると、ここで毎日チェックできます。"
+          text="障害ページの回復プランや、ガイド・エクササイズのページから「マイメニューに追加」すると、ここで毎日チェックできます。"
         >
           <Link to="/" className="btn btn--primary">
             痛む場所から探す
@@ -395,7 +433,7 @@ function MenuTab() {
           {edit && sources.length > 0 && (
             <div className="menu-sources">
               <p className="tiny" style={{ fontWeight: 700 }}>
-                回復プランのステップごとに外す
+                {sources.some((src) => src.key.startsWith('guide:')) ? '追加した回復プラン・ガイドごとに外す' : '回復プランのステップごとに外す'}
               </p>
               {sources.map((src) => (
                 <div key={src.key} className="menu-sources__row">

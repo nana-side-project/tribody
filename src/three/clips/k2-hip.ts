@@ -510,6 +510,22 @@ const HB_HOLD = {
   },
 };
 
+// ── engine3d: quadruped rock-back — from the QUADRUPED base (thighs vertical, flat back) the hips travel back toward
+// the heels to hip flexion 112° with the spine unchanged (lumbar / thoracic 0: the back stays flat, the move happens at
+// the hips only), stopping there — before the low back would start to round. Solved per hip angle with FK + grounding
+// (shots/engine3d/probe/rb-solve.ts): knees anchored, shins and the tops of the feet at their spots (< 0.1 mm), palms
+// flat at their spots (< 1.5 mm), elbows straight (3°), the head in line with the trunk. The trunk barely tilts
+// (pelvis pitch 78.4 → 77.4°): the hips drop on their arc around the knees about as much as the shoulders on theirs
+// around the hands, so the back slides back and down nearly parallel to the floor. 25 / 50 / 75 % poses go in as pass keys.
+const rbKey = (pitch: number, hip: number, knee: number, sh: number, abd: number, elbow: number, wrist: number): Pose => ({
+  root: { rot: [pitch, 0, 0] },
+  joints: { hip: { flex: hip }, knee: { flex: knee }, shoulder: { flex: sh, abd, rot: 15 }, elbow: { flex: elbow }, wrist: { flex: wrist }, neck: { flex: -8 } },
+});
+const RB_25 = rbKey(79.07, 87.25, 97.35, 86.7, -11.94, 2.99, -84.11);
+const RB_50 = rbKey(78.95, 95.5, 105.72, 92.6, -11.92, 3.02, -79.81);
+const RB_75 = rbKey(78.41, 103.75, 114.51, 98.35, -11.86, 3.03, -74.95);
+const RB_BACK = rbKey(77.39, 112, 123.78, 103.87, -11.73, 2.92, -69.59);
+
 export const clips: Partial<Record<ExerciseId, Clip>> = {
   // Glute bridge (sample, refined by K2a): hook-lying → push through the heels → 2 s hold with shoulders–hips–knees
   // in line → lower over ~2.8 s. Feet pinned in xz, body grounded.
@@ -1015,5 +1031,34 @@ export const clips: Partial<Record<ExerciseId, Clip>> = {
     frame: ['head:vertex', 'tibia:plateau', 'tibia_L:plateau', 'foot:talus', 'foot_L:talus', 'hand:palm', 'hand_L:palm'],
     sides: 'R',
     highlights: { piriformis: 'primary', 'gluteus-maximus': 'primary', 'gluteus-medius': 'secondary', 'gluteus-minimus': 'secondary' },
+  },
+  // quadruped rock-back (engine3d): hands under the shoulders, knees under the hips; the hips travel back toward the
+  // heels over 3 s with the back flat (RB_* above), stop before the low back rounds (0.8 s), and return over 3 s while
+  // the hands press the floor; short rest. From the right side, a little above and behind the head: hands, knees and
+  // the flat back stay readable while the pelvis moves back (whole figure, like the cat-cow).
+  'ex-quadruped-rockback': {
+    id: 'ex-quadruped-rockback',
+    duration: 7.5,
+    base: 'QUADRUPED',
+    keys: [
+      { t: 0, label: 'お尻をかかとの方へ引く（3秒）' },
+      { t: 0.75 / 7.5, pose: RB_25, pass: true },
+      { t: 1.5 / 7.5, pose: RB_50, pass: true },
+      { t: 2.25 / 7.5, pose: RB_75, pass: true },
+      { t: 3 / 7.5, pose: RB_BACK, label: '背中が丸まる手前で止める' },
+      { t: 3.8 / 7.5, pose: RB_BACK, label: '手で床を押して戻る（3秒）' },
+      { t: 4.55 / 7.5, pose: RB_75, pass: true },
+      { t: 5.3 / 7.5, pose: RB_50, pass: true },
+      { t: 6.05 / 7.5, pose: RB_25, pass: true },
+      { t: 6.8 / 7.5 },
+    ],
+    loop: 'loop',
+    anchor: { point: 'tibia:tibial_tuberosity', axes: 'xz' },
+    ground: true,
+    props: [{ kind: 'mat', rotY: 0 }],
+    camera: { dir: [-1, 0.35, 0.2] },
+    frame: ['head:vertex', 'hand:fingertips', 'toes:toe_tips', 'pelvis:coccyx', 'thorax:spinous_T7'],
+    sides: 'both',
+    highlights: { 'gluteus-maximus': 'primary', 'adductor-magnus': 'secondary', 'gluteus-medius': 'secondary', 'erector-spinae': 'secondary' },
   },
 };

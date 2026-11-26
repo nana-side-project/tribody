@@ -1,5 +1,5 @@
-// Japanese-aware search over conditions, muscles and exercises (home search and the two libraries share it).
-// Normalises full/half width (NFKC), case, katakana → hiragana and a few kanji variants, so 'ちゅうでんきん' /
+// Japanese-aware search over conditions, muscles, exercises and guides (home search and the two libraries share it).
+// Normalises full/half width (NFKC), case, katakana → hiragana and a few kanji variants (靭→靱, 臀→殿, 鼠蹊→鼠径), so 'ちゅうでんきん' /
 // 'チュウデンキン' / '中殿筋' all work, and expands everyday words to the terms the content uses (ひざ → 膝).
 //
 // Everyday phrasing is reduced to its subject: 「膝が痛い」「かかとの痛み」「膝痛」「坐骨神経痛」 search for 膝 / かかと /
@@ -16,10 +16,12 @@
 import {
   CONDITIONS,
   EXERCISES,
+  GUIDES,
   MUSCLES,
   conditionsUsingExercise,
   getCondition,
   getExercise,
+  getGuide,
   getMuscle,
   getPainSpot,
   refName,
@@ -34,6 +36,8 @@ export function normalize(s: string): string {
     .toLowerCase()
     .replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0x60))
     .replace(/靭/g, '靱')
+    .replace(/臀/g, '殿')
+    .replace(/鼠蹊/g, '鼠径')
     .replace(/[\s・･\-‐–—ー_/.,、。（）()「」［］[\]]/g, '');
 }
 
@@ -87,6 +91,24 @@ const ALIAS_SOURCE: Record<string, string[]> = {
   補強: ['筋力', 'アイソメトリック'],
   鍛える: ['筋力', 'アイソメトリック'],
   きたえる: ['筋力', 'アイソメトリック'],
+  // the hip / low back words people type (FAI 「股関節のつまり」, 反り腰, the groin)
+  つまり: ['詰まり', 'つまる', '詰まる'],
+  詰まり: ['つまり', '詰まる', 'つまる'],
+  つまる: ['詰まる', 'つまり', '詰まり'],
+  詰まる: ['つまる', 'つまり', '詰まり'],
+  そりごし: ['反り腰'],
+  反り腰: ['腰の反り', '腰が反', '腰を反ら'],
+  そけい: ['鼠径'],
+  そけいぶ: ['鼠径部', '鼠径'],
+  鼠径: ['そけい', '脚の付け根'],
+  付け根: ['鼠径'],
+  脚の付け根: ['鼠径', '付け根'],
+  足の付け根: ['脚の付け根', '鼠径', '付け根'],
+  ちょうようきん: ['腸腰筋'],
+  だいようきん: ['大腰筋', '腸腰筋'],
+  ちょうこつきん: ['腸骨筋', '腸腰筋'],
+  でんきん: ['殿筋'],
+  殿部: ['お尻'],
 };
 
 /**
@@ -331,9 +353,31 @@ function exerciseFields(id: string, ja: string): SearchFields {
   });
 }
 
+function guideFields(id: string, ja: string): SearchFields {
+  const g = getGuide(id);
+  const blocks = (g?.sections ?? []).flatMap((s) => s.blocks ?? []);
+  return fieldsFrom({
+    names: [g?.title, ja],
+    // the section headings name what the guide is about (「股関節の「つまり」の正体」「骨盤の傾きと腰の反り（「反り腰」とは）」)
+    aka: g ? g.sections.map((s) => s.heading) : [],
+    // the regions, muscles and conditions the guide is linked from
+    target: g
+      ? [...(g.related?.regions ?? []).map(regionName), ...(g.related?.muscles ?? []).flatMap((m) => [getMuscle(m)?.nameJa ?? refName(m), getMuscle(m)?.kana])]
+      : [],
+    related: g ? (g.related?.conditions ?? []).flatMap((c) => [getCondition(c)?.nameJa, ...(getCondition(c)?.aka ?? [])]) : [],
+    body: g
+      ? [
+          g.summary,
+          ...g.sections.flatMap((s) => s.body),
+          ...blocks.flatMap((b) => (b.kind === 'figure' ? [b.caption] : b.kind === 'viewer3d' ? [b.sub] : b.kind === 'exercises' ? [b.title] : [])),
+        ]
+      : [],
+  });
+}
+
 // ───────────────────────── home search (all kinds) ─────────────────────────
 
-export type SearchKind = 'condition' | 'muscle' | 'exercise';
+export type SearchKind = 'condition' | 'muscle' | 'exercise' | 'guide';
 
 export interface SearchHit {
   kind: SearchKind;
@@ -393,7 +437,27 @@ function build(): IndexEntry[] {
       order: out.length,
     });
   }
+  for (const r of GUIDES) {
+    const g = getGuide(r.id);
+    const visual = !!g?.sections.some((s) => s.blocks?.length);
+    out.push({
+      kind: 'guide',
+      id: r.id,
+      title: g?.title ?? r.ja,
+      sub: g ? (visual ? '図解・3D・種目つきのガイド' : firstSentence(g.summary)) : '',
+      to: `/guide/${r.id}`,
+      ready: !!g,
+      fields: guideFields(r.id, r.ja),
+      order: out.length,
+    });
+  }
   return out;
+}
+
+/** The first sentence of a text, shortened for a one-line result row. */
+function firstSentence(t: string): string {
+  const s = t.split('。')[0] ?? '';
+  return s.length > 40 ? `${s.slice(0, 39)}…` : s;
 }
 
 function entries(): IndexEntry[] {

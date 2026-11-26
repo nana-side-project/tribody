@@ -8,7 +8,7 @@ import { IconAlert, IconChecklist, IconChevron, IconEdit, IconLayers, IconSearch
 import { Page } from '../components/Layout';
 import { SafeBodyMap } from '../components/SafeBodyMap';
 import { EmptyState, SearchInput, Section, Segmented } from '../components/ui';
-import { conditionName, regionConditionCount, regionName, spotConditions, spotLabel, spotRegion } from '../lib/labels';
+import { conditionName, isLearnGuide, regionConditionCount, regionName, spotConditions, spotLabel, spotRegion } from '../lib/labels';
 import { search, type SearchHit, type SearchKind } from '../lib/search';
 import { useMenu } from '../lib/useMenu';
 import { usePainLog } from '../lib/usePainLog';
@@ -22,6 +22,8 @@ const VIEWS: { id: View; label: string }[] = [
   { id: 'sole', label: '足裏' },
 ];
 const FEATURED: GuideId[] = ['pain-monitoring', 'load-management', 'red-flags'];
+/** Learning guides (figures, 3D, exercise cards): their own section on home. */
+const LEARN: GuideId[] = GUIDES.map((g) => g.id).filter(isLearnGuide);
 const HOME_LEAD = '痛む場所をタップすると、考えられる原因と傷んでいる組織、補強・ストレッチの方法がわかります。';
 
 /**
@@ -171,14 +173,24 @@ export default function HomePage() {
         </div>
       </Section>
 
-      <Section kicker="Search" title="キーワードで探す" desc="障害名・通称（ランナー膝 など）・筋肉名（ひらがな可）・エクササイズ名">
-        <SearchInput value={q} onChange={setQ} placeholder="例：アキレス腱、中殿筋、ブリッジ" label="障害・筋肉・エクササイズを検索" />
+      <Section kicker="Search" title="キーワードで探す" desc="障害名・通称（ランナー膝 など）・筋肉名（ひらがな可）・エクササイズ名・気になることば（反り腰 など）">
+        <SearchInput value={q} onChange={setQ} placeholder="例：アキレス腱、中殿筋、ブリッジ" label="障害・筋肉・エクササイズ・ガイドを検索" />
         {q.trim() && <SearchResults q={q} />}
       </Section>
 
       {menu.items.length > 0 && (
         <Section kicker="Today" title="今日のメニュー">
           <TodayCard />
+        </Section>
+      )}
+
+      {LEARN.length > 0 && (
+        <Section kicker="Learn" title="からだの仕組みを学ぶ" desc="図と3Dでしくみを確かめて、整える・鍛える種目を選べます。">
+          <div className="stack">
+            {LEARN.map((g) => (
+              <GuideCard key={g} id={g} features />
+            ))}
+          </div>
         </Section>
       )}
 
@@ -345,7 +357,18 @@ function SpotPicker({ onPick }: { onPick: (id: PainSpotId) => void }) {
   );
 }
 
-const KIND_LABEL: Record<SearchKind, string> = { condition: '障害・痛み', muscle: '筋肉', exercise: 'エクササイズ' };
+const KIND_LABEL: Record<SearchKind, string> = { condition: '障害・痛み', muscle: '筋肉', exercise: 'エクササイズ', guide: 'ガイド' };
+/** Result groups in this order; the guides' group goes before the first group whose best hit scores lower than theirs
+ *  (「反り腰」 lists the guide right after the conditions, 「サドル」 lists it last). */
+const KIND_ORDER: Exclude<SearchKind, 'guide'>[] = ['condition', 'muscle', 'exercise'];
+function groupOrder(hits: SearchHit[]): SearchKind[] {
+  const best = (k: SearchKind) => Math.max(0, ...hits.filter((h) => h.kind === k).map((h) => h.score));
+  const g = best('guide');
+  const at = KIND_ORDER.findIndex((k) => best(k) < g);
+  const order: SearchKind[] = [...KIND_ORDER];
+  order.splice(at < 0 ? order.length : at, 0, 'guide');
+  return order;
+}
 
 function SearchResults({ q }: { q: string }) {
   const hits = useMemo(() => search(q), [q]);
@@ -356,11 +379,11 @@ function SearchResults({ q }: { q: string }) {
       </div>
     );
   }
-  const groups: SearchKind[] = ['condition', 'muscle', 'exercise'];
+  const groups = groupOrder(hits);
   return (
     <div style={{ marginTop: 14 }}>
       {groups.map((k) => {
-        const list = hits.filter((h) => h.kind === k).slice(0, 6);
+        const list = hits.filter((h) => h.kind === k).slice(0, k === 'guide' ? 3 : 6);
         if (!list.length) return null;
         return (
           <div key={k} className="result-group">
