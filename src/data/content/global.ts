@@ -1410,6 +1410,7 @@ export const guides: Guide[] = [
               'gluteus-medius': 'focus',
               'gluteus-minimus': 'focus',
               'hip-joint': 'related',
+              'hip-labrum': 'related',
             },
             focus: 'hip',
             sub: '前の腸腰筋、後ろの大殿筋、横の中殿筋・小殿筋を、回して確かめられます。',

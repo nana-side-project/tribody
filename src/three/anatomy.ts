@@ -656,6 +656,9 @@ export class AnatomyLayer {
         // a touch more saturated for primary
         out.lerp(colorOf('#c8382f'), P.dark ? 0.1 : 0.22);
     }
+    // highlights mode (a still teaching pose): a 'secondary' (related) muscle keeps the legend's 「関係」 colour whatever
+    // its length — the flexed-hip FAI view drew the shortened, related iliopsoas deeper than the focus labrum
+    if (role === 'secondary' && this.tintStructures) return out;
     if (ratio > 1) out.lerp(colorOf(P.muscleLight), Math.min(1, (ratio - 1) / 0.22) * 0.8);
     else out.lerp(colorOf(P.muscleDeep), Math.min(1, (1 - ratio) / 0.2) * 0.75);
     return out;

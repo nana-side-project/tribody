@@ -112,7 +112,7 @@ describe('hip and low back words, and guides', () => {
   });
 
   it('answers 反り腰 / そりごし with the guide and the low back pain page, not a separate diagnosis', () => {
-    for (const q of ['反り腰', 'そりごし']) {
+    for (const q of ['反り腰', 'そりごし', '腰 反る', '腰が反る']) {
       const ids = search(q).slice(0, 3).map((h) => h.id);
       expect(ids).toContain('hip-pelvis-balance');
       expect(ids).toContain('low-back-pain');

@@ -364,9 +364,13 @@ const KIND_ORDER: Exclude<SearchKind, 'guide'>[] = ['condition', 'muscle', 'exer
 function groupOrder(hits: SearchHit[]): SearchKind[] {
   const best = (k: SearchKind) => Math.max(0, ...hits.filter((h) => h.kind === k).map((h) => h.score));
   const g = best('guide');
-  const at = KIND_ORDER.findIndex((k) => best(k) < g);
+  let at = KIND_ORDER.findIndex((k) => best(k) < g);
+  if (at < 0) at = KIND_ORDER.length;
+  // never ahead of the group holding the best hit (「腸腰筋」: the muscle stays above the guide)
+  const top = hits.reduce<SearchHit | undefined>((a, h) => (!a || h.score > a.score ? h : a), undefined);
+  if (top && top.kind !== 'guide') at = Math.max(at, KIND_ORDER.indexOf(top.kind) + 1);
   const order: SearchKind[] = [...KIND_ORDER];
-  order.splice(at < 0 ? order.length : at, 0, 'guide');
+  order.splice(at, 0, 'guide');
   return order;
 }
 

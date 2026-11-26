@@ -837,6 +837,9 @@ behind the ribs on the shoulder page, 後脛骨筋 in the calf) shows through th
 `injured` and `involved` keep their hue at every length (a stretched injured muscle stays red, a stretched involved
 one stays amber — never salmon / pink): only their lightness follows the length (shorter a little deeper, longer a
 little lighter in the light theme / more muted in the dark theme); thickness shows the rest.
+In highlights mode (condition / region / guide views: still teaching poses) a `secondary` muscle keeps the plain
+「関係」 colour at every length, so a related muscle shortened by the pose (the iliopsoas in the flexed-hip FAI scene)
+never reads stronger than the focus part.
 The colour always follows the **current** belly ratio (the strand is measured first, then coloured), also for a
 single `setTime()` frame. Flat strands (`flat: {…}`) are shaded with a gently curved normal across their width, so a
 sheet at rest looks like the round strands next to it (not uniformly dark = "contracted").
